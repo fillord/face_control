@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Отчёты — МедКонтроль</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f6fb; color: #1a2340; min-height: 100vh; }
+header { background: #fff; border-bottom: 1px solid #e2e6f0; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.logo { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
+.logo-icon { width: 34px; height: 34px; background: #1565C0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.user-badge { font-size: 13px; color: #546e7a; }
+.btn-logout { padding: 7px 14px; background: #fff; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; color: #546e7a; cursor: pointer; text-decoration: none; transition: all 0.15s; }
+.btn-logout:hover { background: #ffebee; color: #c62828; border-color: #ef9a9a; }
+.nav-tabs { display: flex; gap: 4px; padding: 0 24px; background: #fff; border-bottom: 1px solid #e2e6f0; }
+.tab { padding: 12px 20px; font-size: 14px; font-weight: 500; color: #78909c; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; text-decoration: none; }
+.tab.active { color: #1565C0; border-bottom-color: #1565C0; }
+.tab:hover:not(.active) { color: #1a2340; }
+.page { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.toolbar label { font-size: 13px; font-weight: 500; color: #546e7a; white-space: nowrap; }
+input[type=date], select, input[type=text] { padding: 9px 12px; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 13px; color: #1a2340; background: #fff; outline: none; }
+input[type=date]:focus, select:focus, input[type=text]:focus { border-color: #1565C0; }
+.search-input { min-width: 180px; }
+.btn-export { padding: 9px 16px; background: #1565C0; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; margin-left: auto; white-space: nowrap; }
+.btn-export:hover { background: #0d47a1; }
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.stat-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 12px; padding: 16px 18px; }
+.stat-label { font-size: 11px; color: #78909c; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-val { font-size: 26px; font-weight: 600; }
+.stat-val.blue { color: #1565C0; } .stat-val.green { color: #2E7D32; }
+.stat-val.orange { color: #E65100; } .stat-val.gray { color: #546e7a; }
+.table-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; overflow: hidden; }
+table { width: 100%; border-collapse: collapse; }
+thead { background: #f8fafd; }
+th { padding: 11px 14px; text-align: left; font-size: 11px; font-weight: 600; color: #546e7a; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e6f0; white-space: nowrap; }
+td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid #f0f3f8; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr.row-late { background: #fffbf0; }
+tr.row-early-leave { background: #f0f8ff; }
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 14px; font-size: 11px; font-weight: 500; }
+.badge-present { background: #E8F5E9; color: #1B5E20; }
+.badge-partial { background: #FFF3E0; color: #E65100; }
+.badge-absent { background: #FAFAFA; color: #90A4AE; border: 1px solid #e0e0e0; }
+.badge-late { background: #FFF3E0; color: #BF360C; border: 1px solid #FFCC80; }
+.badge-early { background: #E3F2FD; color: #0D47A1; border: 1px solid #90CAF9; }
+.emp-cell { display: flex; align-items: center; gap: 9px; }
+.emp-av { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+.time-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.chart-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; padding: 20px; margin-bottom: 20px; }
+.chart-title { font-size: 14px; font-weight: 600; color: #1a2340; margin-bottom: 16px; }
+.monthly-table { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; overflow: hidden; margin-top: 20px; }
+.monthly-table table td, .monthly-table table th { padding: 10px 14px; }
+.hidden { display: none; }
+@media (max-width:700px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .toolbar { gap: 8px; }
+  .btn-export { margin-left: 0; width: 100%; justify-content: center; display: flex; }
+  th:nth-child(2), td:nth-child(2) { display: none; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><div class="logo-icon">🏥</div> МедКонтроль — Отчёты</div>
+  <div class="header-right">
+    <span class="user-badge">{{ username }}</span>
+    <a href="/" class="btn-logout" style="border-color:#cfd8dc;color:#546e7a;">← Киоск</a>
+    <a href="/logout" class="btn-logout">Выйти</a>
+  </div>
+</header>
+
+<div class="nav-tabs">
+  {% if session.role in ['superadmin', 'org_admin', 'dept_admin'] %}
+  <span class="tab active" id="tabJournal" onclick="switchTab('journal')">Журнал посещаемости</span>
+  <span class="tab" id="tabStats" onclick="switchTab('stats')">Статистика за месяц</span>
+  <span class="tab" id="tabUsers" onclick="switchTab('users')">Пользователи</span>
+  {% endif %}
+</div>
+
+<!-- ═══ TAB: JOURNAL ═══ -->
+<div id="panelJournal" class="page">
+  <div class="toolbar">
+    <label>Дата:</label>
+    <input type="date" id="datePicker">
+    <label>Быстрый выбор:</label>
+    <select id="dateSelect"><option value="">— выбрать —</option></select>
+    <input type="text" class="search-input" id="searchInput" placeholder="🔍 Поиск по имени..." oninput="filterTable()">
+    <button class="btn-export" onclick="exportCSV()">⬇ Экспорт CSV</button>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Всего сотрудников</div><div class="stat-val blue" id="sTotal">—</div></div>
+    <div class="stat-card"><div class="stat-label">Пришли</div><div class="stat-val green" id="sPresent">—</div></div>
+    <div class="stat-card"><div class="stat-label">Ушли</div><div class="stat-val gray" id="sLeft">—</div></div>
+    <div class="stat-card"><div class="stat-label">Не явились</div><div class="stat-val orange" id="sAbsent">—</div></div>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Сотрудник</th>
+          <th>Должность</th>
+          <th>Приход</th>
+          <th>Уход</th>
+          <th>Отработано</th>
+          <th>Статус</th>
+          <th>Индикатор</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr><td colspan="7" style="text-align:center;color:#90a4ae;padding:28px;">Загрузка...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ TAB: STATS ═══ -->
+<div id="panelStats" class="page hidden">
+  <div class="toolbar">
+    <label>Месяц:</label>
+    <input type="month" id="monthPicker" style="padding:9px 12px;border:1px solid #cfd8dc;border-radius:8px;font-size:13px;">
+    <button class="btn-export" style="margin-left:0;" onclick="loadStats()">Загрузить</button>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">Явка по дням</div>
+    <canvas id="attendanceChart" height="80"></canvas>
+  </div>
+
+  <div class="monthly-table">
+    <table>
+      <thead>
+        <tr>
+          <th>Сотрудник</th>
+          <th>Должность</th>
+          <th>Рабочих дней</th>
+          <th>Отработано часов</th>
+          <th>Опозданий</th>
+        </tr>
+      </thead>
+      <tbody id="statsBody">
+        <tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Выберите месяц</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const COLORS = ["#1565C0","#1B5E20","#4A148C","#BF360C","#006064","#37474F"];
+function colorFor(name) { let h=0; for(let c of name) h=(h*31+c.charCodeAt(0))%COLORS.length; return COLORS[h]; }
+function initials(name) { return name.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase(); }
+
+const today = new Date().toISOString().split("T")[0];
+document.getElementById("datePicker").value = today;
+document.getElementById("monthPicker").value = today.slice(0, 7);
+
+function switchTab(tab) {
+  document.getElementById("panelJournal").classList.toggle("hidden", tab !== "journal");
+  document.getElementById("panelStats").classList.toggle("hidden", tab !== "stats");
+  document.getElementById("tabJournal").classList.toggle("active", tab === "journal");
+  document.getElementById("tabStats").classList.toggle("active", tab === "stats");
+  if (tab === "stats") loadStats();
+}
+
+async function loadDates() {
+  const resp = await fetch("/api/attendance/dates");
+  const dates = await resp.json();
+  const sel = document.getElementById("dateSelect");
+  dates.forEach(d => {
+    const opt = document.createElement("option");
+    opt.value = d;
+    opt.textContent = new Date(d + "T00:00:00").toLocaleDateString("ru-RU", { weekday:"short", day:"numeric", month:"short" });
+    sel.appendChild(opt);
+  });
+}
+
+document.getElementById("dateSelect").addEventListener("change", function() {
+  if (this.value) { document.getElementById("datePicker").value = this.value; loadData(this.value); }
+});
+document.getElementById("datePicker").addEventListener("change", function() {
+  loadData(this.value);
+});
+
+let currentData = [];
+
+async function loadData(dateStr) {
+  const resp = await fetch("/api/attendance?date=" + dateStr);
+  const rows = await resp.json();
+  currentData = rows;
+
+  let present = 0, left = 0, absent = 0;
+  rows.forEach(r => {
+    if (r.check_in) present++;
+    if (r.check_out) left++;
+    if (!r.check_in) absent++;
+  });
+  document.getElementById("sTotal").textContent = rows.length;
+  document.getElementById("sPresent").textContent = present;
+  document.getElementById("sLeft").textContent = left;
+  document.getElementById("sAbsent").textContent = absent;
+
+  renderTable(rows);
+}
+
+function filterTable() {
+  renderTable(currentData);
+}
+
+function renderTable(rows) {
+  const q = document.getElementById("searchInput").value.trim().toLowerCase();
+  const filtered = q ? rows.filter(r => r.name.toLowerCase().includes(q)) : rows;
+  const tbody = document.getElementById("tableBody");
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#90a4ae;padding:28px;">${q ? "Не найдено" : "Нет данных"}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(r => {
+    const col = colorFor(r.name);
+    let badge, statusText;
+    if (!r.check_in)       { badge = "badge-absent";  statusText = "Не явился"; }
+    else if (!r.check_out) { badge = "badge-partial";  statusText = "На работе"; }
+    else                   { badge = "badge-present"; statusText = "Завершён"; }
+
+    // Color indicators
+    const isLate       = r.check_in  && r.check_in  > "09:00:00";
+    const isEarlyLeave = r.check_out && r.check_out < "18:00:00";
+    const rowClass = isLate ? "row-late" : isEarlyLeave ? "row-early-leave" : "";
+
+    let indicators = [];
+    if (isLate)       indicators.push('<span class="badge badge-late">⚠ Опоздание</span>');
+    if (isEarlyLeave) indicators.push('<span class="badge badge-early">↩ Ранний уход</span>');
+    const indicatorHtml = indicators.join(" ") || '<span style="color:#bdbdbd;font-size:12px;">—</span>';
+
+    const checkInHtml  = r.check_in  ? `<span style="color:${isLate ? '#BF360C' : '#2E7D32'};font-weight:500;">${r.check_in}</span>`  : '<span style="color:#bdbdbd">—</span>';
+    const checkOutHtml = r.check_out ? `<span style="color:${isEarlyLeave ? '#0D47A1' : '#1565C0'};font-weight:500;">${r.check_out}</span>` : '<span style="color:#bdbdbd">—</span>';
+
+    return `<tr class="${rowClass}">
+      <td><div class="emp-cell">
+        <div class="emp-av" style="background:${col}22;color:${col};border:1.5px solid ${col}44;">${initials(r.name)}</div>
+        <span style="font-weight:500;">${r.name}</span>
+      </div></td>
+      <td style="color:#546e7a;">${r.role}</td>
+      <td class="time-cell">${checkInHtml}</td>
+      <td class="time-cell">${checkOutHtml}</td>
+      <td>${r.duration ? `<span style="font-weight:500;">${r.duration}</span>` : '<span style="color:#bdbdbd">—</span>'}</td>
+      <td><span class="badge ${badge}">${statusText}</span></td>
+      <td>${indicatorHtml}</td>
+    </tr>`;
+  }).join("");
+}
+
+function exportCSV() {
+  if (!currentData.length) return;
+  const dateStr = document.getElementById("datePicker").value;
+  const q = document.getElementById("searchInput").value.trim().toLowerCase();
+  const rows = q ? currentData.filter(r => r.name.toLowerCase().includes(q)) : currentData;
+  const header = ["ФИО","Должность","Приход","Уход","Отработано","Статус","Опоздание","Ранний уход"];
+  const lines = [header, ...rows.map(r => {
+    const status = !r.check_in ? "Не явился" : !r.check_out ? "На работе" : "Завершён";
+    const late  = r.check_in && r.check_in > "09:00:00" ? "Да" : "Нет";
+    const early = r.check_out && r.check_out < "18:00:00" ? "Да" : "Нет";
+    return [r.name, r.role, r.check_in||"", r.check_out||"", r.duration||"", status, late, early];
+  })];
+  const csv = lines.map(row => row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `посещаемость_${dateStr}.csv`;
+  a.click();
+}
+
+// ─── Stats tab ────────────────────────────────────────────────────────────────
+let chartInst = null;
+
+async function loadStats() {
+  const month = document.getElementById("monthPicker").value;
+  if (!month) return;
+  const [y, m] = month.split("-");
+  const lastDay = new Date(+y, +m, 0).getDate();
+  const fromDate = `${month}-01`;
+  const toDate   = `${month}-${String(lastDay).padStart(2,"0")}`;
+
+  const resp = await fetch(`/api/stats?from=${fromDate}&to=${toDate}`);
+  const data = await resp.json();
+
+  // Chart
+  const labels = data.daily_counts.map(d => new Date(d.date + "T00:00:00").toLocaleDateString("ru-RU", { day:"numeric", month:"short" }));
+  const counts = data.daily_counts.map(d => d.count);
+  if (chartInst) chartInst.destroy();
+  const ctx = document.getElementById("attendanceChart").getContext("2d");
+  chartInst = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: "Присутствовало",
+        data: counts,
+        backgroundColor: "rgba(21,101,192,0.7)",
+        borderColor: "#1565C0",
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1, color: "#78909c" }, grid: { color: "#f0f3f8" } },
+        x: { ticks: { color: "#78909c", maxRotation: 45 }, grid: { display: false } }
+      }
+    }
+  });
+
+  // Table
+  const statsBody = document.getElementById("statsBody");
+  if (!data.employee_stats.length) {
+    statsBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:24px;">Нет данных за период</td></tr>';
+    return;
+  }
+  const sorted = [...data.employee_stats].sort((a, b) => b.hours - a.hours);
+  statsBody.innerHTML = sorted.map(e => `
+    <tr>
+      <td><span style="font-weight:500;">${e.name}</span></td>
+      <td style="color:#546e7a;">${e.role}</td>
+      <td style="font-weight:600;color:#1565C0;">${e.days}</td>
+      <td style="font-weight:600;">${e.hours_str}</td>
+      <td>${e.late_days > 0 ? `<span style="color:#BF360C;font-weight:500;">${e.late_days}</span>` : '<span style="color:#2E7D32;">0</span>'}</td>
+    </tr>`).join("");
+}
+
+loadDates();
+loadData(today);
+</script>
+</body>
+</html>

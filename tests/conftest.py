@@ -19,9 +19,10 @@ import pytest
 
 # ─── Fixture constants ────────────────────────────────────────────────────────
 
-# Verbatim bcrypt hash from data/config.json — used by MIG-03 tests to assert
-# that init_users() copies the hash without re-hashing.
-BCRYPT_HASH_SUPERADMIN = "$2b$12$F0kPJqHfW3hWU9QJm7kCyee3xD/eYhdcBwwmWgBvXuC9wqwKyPMym"
+# Bcrypt hash of "superadmin123" — used by auth/RBAC tests that POST with password="superadmin123".
+# Also used by MIG-03 tests: tmp_data seeds config.json with this hash so init_users() copies it
+# verbatim, and the test asserts user["password_hash"] == BCRYPT_HASH_SUPERADMIN.
+BCRYPT_HASH_SUPERADMIN = "$2b$12$aiT81qA2zjbyxSpMPdXu0euetZyQU6/htQjDW9gcJPTir35bqv8Ry"
 
 # ─── Core fixture ─────────────────────────────────────────────────────────────
 

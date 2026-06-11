@@ -190,20 +190,28 @@ def kiosk():
 
 @app.route("/login", methods=["GET", "POST"])
 def login_page():
-    if session.get("logged_in"):
+    if request.method == "GET" and session.get("user_id"):
         return redirect(url_for("admin_page"))
     error = None
     if request.method == "POST":
-        cfg = load_config()
+        users = load_users()
         username = request.form.get("username", "")
         password = request.form.get("password", "").encode()
-        stored_hash = cfg.get("password_hash", "").encode()
-        if username == cfg.get("username") and stored_hash and bcrypt.checkpw(password, stored_hash):
-            session["logged_in"] = True
-            session["username"] = username
-            next_url = request.args.get("next", url_for("admin_page"))
-            return redirect(next_url)
-        error = "Неверный логин или пароль"
+        user = next((u for u in users.values() if u["username"] == username), None)
+        if user and not user.get("active"):
+            error = "Ваш аккаунт деактивирован. Обратитесь к администратору."
+        elif user and bcrypt.checkpw(password, user["password_hash"].encode()):
+            session.clear()
+            session["user_id"] = user["id"]
+            session["role"] = user["role"]
+            session["org_id"] = user.get("org_id")
+            session["dept_id"] = user.get("dept_id")
+            if user["role"] in ("superadmin", "org_admin", "dept_admin"):
+                return redirect(url_for("admin_page"))
+            else:
+                return redirect(url_for("dashboard_page"))
+        else:
+            error = "Неверный логин или пароль"
     return render_template("login.html", error=error)
 
 @app.route("/logout")
@@ -220,6 +228,14 @@ def register_page():
 @login_required
 def admin_page():
     return render_template("admin.html")
+
+@app.route("/dashboard")
+@require_role()
+def dashboard_page():
+    users = load_users()
+    user = users.get(session.get("user_id"), {})
+    username = user.get("username", "")
+    return render_template("dashboard.html", username=username)
 
 # ─── API: Employees ───────────────────────────────────────────────────────────
 

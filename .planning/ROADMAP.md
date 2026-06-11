@@ -13,7 +13,7 @@ A brownfield Flask monolith gains four capabilities in sequence: first a secure 
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: RBAC Foundation** - Secure login, 5-role system, scope filter, and protected existing API routes
+- [x] **Phase 1: RBAC Foundation** - Secure login, 5-role system, scope filter, and protected existing API routes (completed 2026-06-11)
 - [ ] **Phase 2: Org/Dept Data Model** - Org+dept structure, migration of existing employees, dashboards, and work schedules
 - [ ] **Phase 3: T-13 Timesheet Grid** - Symbol engine, grid view, auto-derivation from check-in data, monthly totals
 - [ ] **Phase 4: Export & Employee Cabinet** - Excel/CSV export and employee self-service timesheet view
@@ -50,7 +50,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 01-05-PLAN.md — Wave 4: SECRET_KEY injection + single-worker PM2 config (ecosystem.config.js) [checkpoint]
+- [x] 01-05-PLAN.md — Wave 4: SECRET_KEY injection + single-worker PM2 config (ecosystem.config.js) [checkpoint]
 
 **UI hint**: yes
 
@@ -112,7 +112,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. RBAC Foundation | 4/5 | In Progress|  |
+| 1. RBAC Foundation | 5/5 | Complete   | 2026-06-11 |
 | 2. Org/Dept Data Model | 0/TBD | Not started | - |
 | 3. T-13 Timesheet Grid | 0/TBD | Not started | - |
 | 4. Export & Employee Cabinet | 0/TBD | Not started | - |

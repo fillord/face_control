@@ -40,14 +40,6 @@ def init_config():
         pw_hash = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode()
         save_config({"username": "admin", "password_hash": pw_hash})
 
-def login_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not session.get("logged_in"):
-            return redirect(url_for("login_page", next=request.path))
-        return f(*args, **kwargs)
-    return decorated
-
 # ─── Auth: Users ──────────────────────────────────────────────────────────────
 
 def load_users():
@@ -220,14 +212,17 @@ def logout():
     return redirect(url_for("login_page"))
 
 @app.route("/register")
-@login_required
+@require_role("superadmin", "org_admin", "dept_admin")
 def register_page():
     return render_template("register.html")
 
 @app.route("/admin")
-@login_required
+@require_role("superadmin", "org_admin", "dept_admin")
 def admin_page():
-    return render_template("admin.html")
+    users = load_users()
+    user = users.get(session.get("user_id"), {})
+    username = user.get("username", "")
+    return render_template("admin.html", username=username)
 
 @app.route("/dashboard")
 @require_role()
@@ -240,10 +235,12 @@ def dashboard_page():
 # ─── API: Employees ───────────────────────────────────────────────────────────
 
 @app.route("/api/employees", methods=["GET"])
+@require_role("superadmin", "org_admin", "dept_admin")
 def get_employees():
     return jsonify(load_employees())
 
 @app.route("/api/employees", methods=["POST"])
+@require_role("superadmin", "org_admin", "dept_admin")
 def add_employee():
     data = request.json
     employees = load_employees()
@@ -262,6 +259,7 @@ def add_employee():
     return jsonify({"id": emp_id, "status": "created"})
 
 @app.route("/api/employees/<emp_id>", methods=["DELETE"])
+@require_role("superadmin", "org_admin", "dept_admin")
 def delete_employee(emp_id):
     employees = load_employees()
     if emp_id in employees:
@@ -274,6 +272,7 @@ def delete_employee(emp_id):
     return jsonify({"status": "deleted"})
 
 @app.route("/api/employees/<emp_id>/reset", methods=["POST"])
+@require_role("superadmin", "org_admin", "dept_admin")
 def reset_employee_face(emp_id):
     employees = load_employees()
     if emp_id not in employees:
@@ -290,6 +289,7 @@ def reset_employee_face(emp_id):
 # ─── API: Face Registration ───────────────────────────────────────────────────
 
 @app.route("/api/register_face", methods=["POST"])
+@require_role("superadmin", "org_admin", "dept_admin")
 def register_face():
     data = request.json
     emp_id = data["emp_id"]
@@ -400,6 +400,7 @@ def recognize():
 # ─── API: Attendance ──────────────────────────────────────────────────────────
 
 @app.route("/api/attendance", methods=["GET"])
+@require_role("superadmin", "org_admin", "dept_admin")
 def get_attendance():
     day = request.args.get("date", date.today().isoformat())
     attendance = load_attendance()
@@ -430,11 +431,13 @@ def get_attendance():
     return jsonify(result)
 
 @app.route("/api/attendance/dates", methods=["GET"])
+@require_role("superadmin", "org_admin", "dept_admin")
 def get_dates():
     attendance = load_attendance()
     return jsonify(sorted(attendance.keys(), reverse=True))
 
 @app.route("/api/stats", methods=["GET"])
+@require_role("superadmin", "org_admin", "dept_admin")
 def get_stats():
     from_date = request.args.get("from")
     to_date = request.args.get("to")

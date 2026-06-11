@@ -46,7 +46,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 01-04-PLAN.md — Wave 3: User management (hierarchy-scoped create/deactivate), self password change, fcntl-locked writes
+- [x] 01-04-PLAN.md — Wave 3: User management (hierarchy-scoped create/deactivate), self password change, fcntl-locked writes
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -112,7 +112,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. RBAC Foundation | 3/5 | In Progress|  |
+| 1. RBAC Foundation | 4/5 | In Progress|  |
 | 2. Org/Dept Data Model | 0/TBD | Not started | - |
 | 3. T-13 Timesheet Grid | 0/TBD | Not started | - |
 | 4. Export & Employee Cabinet | 0/TBD | Not started | - |

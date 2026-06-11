@@ -1,4 +1,5 @@
 import os, json, base64, time, shutil, uuid
+import fcntl
 from datetime import datetime, date
 from functools import wraps
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for
@@ -49,8 +50,10 @@ def load_users():
     return {}
 
 def save_users(data):
-    with open(USERS_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    with open(USERS_FILE, "w", encoding="utf-8") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+        fcntl.flock(fh, fcntl.LOCK_UN)
 
 def init_users():
     if os.path.exists(USERS_FILE):
@@ -231,6 +234,100 @@ def dashboard_page():
     user = users.get(session.get("user_id"), {})
     username = user.get("username", "")
     return render_template("dashboard.html", username=username)
+
+@app.route("/profile", methods=["GET", "POST"])
+@require_role()
+def profile_page():
+    error = None
+    success = None
+    if request.method == "POST":
+        current_password = request.form.get("current_password", "")
+        new_password = request.form.get("new_password", "")
+        confirm_password = request.form.get("confirm_password", "")
+        users = load_users()
+        user_id = session.get("user_id")
+        user = users.get(user_id)
+        if not user or not bcrypt.checkpw(current_password.encode(), user["password_hash"].encode()):
+            error = "Текущий пароль введён неверно"
+        elif new_password != confirm_password:
+            error = "Новые пароли не совпадают"
+        elif len(new_password) < 8:
+            error = "Пароль должен содержать не менее 8 символов"
+        else:
+            users[user_id]["password_hash"] = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+            save_users(users)
+            success = "Пароль успешно изменён"
+    return render_template("profile.html", error=error, success=success)
+
+# ─── API: Users ───────────────────────────────────────────────────────────────
+
+@app.route("/api/users", methods=["GET"])
+@require_role("superadmin", "org_admin", "dept_admin")
+def list_users():
+    users = load_users()
+    result = []
+    for u in users.values():
+        result.append({
+            "id": u["id"],
+            "username": u["username"],
+            "role": u["role"],
+            "active": u["active"],
+            "org_id": u.get("org_id"),
+            "dept_id": u.get("dept_id"),
+        })
+    return jsonify(result)
+
+@app.route("/api/users", methods=["POST"])
+@require_role("superadmin", "org_admin", "dept_admin")
+def create_user():
+    data = request.json
+    username = data.get("username", "").strip()
+    password = data.get("password", "")
+    target_role = data.get("role", "")
+    creator_role = session.get("role")
+    if not username:
+        return jsonify({"error": "Логин не может быть пустым"}), 400
+    if len(password) < 8:
+        return jsonify({"error": "Пароль должен содержать не менее 8 символов"}), 400
+    if target_role not in ROLE_HIERARCHY:
+        return jsonify({"error": "Недопустимая роль"}), 400
+    if (creator_role not in ROLE_HIERARCHY or
+            ROLE_HIERARCHY.index(creator_role) >= ROLE_HIERARCHY.index(target_role)):
+        return jsonify({"error": "forbidden"}), 403
+    users = load_users()
+    if any(u["username"] == username for u in users.values()):
+        return jsonify({"error": "Пользователь с таким логином уже существует"}), 400
+    user_id = str(uuid.uuid4())
+    users[user_id] = {
+        "id": user_id,
+        "username": username,
+        "password_hash": bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode(),
+        "role": target_role,
+        "active": True,
+        "org_id": None,
+        "dept_id": None,
+    }
+    save_users(users)
+    return jsonify({"id": user_id, "status": "created"})
+
+@app.route("/api/users/<user_id>", methods=["PATCH"])
+@require_role("superadmin", "org_admin", "dept_admin")
+def update_user(user_id):
+    users = load_users()
+    if user_id not in users:
+        return jsonify({"error": "Пользователь не найден"}), 404
+    target = users[user_id]
+    caller_role = session.get("role")
+    target_role = target.get("role")
+    if (caller_role not in ROLE_HIERARCHY or
+            target_role not in ROLE_HIERARCHY or
+            ROLE_HIERARCHY.index(caller_role) >= ROLE_HIERARCHY.index(target_role)):
+        return jsonify({"error": "forbidden"}), 403
+    data = request.json
+    if "active" in data:
+        users[user_id]["active"] = bool(data["active"])
+    save_users(users)
+    return jsonify({"status": "updated", "active": users[user_id]["active"]})
 
 # ─── API: Employees ───────────────────────────────────────────────────────────
 

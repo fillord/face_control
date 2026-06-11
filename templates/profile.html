@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Профиль — МедКонтроль</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f6fb; color: #1a2340; min-height: 100vh; font-size: 13px; font-weight: 400; line-height: 1.5; }
+header { background: #fff; border-bottom: 1px solid #e2e6f0; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.logo { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
+.logo-icon { width: 34px; height: 34px; background: #1565C0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.user-badge { font-size: 13px; color: #546e7a; }
+.btn-logout { padding: 7px 14px; background: #fff; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; color: #546e7a; cursor: pointer; text-decoration: none; transition: all 0.15s; }
+.btn-logout:hover { background: #ffebee; color: #c62828; border-color: #ef9a9a; }
+.page { max-width: 480px; margin: 0 auto; padding: 24px 20px; }
+.card { background: #fff; border: 1px solid #e2e6f0; border-radius: 16px; padding: 32px; box-shadow: 0 4px 24px rgba(21,101,192,0.07); }
+h2 { font-size: 18px; font-weight: 600; margin-bottom: 6px; color: #1a2340; }
+.sub { font-size: 13px; color: #78909c; margin-bottom: 24px; }
+.form-group { margin-bottom: 16px; }
+label { display: block; font-size: 13px; font-weight: 400; color: #455a64; margin-bottom: 6px; }
+input[type=password] { width: 100%; padding: 11px 14px; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 14px; color: #1a2340; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
+input[type=password]:focus { border-color: #1565C0; box-shadow: 0 0 0 3px rgba(21,101,192,0.1); }
+.btn { width: 100%; padding: 12px; background: #1565C0; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s; margin-top: 8px; }
+.btn:hover { background: #0d47a1; }
+.error { background: #FFEBEE; color: #B71C1C; border: 1px solid #EF9A9A; border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.success { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><div class="logo-icon">🏥</div> МедКонтроль — Профиль</div>
+  <div class="header-right">
+    <span class="user-badge">{{ session.get('username', '') }}</span>
+    <a href="/" class="btn-logout" style="border-color:#cfd8dc;color:#546e7a;">← Киоск</a>
+    <a href="/logout" class="btn-logout">Выйти</a>
+  </div>
+</header>
+
+<div class="page">
+  <div class="card">
+    <h2>Смена пароля</h2>
+    <p class="sub">Укажите текущий пароль и придумайте новый</p>
+
+    {% if success %}
+    <div class="success">{{ success }}</div>
+    {% endif %}
+
+    {% if error %}
+    <div class="error">⚠ {{ error }}</div>
+    {% endif %}
+
+    <form method="POST">
+      <div class="form-group">
+        <label>Текущий пароль</label>
+        <input type="password" name="current_password" placeholder="••••••••" autocomplete="current-password" required>
+      </div>
+      <div class="form-group">
+        <label>Новый пароль</label>
+        <input type="password" name="new_password" placeholder="••••••••" autocomplete="new-password" required>
+      </div>
+      <div class="form-group">
+        <label>Повторите новый пароль</label>
+        <input type="password" name="confirm_password" placeholder="••••••••" autocomplete="new-password" required>
+      </div>
+      <button type="submit" class="btn">Сменить пароль</button>
+    </form>
+  </div>
+</div>
+</body>
+</html>

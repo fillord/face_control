@@ -116,13 +116,15 @@ No new threat surface beyond what is covered in the plan's threat model. All T-0
 | T-01-04-RACE (concurrent write) | fcntl.flock(LOCK_EX) in save_users |
 | T-01-04-PWLEN (weak password) | min length 8 enforced in create_user and profile_page |
 
-## Self-Check
+## Self-Check: PASSED
 
 Files created/modified:
 - app.py — modified (tasks 1+2) — FOUND
 - templates/profile.html — created (task 1) — FOUND
 - templates/admin.html — modified (task 2) — FOUND
+- .planning/phases/01-rbac-foundation/01-04-SUMMARY.md — created — FOUND
 
 Commits:
 - 39a4da0 — Task 1 (feat: user management API, profile password change, fcntl locking)
 - 96fa1b7 — Task 2 (feat: user management panel in admin.html + creatable_roles)
+- e6db284 — Metadata (docs: complete user management + password change plan)

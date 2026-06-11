@@ -7,13 +7,13 @@
 
 ### Authentication
 
-- [ ] **AUTH-01**: User can log in with username and password (bcrypt verified)
-- [ ] **AUTH-02**: Default superadmin account (superadmin / superadmin123) created automatically on first run if users.json is absent
-- [ ] **AUTH-03**: Each role can create user accounts for roles one level below itself (e.g. dept_admin can create viewer and employee accounts)
-- [ ] **AUTH-04**: User session persists across browser refresh
-- [ ] **AUTH-05**: Unauthenticated requests to protected routes redirect to /login; kiosk routes (/, /api/recognize, /api/detect) remain permanently public
-- [ ] **AUTH-06**: User can change their own password from their profile page
-- [ ] **AUTH-07**: Admin can deactivate a user account without deleting it; deactivated user cannot log in
+- [x] **AUTH-01**: User can log in with username and password (bcrypt verified)
+- [x] **AUTH-02**: Default superadmin account (superadmin / superadmin123) created automatically on first run if users.json is absent
+- [x] **AUTH-03**: Each role can create user accounts for roles one level below itself (e.g. dept_admin can create viewer and employee accounts)
+- [x] **AUTH-04**: User session persists across browser refresh
+- [x] **AUTH-05**: Unauthenticated requests to protected routes redirect to /login; kiosk routes (/, /api/recognize, /api/detect) remain permanently public
+- [x] **AUTH-06**: User can change their own password from their profile page
+- [x] **AUTH-07**: Admin can deactivate a user account without deleting it; deactivated user cannot log in
 
 ### Organizations & Departments
 
@@ -43,7 +43,7 @@
 
 - [ ] **DASH-01**: Superadmin dashboard shows system-wide stats: total organizations, total employees across all orgs, total check-ins today across all orgs
 - [ ] **DASH-02**: Department dashboard (visible to dept_admin and org_admin) shows today's attendance in real time: list of present employees, absent employees, and late arrivals for the department
-- [ ] **DASH-03**: After login, each role is redirected to their own role-appropriate dashboard; navigation menu shows only links relevant to that role
+- [x] **DASH-03**: After login, each role is redirected to their own role-appropriate dashboard; navigation menu shows only links relevant to that role
 - [ ] **DASH-04**: Org_admin can view a summary report per department for a selected month: total employees, attendance rate % (days present / total work days)
 
 ### Employee Cabinet
@@ -60,7 +60,7 @@
 
 - [ ] **MIG-01**: Migration script adds org_id, dept_id, and schedule fields to all existing employees and assigns them to a default organization and department; all existing fields (including label) are preserved unchanged
 - [ ] **MIG-02**: Migration script verifies face recognizer label integrity post-run: every employee's label value can still be found in the trained model
-- [ ] **MIG-03**: Existing admin password hash is copied verbatim from config.json into users.json without re-hashing; superadmin login works immediately after migration
+- [x] **MIG-03**: Existing admin password hash is copied verbatim from config.json into users.json without re-hashing; superadmin login works immediately after migration
 
 ---
 
@@ -107,16 +107,16 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 1 | Pending |
-| AUTH-02 | Phase 1 | Pending |
-| AUTH-03 | Phase 1 | Pending |
-| AUTH-04 | Phase 1 | Pending |
-| AUTH-05 | Phase 1 | Pending |
-| AUTH-06 | Phase 1 | Pending |
-| AUTH-07 | Phase 1 | Pending |
+| AUTH-01 | Phase 1 | Complete |
+| AUTH-02 | Phase 1 | Complete |
+| AUTH-03 | Phase 1 | Complete |
+| AUTH-04 | Phase 1 | Complete |
+| AUTH-05 | Phase 1 | Complete |
+| AUTH-06 | Phase 1 | Complete |
+| AUTH-07 | Phase 1 | Complete |
 | MIG-01 | Phase 2 | Pending |
 | MIG-02 | Phase 2 | Pending |
-| MIG-03 | Phase 1 | Pending |
+| MIG-03 | Phase 1 | Complete |
 | ORG-01 | Phase 2 | Pending |
 | ORG-02 | Phase 2 | Pending |
 | ORG-03 | Phase 2 | Pending |
@@ -131,7 +131,7 @@
 | T13-08 | Phase 3 | Pending |
 | DASH-01 | Phase 2 | Pending |
 | DASH-02 | Phase 2 | Pending |
-| DASH-03 | Phase 1 | Pending |
+| DASH-03 | Phase 1 | Complete |
 | DASH-04 | Phase 3 | Pending |
 | EXP-01 | Phase 4 | Pending |
 | EXP-02 | Phase 4 | Pending |
@@ -142,6 +142,7 @@
 | KIOSK-01 | Phase 2 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 33 total
 - Mapped to phases: 33
 - Unmapped: 0 ✓

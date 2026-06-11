@@ -219,13 +219,27 @@ def logout():
 def register_page():
     return render_template("register.html")
 
+ROLE_DISPLAY = {
+    "superadmin": "Суперадмин",
+    "org_admin": "Администратор организации",
+    "dept_admin": "Администратор отдела",
+    "viewer": "Наблюдатель",
+    "employee": "Сотрудник",
+}
+
 @app.route("/admin")
 @require_role("superadmin", "org_admin", "dept_admin")
 def admin_page():
     users = load_users()
     user = users.get(session.get("user_id"), {})
     username = user.get("username", "")
-    return render_template("admin.html", username=username)
+    creator_role = user.get("role", "")
+    creatable_roles = []
+    if creator_role in ROLE_HIERARCHY:
+        creator_idx = ROLE_HIERARCHY.index(creator_role)
+        for role_key in ROLE_HIERARCHY[creator_idx + 1:]:
+            creatable_roles.append((role_key, ROLE_DISPLAY.get(role_key, role_key)))
+    return render_template("admin.html", username=username, creatable_roles=creatable_roles)
 
 @app.route("/dashboard")
 @require_role()

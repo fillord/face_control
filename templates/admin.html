@@ -119,6 +119,55 @@ tr.row-early-leave { background: #f0f8ff; }
   </div>
 </div>
 
+<!-- ═══ TAB: USERS ═══ -->
+{% if session.role in ['superadmin', 'org_admin', 'dept_admin'] %}
+<div id="panelUsers" class="page hidden">
+  <div class="toolbar">
+    <button class="btn-export" onclick="toggleCreateForm()">+ Создать пользователя</button>
+  </div>
+
+  <div id="createUserPanel" class="card hidden" style="max-width:480px;margin-bottom:20px;">
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">Новый пользователь</h3>
+    <div class="form-group">
+      <label>Логин</label>
+      <input type="text" id="newUsername" placeholder="username" style="width:100%;">
+    </div>
+    <div class="form-group">
+      <label>Пароль</label>
+      <input type="password" id="newPassword" placeholder="••••••••" style="width:100%;">
+    </div>
+    <div class="form-group">
+      <label>Роль</label>
+      <select id="newRole" style="width:100%;">
+        {% for role_key, role_label in creatable_roles %}
+        <option value="{{ role_key }}">{{ role_label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button class="btn-export" onclick="createUser()" style="flex:1;">Создать пользователя</button>
+      <button onclick="toggleCreateForm()" style="flex:1;padding:9px 16px;background:#fff;border:1px solid #cfd8dc;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;color:#546e7a;">Отмена</button>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Логин</th>
+          <th>Роль</th>
+          <th>Статус</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody id="usersTableBody">
+        <tr><td colspan="4" style="text-align:center;color:#90a4ae;padding:28px;">Загрузка...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 <!-- ═══ TAB: STATS ═══ -->
 <div id="panelStats" class="page hidden">
   <div class="toolbar">
@@ -159,12 +208,99 @@ const today = new Date().toISOString().split("T")[0];
 document.getElementById("datePicker").value = today;
 document.getElementById("monthPicker").value = today.slice(0, 7);
 
+const ROLE_NAMES = {
+  superadmin: "Суперадмин",
+  org_admin: "Администратор организации",
+  dept_admin: "Администратор отдела",
+  viewer: "Наблюдатель",
+  employee: "Сотрудник"
+};
+
 function switchTab(tab) {
   document.getElementById("panelJournal").classList.toggle("hidden", tab !== "journal");
   document.getElementById("panelStats").classList.toggle("hidden", tab !== "stats");
+  const panelUsers = document.getElementById("panelUsers");
+  if (panelUsers) panelUsers.classList.toggle("hidden", tab !== "users");
   document.getElementById("tabJournal").classList.toggle("active", tab === "journal");
   document.getElementById("tabStats").classList.toggle("active", tab === "stats");
+  const tabUsers = document.getElementById("tabUsers");
+  if (tabUsers) tabUsers.classList.toggle("active", tab === "users");
   if (tab === "stats") loadStats();
+  if (tab === "users") loadUsers();
+}
+
+function toggleCreateForm() {
+  const panel = document.getElementById("createUserPanel");
+  panel.classList.toggle("hidden");
+}
+
+async function loadUsers() {
+  const resp = await fetch("/api/users");
+  if (!resp.ok) return;
+  const users = await resp.json();
+  const tbody = document.getElementById("usersTableBody");
+  if (!users.length) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:28px;">
+      <div style="font-size:15px;font-weight:600;color:#1a2340;margin-bottom:8px;">Пользователей пока нет</div>
+      <div style="font-size:13px;color:#90a4ae;">Нажмите «Создать пользователя», чтобы добавить первого пользователя.</div>
+    </td></tr>`;
+    return;
+  }
+  tbody.innerHTML = users.map(u => {
+    const roleName = ROLE_NAMES[u.role] || u.role;
+    const statusBadge = u.active
+      ? '<span class="badge badge-present">Активен</span>'
+      : '<span class="badge badge-absent">Деактивирован</span>';
+    const actionBtn = u.active
+      ? `<button onclick="deactivateUser('${u.id}', '${u.username}')" style="padding:5px 12px;background:#fff;border:1px solid #EF9A9A;border-radius:6px;font-size:12px;font-weight:500;color:#B71C1C;cursor:pointer;">Деактивировать</button>`
+      : `<button onclick="reactivateUser('${u.id}')" class="btn-export" style="padding:5px 12px;font-size:12px;">Активировать</button>`;
+    return `<tr>
+      <td style="font-weight:500;">${u.username}</td>
+      <td style="color:#546e7a;">${roleName}</td>
+      <td>${statusBadge}</td>
+      <td>${actionBtn}</td>
+    </tr>`;
+  }).join("");
+}
+
+async function createUser() {
+  const username = document.getElementById("newUsername").value.trim();
+  const password = document.getElementById("newPassword").value;
+  const role = document.getElementById("newRole").value;
+  if (!username || !password || !role) return;
+  const resp = await fetch("/api/users", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({username, password, role})
+  });
+  const data = await resp.json();
+  if (resp.ok) {
+    document.getElementById("newUsername").value = "";
+    document.getElementById("newPassword").value = "";
+    document.getElementById("createUserPanel").classList.add("hidden");
+    loadUsers();
+  } else {
+    alert(data.error || "Ошибка при создании пользователя");
+  }
+}
+
+async function deactivateUser(id, username) {
+  if (!window.confirm("Деактивировать пользователя " + username + "? Они не смогут войти до повторной активации.")) return;
+  const resp = await fetch("/api/users/" + id, {
+    method: "PATCH",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({active: false})
+  });
+  if (resp.ok) loadUsers();
+}
+
+async function reactivateUser(id) {
+  const resp = await fetch("/api/users/" + id, {
+    method: "PATCH",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({active: true})
+  });
+  if (resp.ok) loadUsers();
 }
 
 async function loadDates() {

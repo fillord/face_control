@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 1 UI-SPEC approved
-last_updated: "2026-06-11T10:01:40.215Z"
+stopped_at: Completed 01-03-PLAN.md
+last_updated: "2026-06-11T10:06:01.871Z"
 last_activity: 2026-06-11 -- Phase 01 execution started
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 5
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-06-11)
 ## Current Position
 
 Phase: 01 (rbac-foundation) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-06-11 -- Phase 01 execution started
 
@@ -54,6 +54,7 @@ Progress: [░░░░░░░░░░] 0%
 *Updated after each plan completion*
 | Phase 01-rbac-foundation P01 | 3min | 2 tasks | 5 files |
 | Phase 01-rbac-foundation P02 | 4min | 2 tasks | 4 files |
+| Phase 01-rbac-foundation P03 | 2m 9s | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -65,6 +66,8 @@ Recent decisions affecting current work:
 - [Init]: JSON file storage retained (no DB); extend app.py in place; bcrypt hash copied verbatim from config.json (MIG-03 constraint)
 - [Phase ?]: Login guard applies to GET only; POST always processes credentials
 - [Phase ?]: conftest BCRYPT_HASH_SUPERADMIN corrected to superadmin123 hash
+- [Phase ?]: All 10 non-kiosk routes protected with @require_role; login_required retired (AUTH-05, D-04)
+- [Phase ?]: admin.html nav tabs role-gated with Jinja2 session.role check; username variable passed from admin_page (DASH-03)
 
 ### Pending Todos
 
@@ -88,6 +91,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-11T10:01:40.210Z
-Stopped at: Phase 1 UI-SPEC approved
-Resume file: .planning/phases/01-rbac-foundation/01-UI-SPEC.md
+Last session: 2026-06-11T10:06:01.866Z
+Stopped at: Completed 01-03-PLAN.md
+Resume file: None

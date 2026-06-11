@@ -30,7 +30,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. After login, each role (superadmin, org_admin, dept_admin, viewer, employee) lands on a role-appropriate dashboard; navigation shows only links relevant to that role.
   4. A dept_admin can create a viewer account; a viewer cannot create any account; privilege escalation is blocked server-side.
   5. Admin can deactivate a user account and that user's next login attempt is rejected; user can change their own password from their profile page.
-**Plans**: TBD
+**Plans**: 5 plans
+Plans:
+- [ ] 01-01-PLAN.md — Wave 0: pytest scaffold + failing end-to-end auth tests (all AUTH/MIG/DASH requirement stubs)
+- [ ] 01-02-PLAN.md — Wave 1: Walking Skeleton login slice — users.json store, MIG-03 bootstrap, @require_role, login redirect, /dashboard + 403.html
+- [ ] 01-03-PLAN.md — Wave 2: Lock down all non-kiosk routes, retire @login_required, role-gate admin nav
+- [ ] 01-04-PLAN.md — Wave 3: User management (hierarchy-scoped create/deactivate), self password change, fcntl-locked writes
+- [ ] 01-05-PLAN.md — Wave 4: SECRET_KEY injection + single-worker PM2 config (ecosystem.config.js) [checkpoint]
 **UI hint**: yes
 
 ### Phase 2: Org/Dept Data Model
@@ -82,7 +88,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. RBAC Foundation | 0/TBD | Not started | - |
+| 1. RBAC Foundation | 0/5 | Planned | - |
 | 2. Org/Dept Data Model | 0/TBD | Not started | - |
 | 3. T-13 Timesheet Grid | 0/TBD | Not started | - |
 | 4. Export & Employee Cabinet | 0/TBD | Not started | - |

@@ -67,8 +67,8 @@ tr:last-child td { border-bottom: none; }
 
 <div class="nav-tabs">
   <span class="tab active" id="tabOrgs" onclick="switchTab('orgs')">Организации</span>
-  <a class="tab" href="/admin" id="tabUsers">Пользователи</a>
-  <a class="tab" href="/admin" id="tabReports">Отчёты →</a>
+  <span class="tab" id="tabUsers" onclick="switchTab('users')">Пользователи</span>
+  <a class="tab" href="/register">Регистрация →</a>
 </div>
 
 <div id="panelOrgs" class="page">
@@ -102,6 +102,10 @@ tr:last-child td { border-bottom: none; }
       <label>Описание</label>
       <input type="text" id="orgDescription" placeholder="Краткое описание (необязательно)">
     </div>
+    <div class="form-group">
+      <label>PIN-код киоска (4 цифры, необязательно)</label>
+      <input type="text" id="orgKioskPin" maxlength="4" placeholder="Оставьте пустым — без PIN">
+    </div>
     <div id="formError" class="error-msg hidden"></div>
     <div class="form-actions">
       <button class="btn-primary" onclick="saveOrg()" id="saveBtn">Создать организацию</button>
@@ -116,11 +120,68 @@ tr:last-child td { border-bottom: none; }
           <th>Название</th>
           <th>Сотрудников</th>
           <th>Описание</th>
+          <th>Киоск</th>
           <th>Действия</th>
         </tr>
       </thead>
       <tbody id="orgsTableBody">
-        <tr><td colspan="4" style="text-align:center;color:#90a4ae;padding:28px;">Загрузка...</td></tr>
+        <tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Загрузка...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ TAB: USERS ═══ -->
+<div id="panelUsers" class="page hidden">
+  <div class="toolbar">
+    <button class="btn-primary" onclick="toggleUserForm()">+ Создать пользователя</button>
+  </div>
+
+  <div id="createUserPanel" class="card hidden" style="max-width:480px;margin-bottom:20px;">
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">Новый пользователь</h3>
+    <div class="form-group">
+      <label>Логин</label>
+      <input type="text" id="newUsername" placeholder="username">
+    </div>
+    <div class="form-group">
+      <label>Пароль (мин. 8 символов)</label>
+      <input type="password" id="newPassword" placeholder="••••••••">
+    </div>
+    <div class="form-group">
+      <label>Роль</label>
+      <select id="newRole">
+        <option value="org_admin">Администратор организации</option>
+        <option value="dept_admin">Администратор отдела</option>
+        <option value="viewer">Наблюдатель</option>
+        <option value="employee">Сотрудник</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Организация</label>
+      <select id="newOrgId">
+        <option value="">— выберите —</option>
+      </select>
+    </div>
+    <div id="userFormError" class="error-msg hidden"></div>
+    <div class="form-actions">
+      <button class="btn-primary" onclick="createUser()">Создать пользователя</button>
+      <button class="btn-secondary" onclick="toggleUserForm()">Отмена</button>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Логин</th>
+          <th>Роль</th>
+          <th>Организация</th>
+          <th>Статус</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody id="usersTableBody">
+        <tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Загрузка...</td></tr>
       </tbody>
     </table>
   </div>
@@ -130,16 +191,19 @@ tr:last-child td { border-bottom: none; }
 // ─── State ────────────────────────────────────────────────────────────────────
 let allOrgs = [];
 let allEmployees = [];
+let allUsers = [];
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
-  await Promise.all([loadOrgs(), loadStats()]);
+  await Promise.all([loadOrgs(), loadStats(), loadUsers()]);
 }
 
 // ─── Tab switching ─────────────────────────────────────────────────────────────
 function switchTab(tab) {
   document.getElementById('tabOrgs').classList.toggle('active', tab === 'orgs');
+  document.getElementById('tabUsers').classList.toggle('active', tab === 'users');
   document.getElementById('panelOrgs').classList.toggle('hidden', tab !== 'orgs');
+  document.getElementById('panelUsers').classList.toggle('hidden', tab !== 'users');
 }
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
@@ -187,32 +251,52 @@ function renderOrgs() {
   const tbody = document.getElementById('orgsTableBody');
   if (!allOrgs.length) {
     tbody.innerHTML =
-      '<tr><td colspan="4" style="text-align:center;color:#90a4ae;padding:28px;">Организации не найдены. Создайте первую организацию.</td></tr>';
+      '<tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Организации не найдены. Создайте первую организацию.</td></tr>';
     return;
   }
   tbody.innerHTML = allOrgs.map(org => {
     const empCount = allEmployees.filter(e => e.org_id === org.id).length;
     const desc = org.description ? `<span style="color:#546e7a;">${escapeHtml(org.description)}</span>` : '<span style="color:#bdbdbd;">—</span>';
+    const kioskUrl = `/kiosk/${org.id}`;
+    const pinBadge = org.kiosk_pin
+      ? `<span style="color:#2E7D32;font-size:11px;">🔐 PIN</span>`
+      : `<span style="color:#90a4ae;font-size:11px;">Без PIN</span>`;
     return `<tr>
       <td style="font-weight:500;">${escapeHtml(org.name)}</td>
       <td style="color:#1565C0;font-weight:600;">${empCount}</td>
       <td>${desc}</td>
+      <td><a href="${kioskUrl}" target="_blank" style="color:#1565C0;font-size:12px;">Открыть</a> ${pinBadge}</td>
       <td style="display:flex;gap:8px;align-items:center;">
         <button class="btn-edit" onclick="startEdit('${org.id}')">Изменить</button>
+        <button class="btn-edit" onclick="setPIN('${org.id}', '${escapeHtml(org.name)}')">PIN</button>
         <button class="btn-delete" onclick="deleteOrg('${org.id}', '${escapeHtml(org.name)}')">Удалить</button>
       </td>
     </tr>`;
   }).join('');
 }
 
+async function setPIN(orgId, orgName) {
+  const pin = window.prompt(`PIN-код для киоска «${orgName}» (4 цифры, пусто — без PIN):`);
+  if (pin === null) return; // cancelled
+  try {
+    const resp = await fetch(`/api/orgs/${orgId}/settings`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({kiosk_pin: pin.trim() || null}),
+    });
+    if (resp.ok) { await loadOrgs(); }
+    else { const d = await resp.json(); alert(d.error || 'Ошибка'); }
+  } catch(e) { alert('Ошибка соединения'); }
+}
+
 function toggleAddForm() {
   const panel = document.getElementById('addOrgPanel');
   const isHidden = panel.classList.contains('hidden');
   if (isHidden) {
-    // Reset to create mode
     document.getElementById('editOrgId').value = '';
     document.getElementById('orgName').value = '';
     document.getElementById('orgDescription').value = '';
+    document.getElementById('orgKioskPin').value = '';
     document.getElementById('formTitle').textContent = 'Новая организация';
     document.getElementById('saveBtn').textContent = 'Создать организацию';
     document.getElementById('formError').classList.add('hidden');
@@ -228,6 +312,7 @@ function startEdit(orgId) {
   document.getElementById('editOrgId').value = orgId;
   document.getElementById('orgName').value = org.name;
   document.getElementById('orgDescription').value = org.description || '';
+  document.getElementById('orgKioskPin').value = org.kiosk_pin || '';
   document.getElementById('formTitle').textContent = 'Изменить организацию';
   document.getElementById('saveBtn').textContent = 'Сохранить изменения';
   document.getElementById('formError').classList.add('hidden');
@@ -244,10 +329,16 @@ async function saveOrg() {
   const editId = document.getElementById('editOrgId').value;
   const name = document.getElementById('orgName').value.trim();
   const description = document.getElementById('orgDescription').value.trim();
+  const pinRaw = document.getElementById('orgKioskPin').value.trim();
   const errEl = document.getElementById('formError');
 
   if (!name) {
     errEl.textContent = 'Заполните все обязательные поля.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  if (pinRaw && (pinRaw.length !== 4 || !/^\d+$/.test(pinRaw))) {
+    errEl.textContent = 'PIN должен быть ровно 4 цифры.';
     errEl.classList.remove('hidden');
     return;
   }
@@ -261,12 +352,29 @@ async function saveOrg() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({name, description}),
       });
+      // Update PIN separately
+      if (resp.ok && pinRaw !== undefined) {
+        await fetch(`/api/orgs/${editId}/settings`, {
+          method: 'PATCH',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({kiosk_pin: pinRaw || null}),
+        });
+      }
     } else {
       resp = await fetch('/api/orgs', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({name, description}),
       });
+      // Set PIN on new org if provided
+      if (resp.ok && pinRaw) {
+        const created = await resp.json();
+        await fetch(`/api/orgs/${created.id}/settings`, {
+          method: 'PATCH',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({kiosk_pin: pinRaw}),
+        });
+      }
     }
     if (resp.ok) {
       cancelForm();
@@ -298,6 +406,97 @@ async function deleteOrg(orgId, orgName) {
   } catch (e) {
     alert('Ошибка при сохранении. Попробуйте ещё раз.');
   }
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+async function loadUsers() {
+  try {
+    const resp = await fetch('/api/users');
+    allUsers = resp.ok ? await resp.json() : [];
+    renderUsers();
+  } catch(e) {}
+}
+
+function renderUsers() {
+  const tbody = document.getElementById('usersTableBody');
+  if (!allUsers.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Нет пользователей</td></tr>';
+    return;
+  }
+  const roleLabels = {superadmin:'Суперадмин', org_admin:'Адм. орг.', dept_admin:'Адм. отдела', viewer:'Наблюдатель', employee:'Сотрудник'};
+  tbody.innerHTML = allUsers.map(u => {
+    const org = allOrgs.find(o => o.id === u.org_id);
+    const orgName = org ? escapeHtml(org.name) : '<span style="color:#bdbdbd;">—</span>';
+    const statusBadge = u.active
+      ? '<span class="badge" style="background:#E8F5E9;color:#2E7D32;">Активен</span>'
+      : '<span class="badge" style="background:#FFEBEE;color:#C62828;">Откл.</span>';
+    return `<tr>
+      <td style="font-weight:500;">${escapeHtml(u.username)}</td>
+      <td>${roleLabels[u.role] || u.role}</td>
+      <td>${orgName}</td>
+      <td>${statusBadge}</td>
+      <td>
+        <button class="btn-edit" onclick="toggleUserActive('${u.id}', ${!u.active})">${u.active ? 'Откл.' : 'Вкл.'}</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function toggleUserForm() {
+  const panel = document.getElementById('createUserPanel');
+  const hidden = panel.classList.contains('hidden');
+  if (hidden) {
+    // Populate org selector
+    const sel = document.getElementById('newOrgId');
+    sel.innerHTML = '<option value="">— без организации —</option>';
+    allOrgs.forEach(org => {
+      const opt = document.createElement('option');
+      opt.value = org.id; opt.textContent = org.name;
+      sel.appendChild(opt);
+    });
+    document.getElementById('userFormError').classList.add('hidden');
+    panel.classList.remove('hidden');
+  } else {
+    panel.classList.add('hidden');
+  }
+}
+
+async function createUser() {
+  const username = document.getElementById('newUsername').value.trim();
+  const password = document.getElementById('newPassword').value;
+  const role = document.getElementById('newRole').value;
+  const org_id = document.getElementById('newOrgId').value || null;
+  const errEl = document.getElementById('userFormError');
+  errEl.classList.add('hidden');
+  try {
+    const resp = await fetch('/api/users', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username, password, role, org_id}),
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      toggleUserForm();
+      document.getElementById('newUsername').value = '';
+      document.getElementById('newPassword').value = '';
+      await loadUsers();
+    } else {
+      errEl.textContent = data.error || 'Ошибка при создании';
+      errEl.classList.remove('hidden');
+    }
+  } catch(e) {
+    errEl.textContent = 'Ошибка соединения';
+    errEl.classList.remove('hidden');
+  }
+}
+
+async function toggleUserActive(userId, newActive) {
+  await fetch(`/api/users/${userId}`, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({active: newActive}),
+  });
+  await loadUsers();
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

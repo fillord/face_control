@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 2 UI-SPEC approved
-last_updated: "2026-06-12T05:08:15.638Z"
-last_activity: 2026-06-12 -- Phase 02 execution started
+last_updated: "2026-06-12T14:37:31.975Z"
+last_activity: 2026-06-12 -- Phase 05 execution started
 progress:
-  total_phases: 4
-  completed_phases: 1
-  total_plans: 10
-  completed_plans: 5
-  percent: 25
+  total_phases: 5
+  completed_phases: 2
+  total_plans: 15
+  completed_plans: 10
+  percent: 40
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-11)
 
 **Core value:** Department heads and HR staff can view, manage, and export attendance data for exactly the employees they are authorized to see — no more, no less.
-**Current focus:** Phase 02 — org-dept-data-model
+**Current focus:** Phase 05 — token-based-kiosk-registration-russian-ui
 
 ## Current Position
 
-Phase: 02 (org-dept-data-model) — EXECUTING
+Phase: 05 (token-based-kiosk-registration-russian-ui) — EXECUTING
 Plan: 1 of 5
-Status: Executing Phase 02
-Last activity: 2026-06-12 -- Phase 02 execution started
+Status: Executing Phase 05
+Last activity: 2026-06-12 -- Phase 05 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -59,6 +59,11 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01-rbac-foundation P05 | 1min | 1 tasks | 1 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 5 added: Token-based Kiosk, Registration & Russian UI — org_token/kiosk_pin/reg_token/reg_pin on organizations.json, /kiosk/<org_token> with PIN pad, /register/<reg_token> mobile, Russian UI + МедКонтроль branding, migrate.py; absorbs Plan 02-05
+- Plan 02-05 (kiosk dept display) skipped — superseded by Phase 5's broader kiosk rebuild
 
 ### Decisions
 

@@ -28,7 +28,7 @@ module.exports = {
       env: {
         // Replace this placeholder with the output of:
         // /var/www/sites/face-almgp33/venv/bin/python -c "import secrets; print(secrets.token_hex(32))"
-        SECRET_KEY: "REPLACE_WITH_GENERATED_SECRET"
+        SECRET_KEY: "caf3e39dc0b37fca957176a65ef933de2b6929b0ef864910d7902e76ec661d8d"
       }
     }
   ]

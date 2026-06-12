@@ -1,4 +1,4 @@
-import os, json, base64, time, shutil, uuid, secrets
+import os, json, base64, time, shutil, uuid, tempfile, sys, secrets
 import fcntl
 from datetime import datetime, date
 from functools import wraps
@@ -47,15 +47,27 @@ def init_config():
 
 def load_users():
     if os.path.exists(USERS_FILE):
-        with open(USERS_FILE) as f:
-            return json.load(f)
+        try:
+            with open(USERS_FILE) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"WARNING: load_users failed ({e}), returning empty dict", file=sys.stderr, flush=True)
+            return {}
     return {}
 
 def save_users(data):
-    with open(USERS_FILE, "w", encoding="utf-8") as fh:
-        fcntl.flock(fh, fcntl.LOCK_EX)
-        json.dump(data, fh, ensure_ascii=False, indent=2)
-        fcntl.flock(fh, fcntl.LOCK_UN)
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=DATA_DIR, prefix="users_", suffix=".tmp")
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as fh:
+            fcntl.flock(fh, fcntl.LOCK_EX)
+            json.dump(data, fh, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, USERS_FILE)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 def init_users():
     if os.path.exists(USERS_FILE):
@@ -229,7 +241,20 @@ def train_recognizer():
 @app.route("/")
 def kiosk():
     employees = load_employees()
-    return render_template("kiosk.html", has_employees=bool(employees))
+    return render_template("kiosk.html", has_employees=bool(employees),
+                           org_id=None, org_name=None, has_pin=False)
+
+@app.route("/kiosk/<org_id>")
+def kiosk_org(org_id):
+    orgs = load_orgs()
+    org = orgs.get(org_id)
+    if not org:
+        return "Организация не найдена", 404
+    employees = load_employees()
+    org_employees = {k: v for k, v in employees.items() if v.get("org_id") == org_id}
+    has_pin = bool(org.get("kiosk_pin"))
+    return render_template("kiosk.html", has_employees=bool(org_employees),
+                           org_id=org_id, org_name=org.get("name"), has_pin=has_pin)
 
 @app.route("/login", methods=["GET", "POST"])
 def login_page():
@@ -251,6 +276,7 @@ def login_page():
         user = next((u for u in users.values() if u["username"] == username), None)
         if user and not user.get("active"):
             error = "Ваш аккаунт деактивирован. Обратитесь к администратору."
+            print(f"LOGIN_FAIL: username={username!r} reason=deactivated", flush=True)
         elif user and bcrypt.checkpw(password, user["password_hash"].encode()):
             session.clear()
             session["user_id"] = user["id"]
@@ -258,15 +284,19 @@ def login_page():
             session["org_id"] = user.get("org_id")
             session["dept_id"] = user.get("dept_id")
             role = user["role"]
+            print(f"LOGIN_OK: username={username!r} role={role!r}", flush=True)
             if role == "superadmin":
                 return redirect(url_for("superadmin_page"))
             elif role == "org_admin":
                 return redirect(url_for("org_admin_page"))
             elif role in ("dept_admin", "viewer"):
                 return redirect(url_for("dept_admin_page"))
+            elif role == "employee":
+                return redirect(url_for("employee_page"))
             else:
                 return redirect(url_for("dashboard_page"))
         else:
+            print(f"LOGIN_FAIL: username={username!r} user_found={user is not None} hash_match=False", flush=True)
             error = "Неверный логин или пароль"
     return render_template("login.html", error=error)
 
@@ -278,7 +308,29 @@ def logout():
 @app.route("/register")
 @require_role("superadmin", "org_admin", "dept_admin")
 def register_page():
-    return render_template("register.html")
+    users = load_users()
+    user = users.get(session.get("user_id"), {})
+    caller_role = user.get("role", session.get("role"))
+    caller_org_id = user.get("org_id", session.get("org_id"))
+    caller_dept_id = user.get("dept_id", session.get("dept_id"))
+    orgs = load_orgs()
+    depts = load_depts()
+    if caller_role == "superadmin":
+        visible_orgs = list(orgs.values())
+        visible_depts = list(depts.values())
+    elif caller_role == "org_admin":
+        visible_orgs = [orgs[caller_org_id]] if caller_org_id in orgs else []
+        visible_depts = [d for d in depts.values() if d.get("org_id") == caller_org_id]
+    else:
+        visible_orgs = [orgs[caller_org_id]] if caller_org_id in orgs else []
+        visible_depts = [depts[caller_dept_id]] if caller_dept_id in depts else []
+    return render_template("register.html",
+        caller_role=caller_role,
+        caller_org_id=caller_org_id or "",
+        caller_dept_id=caller_dept_id or "",
+        visible_orgs=visible_orgs,
+        visible_depts=visible_depts
+    )
 
 ROLE_DISPLAY = {
     "superadmin": "Суперадмин",
@@ -291,6 +343,8 @@ ROLE_DISPLAY = {
 @app.route("/admin")
 @require_role("superadmin", "org_admin", "dept_admin")
 def admin_page():
+    if session.get("role") == "superadmin":
+        return redirect(url_for("superadmin_page"))
     users = load_users()
     user = users.get(session.get("user_id"), {})
     username = user.get("username", "")
@@ -301,6 +355,14 @@ def admin_page():
         for role_key in ROLE_HIERARCHY[creator_idx + 1:]:
             creatable_roles.append((role_key, ROLE_DISPLAY.get(role_key, role_key)))
     return render_template("admin.html", username=username, creatable_roles=creatable_roles)
+
+@app.route("/employee")
+@require_role("employee")
+def employee_page():
+    users = load_users()
+    user = users.get(session.get("user_id"), {})
+    username = user.get("username", "")
+    return render_template("dashboard.html", username=username)
 
 # ─── Page routes: Role Dashboards ─────────────────────────────────────────────
 
@@ -404,6 +466,11 @@ def create_user():
     users = load_users()
     if any(u["username"] == username for u in users.values()):
         return jsonify({"error": "Пользователь с таким логином уже существует"}), 400
+    # Auto-inherit scope from creator; allow explicit override from request body
+    caller_org_id = session.get("org_id")
+    caller_dept_id = session.get("dept_id")
+    new_org_id = data.get("org_id") or (caller_org_id if creator_role != "superadmin" else None)
+    new_dept_id = data.get("dept_id") or (caller_dept_id if creator_role == "dept_admin" else None)
     user_id = str(uuid.uuid4())
     users[user_id] = {
         "id": user_id,
@@ -411,10 +478,11 @@ def create_user():
         "password_hash": bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode(),
         "role": target_role,
         "active": True,
-        "org_id": None,
-        "dept_id": None,
+        "org_id": new_org_id,
+        "dept_id": new_dept_id,
     }
     save_users(users)
+    print(f"USER_CREATED: username={username!r} role={target_role!r} org_id={new_org_id!r} dept_id={new_dept_id!r}", flush=True)
     return jsonify({"id": user_id, "status": "created"})
 
 @app.route("/api/users/<user_id>", methods=["PATCH"])
@@ -511,6 +579,40 @@ def delete_org(org_id):
     return jsonify({"status": "deleted"})
 
 
+@app.route("/api/orgs/<org_id>/settings", methods=["PATCH"])
+@require_role("superadmin", "org_admin")
+def update_org_settings(org_id):
+    orgs = load_orgs()
+    if org_id not in orgs:
+        return jsonify({"error": "Организация не найдена"}), 404
+    caller_role = session.get("role")
+    if caller_role == "org_admin" and session.get("org_id") != org_id:
+        return jsonify({"error": "forbidden"}), 403
+    data = request.json or {}
+    if "kiosk_pin" in data:
+        pin = data["kiosk_pin"]
+        if pin and (len(str(pin)) != 4 or not str(pin).isdigit()):
+            return jsonify({"error": "PIN должен быть 4-значным числом"}), 400
+        orgs[org_id]["kiosk_pin"] = str(pin) if pin else None
+    save_orgs(orgs)
+    return jsonify({"status": "updated"})
+
+
+@app.route("/api/kiosk/<org_id>/verify_pin", methods=["POST"])
+def verify_kiosk_pin(org_id):
+    orgs = load_orgs()
+    org = orgs.get(org_id)
+    if not org:
+        return jsonify({"error": "not_found"}), 404
+    stored_pin = org.get("kiosk_pin")
+    if not stored_pin:
+        return jsonify({"verified": True})
+    entered_pin = str((request.json or {}).get("pin", ""))
+    if entered_pin == stored_pin:
+        return jsonify({"verified": True})
+    return jsonify({"error": "wrong_pin", "verified": False}), 401
+
+
 # ─── API: Depts ───────────────────────────────────────────────────────────────
 
 @app.route("/api/depts", methods=["GET"])
@@ -598,7 +700,17 @@ def delete_dept(dept_id):
 @app.route("/api/employees", methods=["GET"])
 @require_role("superadmin", "org_admin", "dept_admin")
 def get_employees():
-    return jsonify(load_employees())
+    employees = load_employees()
+    role = session.get("role")
+    org_id = session.get("org_id")
+    dept_id = session.get("dept_id")
+    if role == "superadmin":
+        return jsonify(employees)
+    elif role == "org_admin" and org_id:
+        return jsonify({k: v for k, v in employees.items() if v.get("org_id") == org_id})
+    elif role == "dept_admin" and dept_id:
+        return jsonify({k: v for k, v in employees.items() if v.get("dept_id") == dept_id})
+    return jsonify(employees)
 
 @app.route("/api/employees", methods=["POST"])
 @require_role("superadmin", "org_admin", "dept_admin")
@@ -913,6 +1025,17 @@ def recognize():
     if not emp:
         return jsonify({"error": "unknown"}), 400
 
+    # Org filter: if request specifies org_id, reject matches from other orgs
+    req_org_id = data.get("org_id")
+    if req_org_id and emp.get("org_id") != req_org_id:
+        return jsonify({"error": "unknown"}), 400
+
+    dept_name = None
+    if emp.get("dept_id"):
+        dept = load_depts().get(emp["dept_id"])
+        if dept:
+            dept_name = dept.get("name")
+
     today = date.today().isoformat()
     attendance = load_attendance()
     if today not in attendance:
@@ -944,8 +1067,29 @@ def recognize():
         "confidence": float(confidence),
         "confidence_pct": conf_pct,
         "is_late": is_late and event == "check_in",
-        "bbox": bbox
+        "bbox": bbox,
+        "dept_name": dept_name,
     })
+
+# ─── API: Kiosk public log ────────────────────────────────────────────────────
+
+@app.route("/api/kiosk_log")
+def kiosk_log():
+    """Public endpoint for kiosk attendance log — no auth, today only, optional org filter."""
+    org_id = request.args.get("org_id")
+    attendance = load_attendance()
+    employees = load_employees()
+    today = date.today().isoformat()
+    day_data = attendance.get(today, {})
+    result = []
+    for emp_id, emp in employees.items():
+        if org_id and emp.get("org_id") != org_id:
+            continue
+        rec = day_data.get(emp_id, {})
+        if rec.get("check_in"):
+            result.append({"name": emp["name"], "role": emp["role"],
+                           "check_in": rec.get("check_in"), "check_out": rec.get("check_out")})
+    return jsonify(result)
 
 # ─── API: Attendance ──────────────────────────────────────────────────────────
 

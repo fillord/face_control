@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Учёт посещаемости — {{ org_name or 'МедКонтроль' }}</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0f1e; color: #e8eaf6; min-height: 100vh; display: flex; flex-direction: column; }
+header { background: #0d1429; border-bottom: 1px solid #1e2a4a; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; }
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-icon { width: 40px; height: 40px; background: #1565C0; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+.logo-text { font-size: 18px; font-weight: 600; color: #e8eaf6; }
+.logo-sub { font-size: 12px; color: #7986cb; margin-top: 2px; }
+.clock { font-size: 28px; font-weight: 300; color: #7986cb; letter-spacing: 0.05em; font-variant-numeric: tabular-nums; }
+.main { flex: 1; display: grid; grid-template-columns: 1fr 420px; gap: 0; }
+.camera-section { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; gap: 20px; }
+.camera-frame { position: relative; width: 480px; height: 360px; border-radius: 16px; overflow: hidden; background: #060b18; border: 2px solid #1e2a4a; }
+video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+canvas#overlay { position: absolute; inset: 0; width: 100%; height: 100%; transform: scaleX(-1); }
+.corner { position: absolute; width: 28px; height: 28px; border-color: #1565C0; border-style: solid; }
+.corner.tl { top: 12px; left: 12px; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+.corner.tr { top: 12px; right: 12px; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+.corner.bl { bottom: 12px; left: 12px; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+.corner.br { bottom: 12px; right: 12px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+.scan-overlay { position: absolute; inset: 0; background: rgba(21,101,192,0.08); display: none; align-items: center; justify-content: center; }
+.scan-overlay.active { display: flex; }
+.scan-line-anim { position: absolute; left: 10%; right: 10%; height: 2px; background: linear-gradient(90deg, transparent, #1976D2, #42A5F5, #1976D2, transparent); animation: scanMove 1.5s ease-in-out infinite; }
+@keyframes scanMove { 0%,100% { top: 15%; } 50% { top: 85%; } }
+.status-row { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.status-chip { display: flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 24px; font-size: 14px; font-weight: 500; }
+.status-chip.idle { background: #1a2240; color: #7986cb; }
+.status-chip.scanning { background: #0d2137; color: #29B6F6; }
+.status-chip.success-in { background: #0a2218; color: #4CAF50; }
+.status-chip.success-out { background: #0d1a2e; color: #42A5F5; }
+.status-chip.error { background: #1f0f0f; color: #EF5350; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.dot.pulse { animation: pulse 1.2s ease infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+.confidence-badge { display: none; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 16px; font-size: 12px; background: rgba(255,255,255,0.06); border: 1px solid #1e2a4a; color: #7986cb; }
+.confidence-badge.visible { display: flex; }
+.late-warning { display: none; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 20px; font-size: 13px; font-weight: 600; background: rgba(191,54,12,0.15); color: #FF8A65; border: 1px solid rgba(191,54,12,0.4); }
+.late-warning.visible { display: flex; }
+/* QR section */
+.qr-section { display: none; flex-direction: column; align-items: center; gap: 16px; padding: 32px; }
+.qr-section.visible { display: flex; }
+.qr-title { font-size: 18px; font-weight: 600; color: #e8eaf6; text-align: center; }
+.qr-sub { font-size: 14px; color: #7986cb; text-align: center; max-width: 320px; line-height: 1.5; }
+.qr-box { background: #fff; padding: 16px; border-radius: 12px; }
+.qr-url { font-size: 13px; color: #5c6bc0; margin-top: 4px; text-align: center; }
+/* Result panel */
+.result-panel { background: #0d1429; border-left: 1px solid #1e2a4a; display: flex; flex-direction: column; }
+.result-header { padding: 24px; border-bottom: 1px solid #1e2a4a; }
+.result-title { font-size: 13px; font-weight: 600; color: #5c6bc0; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+.result-date { font-size: 13px; color: #546e7a; }
+.result-main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; gap: 20px; }
+.result-idle { text-align: center; color: #37474f; }
+.result-idle .idle-icon { font-size: 64px; margin-bottom: 16px; }
+.result-idle p { font-size: 15px; line-height: 1.6; }
+.employee-card { width: 100%; background: #0a0f1e; border: 1px solid #1e2a4a; border-radius: 14px; padding: 24px; display: none; }
+.employee-card.visible { display: block; }
+.emp-header { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+.emp-avatar { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 600; flex-shrink: 0; }
+.emp-name { font-size: 18px; font-weight: 600; color: #e8eaf6; margin-bottom: 4px; }
+.emp-role { font-size: 13px; color: #7986cb; }
+.event-badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 600; margin-bottom: 16px; }
+.event-badge.in    { background: rgba(76,175,80,0.15); color: #81C784; border: 1px solid rgba(76,175,80,0.3); }
+.event-badge.out   { background: rgba(66,165,245,0.15); color: #64B5F6; border: 1px solid rgba(66,165,245,0.3); }
+.event-badge.done  { background: rgba(255,193,7,0.12);  color: #FFD54F; border: 1px solid rgba(255,193,7,0.25); }
+.event-badge.late  { background: rgba(191,54,12,0.15);  color: #FF8A65; border: 1px solid rgba(191,54,12,0.3); }
+.time-row { display: flex; gap: 12px; }
+.time-box { flex: 1; background: #0d1429; border: 1px solid #1e2a4a; border-radius: 10px; padding: 12px; text-align: center; }
+.time-label { font-size: 11px; color: #546e7a; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+.time-val { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.time-val.green { color: #4CAF50; } .time-val.orange { color: #FF8A65; }
+.time-val.blue { color: #42A5F5; } .time-val.muted { color: #37474f; }
+.duration-box { margin-top: 12px; background: #0d1429; border: 1px solid #1e2a4a; border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+.dur-label { font-size: 12px; color: #546e7a; }
+.dur-val { font-size: 16px; font-weight: 600; color: #7986cb; }
+.log-section { padding: 0 24px 24px; }
+.log-title { font-size: 12px; font-weight: 600; color: #5c6bc0; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+.log-items { display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; }
+.log-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #0a0f1e; border: 1px solid #1e2a4a; border-radius: 10px; }
+.log-item.in-event  { border-left: 3px solid #4CAF50; }
+.log-item.out-event { border-left: 3px solid #42A5F5; }
+.log-emp { flex: 1; min-width: 0; }
+.log-name { font-size: 13px; font-weight: 500; color: #c5cae9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.log-ev { font-size: 11px; color: #546e7a; }
+.log-time-text { font-size: 13px; color: #546e7a; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.log-empty { font-size: 13px; color: #37474f; text-align: center; padding: 16px; }
+.nav-links { padding: 16px 24px; border-top: 1px solid #1e2a4a; display: flex; gap: 8px; }
+.nav-link { flex: 1; padding: 10px; text-align: center; border-radius: 8px; font-size: 13px; font-weight: 500; text-decoration: none; border: 1px solid #1e2a4a; color: #7986cb; transition: all 0.2s; }
+.nav-link:hover { background: #1a2240; color: #c5cae9; }
+/* PIN screen overlay — touchscreen button pad */
+#pinScreen { position: fixed; inset: 0; background: rgba(6,11,24,0.96); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; z-index: 100; }
+#pinScreen.hidden { display: none; }
+#pinTitle { font-size: 18px; font-weight: 600; color: #e8eaf6; }
+#pinDisplay { display: flex; gap: 14px; margin-bottom: 4px; }
+#pinDisplay span { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #5c6bc0; display: inline-block; transition: background 0.1s; }
+#pinDisplay span.filled { background: #5c6bc0; }
+.pin-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.pin-grid button { width: 72px; height: 72px; border-radius: 12px; border: 1px solid #1e2a4a; background: #0d1429; color: #e8eaf6; font-size: 26px; font-weight: 600; cursor: pointer; transition: background 0.12s, transform 0.08s; touch-action: manipulation; }
+.pin-grid button:hover { background: #1a2240; }
+.pin-grid button:active { background: #1565C0; transform: scale(0.96); }
+.pin-grid button.pin-back { font-size: 20px; color: #7986cb; }
+.pin-grid button.pin-ok { background: #1565C0; color: #fff; }
+.pin-grid button.pin-ok:hover { background: #0d47a1; }
+#pinError { color: #EF5350; font-size: 13px; min-height: 20px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <div class="logo-icon">🏥</div>
+    <div>
+      <div class="logo-text">МедКонтроль</div>
+      <div class="logo-sub">{{ org_name or 'Система учёта рабочего времени' }}</div>
+    </div>
+  </div>
+  <div class="clock" id="clock">--:--:--</div>
+</header>
+
+{% if has_pin %}
+<!-- PIN screen — touchscreen button pad only, keyboard-free -->
+<div id="pinScreen">
+  <div id="pinTitle">Введите PIN для доступа</div>
+  <div id="pinDisplay">
+    <span id="pinDot0"></span>
+    <span id="pinDot1"></span>
+    <span id="pinDot2"></span>
+    <span id="pinDot3"></span>
+  </div>
+  <div class="pin-grid">
+    <button type="button" onclick="pinPress('1')">1</button>
+    <button type="button" onclick="pinPress('2')">2</button>
+    <button type="button" onclick="pinPress('3')">3</button>
+    <button type="button" onclick="pinPress('4')">4</button>
+    <button type="button" onclick="pinPress('5')">5</button>
+    <button type="button" onclick="pinPress('6')">6</button>
+    <button type="button" onclick="pinPress('7')">7</button>
+    <button type="button" onclick="pinPress('8')">8</button>
+    <button type="button" onclick="pinPress('9')">9</button>
+    <button type="button" class="pin-back" onclick="pinPress('back')">⌫</button>
+    <button type="button" onclick="pinPress('0')">0</button>
+    <button type="button" class="pin-ok" onclick="pinPress('ok')">OK</button>
+  </div>
+  <div id="pinError"></div>
+</div>
+{% endif %}
+
+<div class="main">
+  <div class="camera-section">
+
+    <!-- Camera view (shown when employees exist) -->
+    <div id="cameraView" style="display:flex;flex-direction:column;align-items:center;gap:20px;{% if not has_employees %}display:none!important;{% endif %}">
+      <div class="camera-frame">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="overlay"></canvas>
+        <div class="corner tl"></div><div class="corner tr"></div>
+        <div class="corner bl"></div><div class="corner br"></div>
+        <div class="scan-overlay" id="scanOverlay"><div class="scan-line-anim"></div></div>
+      </div>
+      <div class="status-row">
+        <div class="status-chip idle" id="statusChip">
+          <div class="dot pulse"></div>
+          <span id="statusText">Ожидание сотрудника...</span>
+        </div>
+        <div class="confidence-badge" id="confidenceBadge">
+          <span>🎯</span><span id="confidenceText"></span>
+        </div>
+        <div class="late-warning" id="lateWarning">
+          ⚠ Опоздание
+        </div>
+      </div>
+    </div>
+
+    <!-- QR section (shown when no employees) -->
+    <div class="qr-section {% if has_employees %}{% else %}visible{% endif %}" id="qrSection">
+      <div class="qr-title">Добро пожаловать!</div>
+      <div class="qr-sub">База сотрудников пустая.<br>Отсканируйте QR-код чтобы зарегистрировать первого сотрудника.</div>
+      <div class="qr-box" id="qrCode"></div>
+      <div class="qr-url" id="qrUrl"></div>
+    </div>
+
+  </div>
+
+  <div class="result-panel">
+    <div class="result-header">
+      <div class="result-title">Последнее событие</div>
+      <div class="result-date" id="resultDate"></div>
+    </div>
+
+    <div class="result-main">
+      <div class="result-idle" id="idleView">
+        <div class="idle-icon">👤</div>
+        <p>Подойдите к камере<br>для регистрации</p>
+      </div>
+
+      <div class="employee-card" id="empCard">
+        <div class="emp-header">
+          <div class="emp-avatar" id="empAvatar"></div>
+          <div>
+            <div class="emp-name" id="empName"></div>
+            <div class="emp-role" id="empRole"></div>
+            <div class="emp-dept" id="empDept" style="display:none; font-size:13px; color:#7986cb; margin-top:4px;"></div>
+          </div>
+        </div>
+        <div class="event-badge" id="eventBadge"></div>
+        <div class="time-row">
+          <div class="time-box">
+            <div class="time-label">Приход</div>
+            <div class="time-val" id="checkInTime">—</div>
+          </div>
+          <div class="time-box">
+            <div class="time-label">Уход</div>
+            <div class="time-val blue" id="checkOutTime">—</div>
+          </div>
+        </div>
+        <div class="duration-box" id="durationBox" style="display:none">
+          <span class="dur-label">Отработано</span>
+          <span class="dur-val" id="durationVal"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="log-section">
+      <div class="log-title">Журнал сегодня</div>
+      <div class="log-items" id="logItems"><div class="log-empty">Нет записей</div></div>
+    </div>
+
+    <div class="nav-links">
+      <!-- reg_token wiring to /kiosk/<reg_token>/register happens in plan 05-05 -->
+      <a href="/login?next=/register" class="nav-link">📷 Регистрация</a>
+      <a href="/login?next=/admin" class="nav-link">📊 Отчёты</a>
+    </div>
+  </div>
+</div>
+
+<!-- QR code library (tiny, self-contained) -->
+<script>
+/* Minimal QR code via Google Charts — only used once at startup to show register link */
+function buildQR(elementId, url) {
+  const size = 180;
+  const img = document.createElement("img");
+  img.src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(url)}&bgcolor=ffffff&color=1a2340&margin=0`;
+  img.width = size; img.height = size;
+  img.alt = "QR";
+  document.getElementById(elementId).appendChild(img);
+  document.getElementById("qrUrl").textContent = url;
+}
+
+{% if not has_employees %}
+const registerUrl = window.location.origin + "/register";
+buildQR("qrCode", registerUrl);
+{% endif %}
+</script>
+
+<script>
+let scanning = false;
+let cooldownUntil = 0;
+const COOLDOWN_MS = 4000;
+const hasEmployees = {{ 'true' if has_employees else 'false' }};
+const ORG_ID = {{ ('"' + org_id + '"') if org_id else 'null' }};
+const ORG_TOKEN = {{ ('"' + org_token + '"') if org_token else 'null' }};
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById("clock").textContent = now.toLocaleTimeString("ru-RU");
+  document.getElementById("resultDate").textContent = now.toLocaleDateString("ru-RU", { weekday:"long", day:"numeric", month:"long" });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+async function startCamera() {
+  if (!hasEmployees) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width:640, height:480, facingMode:"user" } });
+    document.getElementById("video").srcObject = stream;
+  } catch(e) {
+    setStatus("error", "Камера недоступна: " + e.message);
+  }
+}
+startCamera();
+
+function setStatus(type, text) {
+  const chip = document.getElementById("statusChip");
+  chip.className = "status-chip " + type;
+  document.getElementById("statusText").textContent = text;
+  const dot = chip.querySelector(".dot");
+  dot.className = type === "idle" || type === "scanning" ? "dot pulse" : "dot";
+}
+
+function showConfidence(pct) {
+  const badge = document.getElementById("confidenceBadge");
+  document.getElementById("confidenceText").textContent = `Уверенность: ${pct}%`;
+  badge.classList.add("visible");
+}
+
+function hideConfidence() {
+  document.getElementById("confidenceBadge").classList.remove("visible");
+}
+
+function capture() {
+  const video = document.getElementById("video");
+  const c = document.createElement("canvas");
+  c.width = video.videoWidth || 640;
+  c.height = video.videoHeight || 480;
+  c.getContext("2d").drawImage(video, 0, 0);
+  return c.toDataURL("image/jpeg", 0.8);
+}
+
+async function recognize() {
+  if (!hasEmployees || scanning || Date.now() < cooldownUntil) return;
+  scanning = true;
+  document.getElementById("scanOverlay").classList.add("active");
+  setStatus("scanning", "Распознавание...");
+
+  try {
+    const image = capture();
+    const resp = await fetch("/api/recognize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image, org_id: ORG_ID })
+    });
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      hideConfidence();
+      if (data.error === "no_face") {
+        setStatus("idle", "Ожидание сотрудника...");
+      } else if (data.error === "unknown") {
+        setStatus("error", "Лицо не распознано");
+        cooldownUntil = Date.now() + 2000;
+      } else if (data.error === "not_trained") {
+        setStatus("error", "Недостаточно обучающих данных");
+        cooldownUntil = Date.now() + 3000;
+      } else {
+        setStatus("error", data.error || "Ошибка");
+        cooldownUntil = Date.now() + 2000;
+      }
+    } else {
+      showConfidence(data.confidence_pct);
+      showResult(data);
+      cooldownUntil = Date.now() + COOLDOWN_MS;
+    }
+  } catch(e) {
+    setStatus("error", "Ошибка соединения");
+    cooldownUntil = Date.now() + 3000;
+  }
+
+  document.getElementById("scanOverlay").classList.remove("active");
+  scanning = false;
+}
+
+function initials(name) { return name.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase(); }
+const COLORS = ["#1565C0","#1B5E20","#4A148C","#BF360C","#006064","#37474F"];
+function colorFor(name) { let h=0; for(let c of name) h=(h*31+c.charCodeAt(0))%COLORS.length; return COLORS[h]; }
+
+function showResult(data) {
+  const emp = data.employee;
+  const rec = data.record;
+  const event = data.event;
+
+  document.getElementById("idleView").style.display = "none";
+  const card = document.getElementById("empCard");
+  card.classList.add("visible");
+
+  const av = document.getElementById("empAvatar");
+  av.textContent = initials(emp.name);
+  av.style.background = colorFor(emp.name) + "33";
+  av.style.color = colorFor(emp.name);
+  av.style.border = "2px solid " + colorFor(emp.name) + "66";
+
+  document.getElementById("empName").textContent = emp.name;
+  document.getElementById("empRole").textContent = emp.role;
+
+  const deptEl = document.getElementById("empDept");
+  if (deptEl) {
+    if (data.dept_name) {
+      deptEl.textContent = data.dept_name;
+      deptEl.style.display = "";
+    } else {
+      deptEl.style.display = "none";
+    }
+  }
+
+  const lateWarn = document.getElementById("lateWarning");
+
+  const badge = document.getElementById("eventBadge");
+  if (event === "check_in") {
+    if (data.is_late) {
+      badge.className = "event-badge late";
+      badge.textContent = "⚠ Опоздание — приход зафиксирован";
+      setStatus("error", "⚠ Опоздание — " + emp.name.split(" ")[0]);
+      lateWarn.classList.add("visible");
+    } else {
+      badge.className = "event-badge in";
+      badge.textContent = "✓ Приход зафиксирован";
+      setStatus("success-in", "Добрый день, " + emp.name.split(" ")[0] + "!");
+      lateWarn.classList.remove("visible");
+    }
+  } else if (event === "check_out") {
+    badge.className = "event-badge out";
+    badge.textContent = "← Уход зафиксирован";
+    setStatus("success-out", "До свидания, " + emp.name.split(" ")[0] + "!");
+    lateWarn.classList.remove("visible");
+  } else {
+    badge.className = "event-badge done";
+    badge.textContent = "⚠ Уход уже зарегистрирован";
+    setStatus("idle", "Ожидание сотрудника...");
+    lateWarn.classList.remove("visible");
+  }
+
+  const checkInEl = document.getElementById("checkInTime");
+  checkInEl.textContent = rec?.check_in || "—";
+  checkInEl.className = "time-val " + (data.is_late && event === "check_in" ? "orange" : "green");
+
+  document.getElementById("checkOutTime").textContent = rec?.check_out || "—";
+
+  const durBox = document.getElementById("durationBox");
+  if (rec?.check_out) {
+    const fmt = t => { const [h,m,s] = t.split(":").map(Number); return h*3600+m*60+s; };
+    const diff = fmt(rec.check_out) - fmt(rec.check_in);
+    const h = Math.floor(diff/3600), m = Math.floor((diff%3600)/60);
+    document.getElementById("durationVal").textContent = h > 0 ? `${h}ч ${m}мин` : `${m}мин`;
+    durBox.style.display = "flex";
+  } else {
+    durBox.style.display = "none";
+  }
+
+  // Hide late warning after cooldown
+  setTimeout(() => lateWarn.classList.remove("visible"), COOLDOWN_MS);
+
+  loadLog();
+}
+
+async function loadLog() {
+  const params = ORG_ID ? `?org_id=${ORG_ID}` : "";
+  const resp = await fetch(`/api/kiosk_log${params}`);
+  const rows = await resp.json();
+  const container = document.getElementById("logItems");
+  const events = [];
+  for (const r of rows) {
+    if (r.check_in)  events.push({ name: r.name, role: r.role, time: r.check_in,  type: "in" });
+    if (r.check_out) events.push({ name: r.name, role: r.role, time: r.check_out, type: "out" });
+  }
+  events.sort((a,b) => b.time.localeCompare(a.time));
+  if (!events.length) { container.innerHTML = '<div class="log-empty">Нет записей</div>'; return; }
+  container.innerHTML = events.slice(0, 20).map(e => `
+    <div class="log-item ${e.type}-event">
+      <div class="log-emp">
+        <div class="log-name">${e.name}</div>
+        <div class="log-ev">${e.role} · ${e.type === "in" ? "Приход" : "Уход"}</div>
+      </div>
+      <div class="log-time-text">${e.time}</div>
+    </div>`).join("");
+}
+
+loadLog();
+if (hasEmployees) setInterval(recognize, 1500);
+
+// ─── PIN pad — touchscreen button pad ───────────────────────────────────────
+
+const PIN_KEY = 'kiosk_pin_unlocked_' + (ORG_TOKEN || 'root');
+let pinDigits = [];
+
+function isPinUnlocked() {
+  return localStorage.getItem(PIN_KEY) === '1';
+}
+
+function unlockPin() {
+  localStorage.setItem(PIN_KEY, '1');
+  const screen = document.getElementById("pinScreen");
+  if (screen) screen.classList.add("hidden");
+}
+
+function updatePinDisplay() {
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById("pinDot" + i);
+    if (dot) dot.className = i < pinDigits.length ? "filled" : "";
+  }
+}
+
+async function submitPin() {
+  const pin = pinDigits.join('');
+  try {
+    const resp = await fetch(`/api/kiosk/${ORG_TOKEN}/verify_pin`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin })
+    });
+    const data = await resp.json();
+    if (data.verified) {
+      unlockPin();
+      document.getElementById("pinError").textContent = "";
+    } else {
+      document.getElementById("pinError").textContent = "Неверный PIN-код. Попробуйте снова.";
+      pinDigits = [];
+      updatePinDisplay();
+    }
+  } catch(e) {
+    document.getElementById("pinError").textContent = "Ошибка соединения. Повторите попытку.";
+    pinDigits = [];
+    updatePinDisplay();
+  }
+}
+
+function pinPress(val) {
+  if (val === 'back') {
+    pinDigits.pop();
+    updatePinDisplay();
+  } else if (val === 'ok') {
+    if (pinDigits.length === 4) submitPin();
+  } else {
+    if (pinDigits.length < 4) {
+      pinDigits.push(val);
+      updatePinDisplay();
+      // Auto-submit when 4th digit entered
+      if (pinDigits.length === 4) submitPin();
+    }
+  }
+}
+
+// Show or hide PIN screen on load
+(function initPin() {
+  const screen = document.getElementById("pinScreen");
+  if (!screen) return; // no has_pin
+  if (isPinUnlocked()) {
+    screen.classList.add("hidden");
+  }
+})();
+</script>
+</body>
+</html>

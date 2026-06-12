@@ -161,6 +161,14 @@ def save_depts(data):
 
 # ─── Org tokens / PIN helpers ─────────────────────────────────────────────────
 
+def find_org_by_token(orgs, field, value):
+    """Return (org_id, org) for the first org whose org.get(field) == value, else (None, None)."""
+    for org_id, org in orgs.items():
+        if org.get(field) == value:
+            return org_id, org
+    return None, None
+
+
 def generate_unique_token(existing_tokens):
     """Generate an 8-char hex token (secrets.token_hex(4)) not already in existing_tokens."""
     while True:
@@ -244,17 +252,19 @@ def kiosk():
     return render_template("kiosk.html", has_employees=bool(employees),
                            org_id=None, org_name=None, has_pin=False)
 
-@app.route("/kiosk/<org_id>")
-def kiosk_org(org_id):
+@app.route("/kiosk/<org_token>")
+def kiosk_token(org_token):
     orgs = load_orgs()
-    org = orgs.get(org_id)
+    org_id, org = find_org_by_token(orgs, "org_token", org_token)
     if not org:
-        return "Организация не найдена", 404
+        return render_template("error_token.html", message="Организация не найдена"), 404
     employees = load_employees()
     org_employees = {k: v for k, v in employees.items() if v.get("org_id") == org_id}
     has_pin = bool(org.get("kiosk_pin"))
+    org_name = org.get("kiosk_display_name") or org.get("name")
     return render_template("kiosk.html", has_employees=bool(org_employees),
-                           org_id=org_id, org_name=org.get("name"), has_pin=has_pin)
+                           org_token=org_token, org_id=org_id,
+                           org_name=org_name, has_pin=has_pin)
 
 @app.route("/login", methods=["GET", "POST"])
 def login_page():
@@ -598,17 +608,19 @@ def update_org_settings(org_id):
     return jsonify({"status": "updated"})
 
 
-@app.route("/api/kiosk/<org_id>/verify_pin", methods=["POST"])
-def verify_kiosk_pin(org_id):
+@app.route("/api/kiosk/<org_token>/verify_pin", methods=["POST"])
+def verify_kiosk_pin_token(org_token):
     orgs = load_orgs()
-    org = orgs.get(org_id)
+    org_id, org = find_org_by_token(orgs, "org_token", org_token)
     if not org:
         return jsonify({"error": "not_found"}), 404
-    stored_pin = org.get("kiosk_pin")
-    if not stored_pin:
+    stored = org.get("kiosk_pin")
+    if not stored:
         return jsonify({"verified": True})
-    entered_pin = str((request.json or {}).get("pin", ""))
-    if entered_pin == stored_pin:
+    entered = str((request.json or {}).get("pin", ""))
+    if len(entered) != 4 or not entered.isdigit():
+        return jsonify({"error": "invalid_pin"}), 400
+    if bcrypt.checkpw(entered.encode(), stored.encode()):
         return jsonify({"verified": True})
     return jsonify({"error": "wrong_pin", "verified": False}), 401
 

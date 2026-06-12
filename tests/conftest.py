@@ -61,6 +61,10 @@ def tmp_data(tmp_path, monkeypatch):
     if hasattr(_app, "DEPTS_FILE"):
         monkeypatch.setattr(_app, "DEPTS_FILE", str(data_dir / "depts.json"))
 
+    # TIMESHEET_OVERRIDES_FILE does not exist in app.py until plan 03-02 — guard with hasattr
+    if hasattr(_app, "TIMESHEET_OVERRIDES_FILE"):
+        monkeypatch.setattr(_app, "TIMESHEET_OVERRIDES_FILE", str(data_dir / "timesheet_overrides.json"))
+
     # Seed a minimal config.json so init_config() does not blow up on first import
     config_path = data_dir / "config.json"
     config_path.write_text(

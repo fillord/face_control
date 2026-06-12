@@ -74,9 +74,9 @@ tr.row-early-leave { background: #f0f8ff; }
 </header>
 
 <div class="nav-tabs">
-  {% if session.role in ['superadmin', 'org_admin', 'dept_admin'] %}
   <span class="tab active" id="tabJournal" onclick="switchTab('journal')">Журнал посещаемости</span>
   <span class="tab" id="tabStats" onclick="switchTab('stats')">Статистика за месяц</span>
+  {% if session.role in ['superadmin', 'org_admin'] %}
   <span class="tab" id="tabUsers" onclick="switchTab('users')">Пользователи</span>
   {% endif %}
 </div>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Администратор организации — МедКонтроль</title>
+<title>{% if org_name %}{{ org_name }} — МедКонтроль{% else %}МедКонтроль{% endif %}</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f6fb; color: #1a2340; min-height: 100vh; }
@@ -57,7 +57,7 @@ tr:last-child td { border-bottom: none; }
 </head>
 <body>
 <header>
-  <div class="logo"><div class="logo-icon">🏥</div> МедКонтроль — Организация</div>
+  <div class="logo"><div class="logo-icon">🏥</div> МедКонтроль{% if org_name %} — {{ org_name }}{% endif %}</div>
   <div class="header-right">
     <span class="user-badge">{{ username }}</span>
     <a href="/" class="btn-logout" style="border-color:#cfd8dc;color:#546e7a;">← Киоск</a>
@@ -68,7 +68,8 @@ tr:last-child td { border-bottom: none; }
 <div class="nav-tabs">
   <span class="tab active" id="tabDepts" onclick="switchTab('depts')">Отделы</span>
   <span class="tab" id="tabEmployees" onclick="switchTab('employees')">Сотрудники</span>
-  <a class="tab" href="/admin">Отчёты →</a>
+  <a class="tab" href="/admin">Отчёты</a>
+  <a class="tab" href="/register">Регистрация</a>
 </div>
 
 <div id="panelDepts" class="page">

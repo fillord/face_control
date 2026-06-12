@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Регистрация сотрудника</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f6fb; color: #1a2340; min-height: 100vh; }
+header { background: #fff; border-bottom: 1px solid #e2e6f0; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+.logo { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; color: #1a2340; }
+.logo-icon { width: 34px; height: 34px; background: #1565C0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.header-right { display: flex; gap: 10px; align-items: center; }
+.back-link { font-size: 13px; color: #1565C0; text-decoration: none; }
+.back-link:hover { text-decoration: underline; }
+.btn-logout { padding: 6px 12px; background: #fff; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; color: #546e7a; text-decoration: none; }
+.btn-logout:hover { background: #ffebee; color: #c62828; border-color: #ef9a9a; }
+.page { max-width: 960px; margin: 0 auto; padding: 24px 20px; }
+h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+.subtitle { font-size: 13px; color: #546e7a; margin-bottom: 24px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; padding: 22px; }
+.card-title { font-size: 12px; font-weight: 600; color: #546e7a; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px; }
+.form-group { margin-bottom: 14px; }
+label { display: block; font-size: 13px; font-weight: 500; color: #455a64; margin-bottom: 5px; }
+input, select { width: 100%; padding: 10px 12px; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 14px; color: #1a2340; background: #fff; outline: none; transition: border-color 0.15s; }
+input:focus, select:focus { border-color: #1565C0; box-shadow: 0 0 0 3px rgba(21,101,192,0.1); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; border: none; }
+.btn-primary { background: #1565C0; color: #fff; width: 100%; }
+.btn-primary:hover { background: #0d47a1; }
+.btn-primary:disabled { background: #90a4ae; cursor: not-allowed; }
+.btn-danger { background: #fff; color: #c62828; border: 1px solid #ef9a9a; font-size: 12px; padding: 6px 12px; }
+.btn-danger:hover { background: #ffebee; }
+.btn-warning { background: #fff; color: #E65100; border: 1px solid #FFCC80; font-size: 12px; padding: 6px 12px; }
+.btn-warning:hover { background: #FFF3E0; }
+/* Camera */
+.camera-wrap { position: relative; width: 100%; aspect-ratio: 4/3; background: #0a0f1e; border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
+video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+canvas#faceCanvas { position: absolute; inset: 0; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none; }
+/* Quality badge */
+.quality-badge { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 7px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; margin-bottom: 12px; transition: all 0.3s; }
+.quality-good { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; }
+.quality-ok   { background: #FFF9C4; color: #F57F17; border: 1px solid #FFF176; }
+.quality-none { background: #f4f6fb; color: #90a4ae; border: 1px solid #e2e6f0; }
+/* Progress bar */
+.progress-wrap { margin-bottom: 10px; }
+.progress-label { display: flex; justify-content: space-between; font-size: 12px; color: #546e7a; margin-bottom: 5px; }
+.progress-bar { height: 6px; background: #e2e6f0; border-radius: 4px; overflow: hidden; }
+.progress-fill { height: 100%; background: #1565C0; border-radius: 4px; transition: width 0.3s; }
+.progress-fill.done { background: #2E7D32; }
+/* Samples */
+.samples-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; min-height: 30px; }
+.sample-thumb { width: 52px; height: 52px; border-radius: 6px; object-fit: cover; border: 2px solid #4CAF50; }
+/* Capture btn */
+.capture-btn { width: 100%; padding: 12px; background: #1B5E20; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.15s; margin-bottom: 10px; }
+.capture-btn:hover { background: #2E7D32; }
+.capture-btn:disabled { background: #90a4ae; cursor: not-allowed; }
+.toast { padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; margin-top: 10px; display: none; }
+.toast.success { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; display: block; }
+.toast.error   { background: #FFEBEE; color: #B71C1C; border: 1px solid #EF9A9A; display: block; }
+/* Employee list */
+.emp-list { display: flex; flex-direction: column; gap: 8px; }
+.emp-item { display: flex; align-items: center; gap: 10px; padding: 11px 13px; border: 1px solid #e2e6f0; border-radius: 10px; background: #f8fafd; }
+.emp-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+.emp-info { flex: 1; min-width: 0; }
+.emp-info-name { font-size: 13px; font-weight: 500; color: #1a2340; }
+.emp-info-role { font-size: 11px; color: #78909c; }
+.emp-face-count { font-size: 11px; color: #78909c; white-space: nowrap; }
+.emp-face-count.ready { color: #2E7D32; }
+.emp-actions { display: flex; gap: 5px; }
+.tip { display: flex; align-items: flex-start; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0f3f8; }
+.tip-icon { font-size: 16px; }
+.tip-text { font-size: 12px; color: #546e7a; line-height: 1.5; }
+@media (max-width:640px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><div class="logo-icon">🏥</div> МедКонтроль — Регистрация</div>
+  <div class="header-right">
+    <a href="/" class="back-link">← Киоск</a>
+    <a href="/logout" class="btn-logout">Выйти</a>
+  </div>
+</header>
+
+<div class="page">
+  <h1>Регистрация сотрудников</h1>
+  <p class="subtitle">Добавьте сотрудника и зарегистрируйте его лицо для автоматического распознавания</p>
+
+  <div class="grid">
+    <div>
+      <!-- Step 1 -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">Шаг 1 — добавить сотрудника</div>
+        <div class="form-group">
+          <label>ФИО сотрудника</label>
+          <input type="text" id="empName" placeholder="Иванова Мария Сергеевна">
+        </div>
+        <div class="form-group">
+          <label>Должность</label>
+          <input type="text" id="empRole" placeholder="Терапевт">
+        </div>
+        {% if caller_role == 'superadmin' %}
+        <div class="form-group">
+          <label>Организация</label>
+          <select id="empOrgId" onchange="filterDepts()">
+            <option value="">— выберите —</option>
+            {% for org in visible_orgs %}
+            <option value="{{ org.id }}">{{ org.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% else %}
+        <input type="hidden" id="empOrgId" value="{{ caller_org_id }}">
+        {% endif %}
+        {% if caller_role in ('superadmin', 'org_admin') %}
+        <div class="form-group">
+          <label>Отдел</label>
+          <select id="empDeptId">
+            <option value="">— выберите —</option>
+            {% for dept in visible_depts %}
+            <option value="{{ dept.id }}" data-org="{{ dept.org_id }}">{{ dept.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% else %}
+        <input type="hidden" id="empDeptId" value="{{ caller_dept_id }}">
+        {% endif %}
+        <button class="btn btn-primary" onclick="addEmployee()">➕ Добавить сотрудника</button>
+        <div class="toast" id="addToast"></div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="card">
+        <div class="card-title">Шаг 2 — съёмка лица</div>
+        <div class="form-group">
+          <label>Выбрать сотрудника</label>
+          <select id="empSelect">
+            <option value="">— выберите —</option>
+          </select>
+        </div>
+
+        <div class="camera-wrap">
+          <video id="video" autoplay playsinline muted></video>
+          <canvas id="faceCanvas"></canvas>
+        </div>
+
+        <div class="quality-badge quality-none" id="qualityBadge">
+          <span id="qualityIcon">📷</span>
+          <span id="qualityText">Выберите сотрудника</span>
+        </div>
+
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>Прогресс</span>
+            <span id="progressLabel">0 / 10 снимков</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+        </div>
+
+        <div class="samples-row" id="samplesRow"></div>
+
+        <button class="capture-btn" id="captureBtn" onclick="capturePhoto()" disabled>
+          📸 Сделать снимок
+        </button>
+        <div class="toast" id="captureToast"></div>
+
+        <div class="tip">
+          <span class="tip-icon">💡</span>
+          <span class="tip-text">Рекомендуется <strong>10 снимков</strong>: прямо, чуть левее, правее, разное освещение — это улучшит точность.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Employees list -->
+    <div class="card">
+      <div class="card-title">Зарегистрированные сотрудники</div>
+      <div class="emp-list" id="empList">
+        <div style="font-size:13px;color:#90a4ae;text-align:center;padding:20px;">Пока нет сотрудников</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS = ["#1565C0","#1B5E20","#4A148C","#BF360C","#006064","#37474F"];
+function colorFor(name) { let h=0; for(let c of name) h=(h*31+c.charCodeAt(0))%COLORS.length; return COLORS[h]; }
+function initials(name) { return name.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase(); }
+
+const TARGET_PHOTOS = 10;
+let detectInterval = null;
+let currentFaceCount = 0;
+
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width:640, height:480, facingMode:"user" } });
+    const video = document.getElementById("video");
+    video.srcObject = stream;
+    video.onloadedmetadata = () => {
+      const c = document.getElementById("faceCanvas");
+      c.width = video.videoWidth;
+      c.height = video.videoHeight;
+      startDetectLoop();
+    };
+  } catch(e) { console.error("Camera error:", e); }
+}
+startCamera();
+
+function startDetectLoop() {
+  if (detectInterval) clearInterval(detectInterval);
+  detectInterval = setInterval(detectLiveFace, 400);
+}
+
+async function detectLiveFace() {
+  const empId = document.getElementById("empSelect").value;
+  const video = document.getElementById("video");
+  if (!video.videoWidth) return;
+
+  const c = document.createElement("canvas");
+  c.width = video.videoWidth; c.height = video.videoHeight;
+  c.getContext("2d").drawImage(video, 0, 0);
+  const image = c.toDataURL("image/jpeg", 0.5);
+
+  try {
+    const resp = await fetch("/api/detect", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ image })
+    });
+    const data = await resp.json();
+    drawFaceBox(data, video.videoWidth, video.videoHeight);
+    updateQualityBadge(data, !!empId);
+  } catch(e) {}
+}
+
+function drawFaceBox(data, vw, vh) {
+  const canvas = document.getElementById("faceCanvas");
+  if (canvas.width !== vw) canvas.width = vw;
+  if (canvas.height !== vh) canvas.height = vh;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, vw, vh);
+  if (!data.face) return;
+  const [x, y, w, h] = data.bbox;
+  const color = data.quality === "good" ? "#4CAF50" : "#FFC107";
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 8;
+  ctx.strokeRect(x, y, w, h);
+  ctx.shadowBlur = 0;
+  // Corner accents
+  const cs = 14;
+  ctx.lineWidth = 3;
+  [[x,y,1,1],[x+w,y,-1,1],[x,y+h,1,-1],[x+w,y+h,-1,-1]].forEach(([cx,cy,dx,dy]) => {
+    ctx.beginPath(); ctx.moveTo(cx+dx*cs, cy); ctx.lineTo(cx, cy); ctx.lineTo(cx, cy+dy*cs); ctx.stroke();
+  });
+}
+
+function updateQualityBadge(data, hasEmployee) {
+  const badge = document.getElementById("qualityBadge");
+  const icon  = document.getElementById("qualityIcon");
+  const text  = document.getElementById("qualityText");
+  if (!hasEmployee) {
+    badge.className = "quality-badge quality-none";
+    icon.textContent = "📷"; text.textContent = "Выберите сотрудника";
+    return;
+  }
+  if (!data.face) {
+    badge.className = "quality-badge quality-none";
+    icon.textContent = "🔄"; text.textContent = "Повернитесь к камере";
+    return;
+  }
+  if (data.quality === "good") {
+    badge.className = "quality-badge quality-good";
+    icon.textContent = "✅"; text.textContent = "Хорошо — снимайте!";
+  } else {
+    badge.className = "quality-badge quality-ok";
+    icon.textContent = "⚠️"; text.textContent = "Держите прямо, ближе";
+  }
+}
+
+document.getElementById("empSelect").addEventListener("change", function() {
+  const btn = document.getElementById("captureBtn");
+  btn.disabled = !this.value;
+  if (this.value) {
+    loadEmployeeFaceCount(this.value);
+  } else {
+    setProgress(0);
+    document.getElementById("samplesRow").innerHTML = "";
+    updateQualityBadge({face: false}, false);
+  }
+});
+
+function setProgress(count) {
+  currentFaceCount = count;
+  const pct = Math.min(100, Math.round(count / TARGET_PHOTOS * 100));
+  document.getElementById("progressLabel").textContent = `${count} / ${TARGET_PHOTOS} снимков`;
+  const fill = document.getElementById("progressFill");
+  fill.style.width = pct + "%";
+  fill.className = "progress-fill" + (count >= TARGET_PHOTOS ? " done" : "");
+}
+
+async function loadEmployees() {
+  const resp = await fetch("/api/employees");
+  const data = await resp.json();
+  const employees = Object.values(data);
+  const list = document.getElementById("empList");
+  const select = document.getElementById("empSelect");
+  const curVal = select.value;
+
+  select.innerHTML = '<option value="">— выберите —</option>';
+  employees.forEach(e => {
+    const opt = document.createElement("option");
+    opt.value = e.id; opt.textContent = e.name;
+    select.appendChild(opt);
+  });
+  if (curVal) { select.value = curVal; loadEmployeeFaceCount(curVal); }
+
+  if (!employees.length) {
+    list.innerHTML = '<div style="font-size:13px;color:#90a4ae;text-align:center;padding:20px;">Пока нет сотрудников</div>';
+    return;
+  }
+  list.innerHTML = employees.map(e => {
+    const col = colorFor(e.name);
+    const cnt = e.face_count || 0;
+    const ready = cnt >= 3;
+    return `<div class="emp-item">
+      <div class="emp-avatar" style="background:${col}22;color:${col};border:2px solid ${col}44;">${initials(e.name)}</div>
+      <div class="emp-info">
+        <div class="emp-info-name">${e.name}</div>
+        <div class="emp-info-role">${e.role}</div>
+      </div>
+      <div class="emp-face-count ${ready ? 'ready' : ''}">
+        ${ready ? '✓' : '📷'} ${cnt} фото
+      </div>
+      <div class="emp-actions">
+        <button class="btn btn-warning" title="Удалить все фото и переобучить" onclick="resetFace('${e.id}')">🔄</button>
+        <button class="btn btn-danger" onclick="deleteEmployee('${e.id}')">✕</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function loadEmployeeFaceCount(empId) {
+  const resp = await fetch("/api/employees");
+  const data = await resp.json();
+  const emp = data[empId];
+  if (emp) setProgress(emp.face_count || 0);
+}
+
+function showToast(id, msg, type) {
+  const t = document.getElementById(id);
+  t.className = "toast " + type;
+  t.textContent = msg;
+  setTimeout(() => t.className = "toast", 3500);
+}
+
+function filterDepts() {
+  const orgId = document.getElementById("empOrgId").value;
+  const sel = document.getElementById("empDeptId");
+  if (!sel || sel.type === 'hidden') return;
+  Array.from(sel.options).forEach(opt => {
+    if (!opt.value) return; // keep placeholder
+    opt.hidden = orgId && opt.dataset.org !== orgId;
+  });
+  sel.value = '';
+}
+
+async function addEmployee() {
+  const name = document.getElementById("empName").value.trim();
+  const role = document.getElementById("empRole").value.trim();
+  const org_id = document.getElementById("empOrgId")?.value || null;
+  const dept_id = document.getElementById("empDeptId")?.value || null;
+  if (!name || !role) { showToast("addToast", "Заполните ФИО и должность", "error"); return; }
+  const resp = await fetch("/api/employees", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ name, role, org_id: org_id || null, dept_id: dept_id || null })
+  });
+  if (resp.ok) {
+    showToast("addToast", `✓ Сотрудник "${name}" добавлен`, "success");
+    document.getElementById("empName").value = "";
+    document.getElementById("empRole").value = "";
+    loadEmployees();
+  } else {
+    const d = await resp.json();
+    showToast("addToast", d.error || "Ошибка при добавлении", "error");
+  }
+}
+
+async function capturePhoto() {
+  const empId = document.getElementById("empSelect").value;
+  if (!empId) return;
+  const video = document.getElementById("video");
+  const c = document.createElement("canvas");
+  c.width = video.videoWidth || 640; c.height = video.videoHeight || 480;
+  c.getContext("2d").drawImage(video, 0, 0);
+  const image = c.toDataURL("image/jpeg", 0.9);
+  const btn = document.getElementById("captureBtn");
+  btn.disabled = true; btn.textContent = "⏳ Обработка...";
+  try {
+    const resp = await fetch("/api/register_face", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ emp_id: empId, image })
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      showToast("captureToast", `✓ Снимок ${data.count} сохранён`, "success");
+      setProgress(data.count);
+      const thumb = document.createElement("img");
+      thumb.className = "sample-thumb";
+      thumb.src = image;
+      document.getElementById("samplesRow").appendChild(thumb);
+      loadEmployees();
+    } else {
+      showToast("captureToast", data.error || "Лицо не обнаружено", "error");
+    }
+  } catch(e) {
+    showToast("captureToast", "Ошибка соединения", "error");
+  }
+  btn.disabled = false; btn.innerHTML = "📸 Сделать снимок";
+}
+
+async function resetFace(id) {
+  if (!confirm("Удалить все фото лица и переобучить модель?")) return;
+  const resp = await fetch(`/api/employees/${id}/reset`, { method: "POST" });
+  if (resp.ok) {
+    const curVal = document.getElementById("empSelect").value;
+    if (curVal === id) { setProgress(0); document.getElementById("samplesRow").innerHTML = ""; }
+    loadEmployees();
+  }
+}
+
+async function deleteEmployee(id) {
+  if (!confirm("Удалить сотрудника и все его данные?")) return;
+  await fetch("/api/employees/" + id, { method: "DELETE" });
+  loadEmployees();
+}
+
+loadEmployees();
+</script>
+</body>
+</html>

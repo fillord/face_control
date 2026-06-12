@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Регистрация — МедКонтроль</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f6fb; color: #1a2340; min-height: 100vh; }
+header { background: #fff; border-bottom: 1px solid #e2e6f0; padding: 14px 24px; display: flex; align-items: center; gap: 10px; }
+.logo-icon { width: 34px; height: 34px; background: #1565C0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.logo-text { font-size: 16px; font-weight: 600; color: #1a2340; }
+.logo-sub { font-size: 12px; color: #78909c; }
+.page { max-width: 440px; margin: 0 auto; padding: 24px 16px; }
+
+/* ─── PIN screen ─────────────────────────────────────────────────────── */
+#pinScreen { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 32px 0; }
+#pinScreen.hidden { display: none; }
+#pinTitle { font-size: 18px; font-weight: 600; color: #1a2340; text-align: center; }
+#pinSubtitle { font-size: 13px; color: #78909c; text-align: center; }
+#pinDisplay { display: flex; gap: 14px; margin-bottom: 4px; }
+#pinDisplay span { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #1565C0; display: inline-block; transition: background 0.1s; }
+#pinDisplay span.filled { background: #1565C0; }
+.pin-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.pin-grid button { width: 80px; height: 72px; border-radius: 12px; border: 1px solid #e2e6f0; background: #fff; color: #1a2340; font-size: 26px; font-weight: 600; cursor: pointer; transition: background 0.12s, transform 0.08s; touch-action: manipulation; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.pin-grid button:hover { background: #f4f6fb; }
+.pin-grid button:active { background: #e3f0ff; transform: scale(0.96); }
+.pin-grid button.pin-back { font-size: 20px; color: #546e7a; }
+.pin-grid button.pin-ok { background: #1565C0; color: #fff; }
+.pin-grid button.pin-ok:hover { background: #0d47a1; }
+#pinError { color: #c62828; font-size: 13px; min-height: 20px; text-align: center; }
+
+/* ─── Registration form ───────────────────────────────────────────────── */
+#formScreen { display: none; }
+#formScreen.visible { display: block; }
+.form-header { margin-bottom: 20px; }
+.form-header h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+.form-header p { font-size: 13px; color: #546e7a; }
+.card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+.card-title { font-size: 12px; font-weight: 600; color: #546e7a; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px; }
+.form-group { margin-bottom: 14px; }
+label { display: block; font-size: 13px; font-weight: 500; color: #455a64; margin-bottom: 5px; }
+input[type="text"], select { width: 100%; padding: 12px 14px; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 15px; color: #1a2340; background: #fff; outline: none; transition: border-color 0.15s; }
+input[type="text"]:focus, select:focus { border-color: #1565C0; box-shadow: 0 0 0 3px rgba(21,101,192,0.1); }
+.btn-primary { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; padding: 13px; background: #1565C0; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
+.btn-primary:hover { background: #0d47a1; }
+.btn-primary:disabled { background: #90a4ae; cursor: not-allowed; }
+
+/* ─── Camera capture ──────────────────────────────────────────────────── */
+.camera-wrap { position: relative; width: 100%; aspect-ratio: 4/3; background: #0a0f1e; border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
+video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+canvas#faceCanvas { position: absolute; inset: 0; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none; }
+.quality-badge { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 7px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; margin-bottom: 12px; transition: all 0.3s; }
+.quality-good { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; }
+.quality-ok   { background: #FFF9C4; color: #F57F17; border: 1px solid #FFF176; }
+.quality-none { background: #f4f6fb; color: #90a4ae; border: 1px solid #e2e6f0; }
+.progress-wrap { margin-bottom: 10px; }
+.progress-label { display: flex; justify-content: space-between; font-size: 12px; color: #546e7a; margin-bottom: 5px; }
+.progress-bar { height: 6px; background: #e2e6f0; border-radius: 4px; overflow: hidden; }
+.progress-fill { height: 100%; background: #1565C0; border-radius: 4px; transition: width 0.3s; }
+.progress-fill.done { background: #2E7D32; }
+.capture-btn { width: 100%; padding: 13px; background: #1B5E20; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.15s; margin-bottom: 10px; touch-action: manipulation; min-height: 52px; }
+.capture-btn:hover { background: #2E7D32; }
+.capture-btn:disabled { background: #90a4ae; cursor: not-allowed; }
+.toast { padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; margin-top: 10px; display: none; }
+.toast.success { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; display: block; }
+.toast.error   { background: #FFEBEE; color: #B71C1C; border: 1px solid #EF9A9A; display: block; }
+.tip { display: flex; align-items: flex-start; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0f3f8; }
+.tip-text { font-size: 12px; color: #546e7a; line-height: 1.5; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo-icon">🏥</div>
+  <div>
+    <div class="logo-text">МедКонтроль</div>
+    <div class="logo-sub">{{ org_name }}</div>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- Phase A: PIN verification screen — touchscreen button pad only, keyboard-free -->
+  <div id="pinScreen">
+    <div id="pinTitle">Введите PIN для регистрации</div>
+    <div id="pinSubtitle">Спросите PIN-код у администратора</div>
+    <div id="pinDisplay">
+      <span id="pinDot0"></span>
+      <span id="pinDot1"></span>
+      <span id="pinDot2"></span>
+      <span id="pinDot3"></span>
+    </div>
+    <div class="pin-grid">
+      <button type="button" onclick="pinPress('1')">1</button>
+      <button type="button" onclick="pinPress('2')">2</button>
+      <button type="button" onclick="pinPress('3')">3</button>
+      <button type="button" onclick="pinPress('4')">4</button>
+      <button type="button" onclick="pinPress('5')">5</button>
+      <button type="button" onclick="pinPress('6')">6</button>
+      <button type="button" onclick="pinPress('7')">7</button>
+      <button type="button" onclick="pinPress('8')">8</button>
+      <button type="button" onclick="pinPress('9')">9</button>
+      <button type="button" class="pin-back" onclick="pinPress('back')">⌫</button>
+      <button type="button" onclick="pinPress('0')">0</button>
+      <button type="button" class="pin-ok" onclick="pinPress('ok')">OK</button>
+    </div>
+    <div id="pinError"></div>
+  </div>
+
+  <!-- Phase B: Registration form (revealed after PIN verification) -->
+  <div id="formScreen">
+
+    <div class="form-header">
+      <h1>Регистрация сотрудника</h1>
+      <p>Заполните данные и сделайте фотографию</p>
+    </div>
+
+    <!-- Step 1: Employee info -->
+    <div class="card">
+      <div class="card-title">Шаг 1 — данные сотрудника</div>
+      <div class="form-group">
+        <label for="empNameInput">ФИО</label>
+        <input type="text" id="empNameInput" placeholder="Иванова Мария Сергеевна" autocomplete="name">
+      </div>
+      {% if depts %}
+      <div class="form-group">
+        <label for="deptSelect">Отдел</label>
+        <select id="deptSelect">
+          <option value="">— выберите отдел —</option>
+          {% for dept in depts %}
+          <option value="{{ dept.id }}">{{ dept.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <button class="btn-primary" onclick="submitEmployee()" id="submitBtn">Далее — сделать снимок</button>
+      <div class="toast" id="submitToast"></div>
+    </div>
+
+    <!-- Step 2: Face capture (hidden until employee created) -->
+    <div class="card" id="captureCard" style="display:none;">
+      <div class="card-title">Шаг 2 — фотография лица</div>
+
+      <div class="camera-wrap">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="faceCanvas"></canvas>
+      </div>
+
+      <div class="quality-badge quality-none" id="qualityBadge">
+        <span id="qualityIcon">📷</span>
+        <span id="qualityText">Смотрите в камеру</span>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-label">
+          <span>Прогресс</span>
+          <span id="progressLabel">0 / 10 снимков</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      </div>
+
+      <button class="capture-btn" id="captureBtn" onclick="capturePhoto()">
+        📸 Сделать снимок
+      </button>
+      <div class="toast" id="captureToast"></div>
+
+      <div class="tip">
+        <span>💡</span>
+        <span class="tip-text">Рекомендуется <strong>10 снимков</strong>: прямо, чуть левее, правее, при разном освещении — это улучшит точность распознавания.</span>
+      </div>
+    </div>
+
+  </div><!-- /formScreen -->
+
+</div><!-- /page -->
+
+<script>
+const REG_TOKEN = "{{ reg_token }}";
+const TARGET_PHOTOS = 10;
+let pinDigits = [];
+let createdEmpId = null;
+let photoCount = 0;
+let detectInterval = null;
+
+// ─── PIN pad ───────────────────────────────────────────────────────────────
+
+function updatePinDisplay() {
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById('pinDot' + i);
+    if (dot) dot.className = i < pinDigits.length ? 'filled' : '';
+  }
+}
+
+async function submitPin() {
+  const pin = pinDigits.join('');
+  try {
+    const resp = await fetch(`/api/register/${REG_TOKEN}/verify_pin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin })
+    });
+    const data = await resp.json();
+    if (data.verified) {
+      document.getElementById('pinError').textContent = '';
+      revealForm();
+    } else {
+      document.getElementById('pinError').textContent = 'Неверный PIN-код. Попробуйте снова.';
+      pinDigits = [];
+      updatePinDisplay();
+    }
+  } catch(e) {
+    document.getElementById('pinError').textContent = 'Ошибка соединения. Повторите попытку.';
+    pinDigits = [];
+    updatePinDisplay();
+  }
+}
+
+function pinPress(val) {
+  if (val === 'back') {
+    pinDigits.pop();
+    updatePinDisplay();
+  } else if (val === 'ok') {
+    if (pinDigits.length === 4) submitPin();
+  } else {
+    if (pinDigits.length < 4) {
+      pinDigits.push(val);
+      updatePinDisplay();
+      if (pinDigits.length === 4) submitPin();
+    }
+  }
+}
+
+function revealForm() {
+  document.getElementById('pinScreen').classList.add('hidden');
+  const fs = document.getElementById('formScreen');
+  fs.classList.add('visible');
+  fs.style.display = '';
+  startCamera();
+}
+
+// If no PIN required, reveal form immediately
+(function initPinScreen() {
+  const hasPinRequired = {{ 'true' if has_pin else 'false' }};
+  if (!hasPinRequired) {
+    revealForm();
+  }
+})();
+
+// ─── Registration form ─────────────────────────────────────────────────────
+
+function showToast(id, msg, type) {
+  const t = document.getElementById(id);
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  setTimeout(() => { t.className = 'toast'; }, 4000);
+}
+
+async function submitEmployee() {
+  const name = document.getElementById('empNameInput').value.trim();
+  const deptEl = document.getElementById('deptSelect');
+  const dept_id = deptEl ? deptEl.value : '';
+  if (!name) {
+    showToast('submitToast', 'Укажите ФИО сотрудника', 'error');
+    return;
+  }
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Сохранение...';
+  try {
+    const resp = await fetch(`/api/register/${REG_TOKEN}/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, dept_id: dept_id || null })
+    });
+    const data = await resp.json();
+    if (resp.ok && data.id) {
+      createdEmpId = data.id;
+      showToast('submitToast', 'Сотрудник создан — теперь сделайте снимки', 'success');
+      document.getElementById('captureCard').style.display = '';
+      btn.textContent = 'Готово';
+    } else {
+      showToast('submitToast', data.error || 'Ошибка при сохранении', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Далее — сделать снимок';
+    }
+  } catch(e) {
+    showToast('submitToast', 'Ошибка соединения', 'error');
+    btn.disabled = false;
+    btn.textContent = 'Далее — сделать снимок';
+  }
+}
+
+// ─── Camera capture ────────────────────────────────────────────────────────
+
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
+    const video = document.getElementById('video');
+    video.srcObject = stream;
+    video.onloadedmetadata = () => {
+      const c = document.getElementById('faceCanvas');
+      c.width = video.videoWidth;
+      c.height = video.videoHeight;
+      startDetectLoop();
+    };
+  } catch(e) {
+    console.error('Camera error:', e);
+  }
+}
+
+function startDetectLoop() {
+  if (detectInterval) clearInterval(detectInterval);
+  detectInterval = setInterval(detectLiveFace, 400);
+}
+
+async function detectLiveFace() {
+  const video = document.getElementById('video');
+  if (!video.videoWidth) return;
+  const c = document.createElement('canvas');
+  c.width = video.videoWidth; c.height = video.videoHeight;
+  c.getContext('2d').drawImage(video, 0, 0);
+  const image = c.toDataURL('image/jpeg', 0.5);
+  try {
+    const resp = await fetch('/api/detect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image })
+    });
+    const data = await resp.json();
+    drawFaceBox(data, video.videoWidth, video.videoHeight);
+    updateQualityBadge(data);
+  } catch(e) {}
+}
+
+function drawFaceBox(data, vw, vh) {
+  const canvas = document.getElementById('faceCanvas');
+  if (canvas.width !== vw) canvas.width = vw;
+  if (canvas.height !== vh) canvas.height = vh;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, vw, vh);
+  if (!data.face) return;
+  const [x, y, w, h] = data.bbox;
+  const color = data.quality === 'good' ? '#4CAF50' : '#FFC107';
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 8;
+  ctx.strokeRect(x, y, w, h);
+  ctx.shadowBlur = 0;
+}
+
+function updateQualityBadge(data) {
+  const badge = document.getElementById('qualityBadge');
+  const icon  = document.getElementById('qualityIcon');
+  const text  = document.getElementById('qualityText');
+  if (!data.face) {
+    badge.className = 'quality-badge quality-none';
+    icon.textContent = '🔄'; text.textContent = 'Повернитесь к камере';
+    return;
+  }
+  if (data.quality === 'good') {
+    badge.className = 'quality-badge quality-good';
+    icon.textContent = '✅'; text.textContent = 'Хорошо — снимайте!';
+  } else {
+    badge.className = 'quality-badge quality-ok';
+    icon.textContent = '⚠️'; text.textContent = 'Держите прямо, ближе';
+  }
+}
+
+function setProgress(count) {
+  photoCount = count;
+  const pct = Math.min(100, Math.round(count / TARGET_PHOTOS * 100));
+  document.getElementById('progressLabel').textContent = `${count} / ${TARGET_PHOTOS} снимков`;
+  const fill = document.getElementById('progressFill');
+  fill.style.width = pct + '%';
+  fill.className = 'progress-fill' + (count >= TARGET_PHOTOS ? ' done' : '');
+}
+
+async function capturePhoto() {
+  if (!createdEmpId) {
+    showToast('captureToast', 'Сначала заполните данные сотрудника', 'error');
+    return;
+  }
+  const video = document.getElementById('video');
+  const c = document.createElement('canvas');
+  c.width = video.videoWidth || 640;
+  c.height = video.videoHeight || 480;
+  c.getContext('2d').drawImage(video, 0, 0);
+  const image = c.toDataURL('image/jpeg', 0.9);
+  const btn = document.getElementById('captureBtn');
+  btn.disabled = true;
+  btn.textContent = 'Обработка...';
+  try {
+    const resp = await fetch('/api/register_face', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emp_id: createdEmpId, image })
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      setProgress(data.count);
+      showToast('captureToast', `✓ Снимок ${data.count} сохранён`, 'success');
+      if (data.count >= TARGET_PHOTOS) {
+        showToast('captureToast', 'Сотрудник зарегистрирован', 'success');
+        btn.textContent = 'Готово!';
+        btn.disabled = true;
+        return;
+      }
+    } else {
+      showToast('captureToast', data.error || 'Лицо не обнаружено', 'error');
+    }
+  } catch(e) {
+    showToast('captureToast', 'Ошибка соединения', 'error');
+  }
+  btn.disabled = false;
+  btn.innerHTML = '📸 Сделать снимок';
+}
+</script>
+</body>
+</html>

@@ -68,7 +68,27 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Each employee has a configurable work schedule (start time, end time, work days); standard Mon–Fri 8h is the default.
   5. When a face is recognized at the kiosk, the employee's department name appears on the confirmation screen alongside their name and time.
 
-**Plans**: TBD
+**Plans**: 5 plans
+**Wave 0** *(test scaffold)*
+
+- [ ] 02-01-PLAN.md — Failing pytest scaffold + conftest extension for all 10 Phase 2 requirements (ORG/MIG/T13/DASH/KIOSK stubs)
+
+**Wave 1** *(blocked on Wave 0)*
+
+- [ ] 02-02-PLAN.md — Data foundation: ORGS_FILE/DEPTS_FILE + load/save helpers + standalone migrate.py (MIG-01, MIG-02)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 02-03-PLAN.md — Org/Dept CRUD with scope gates + superadmin.html & org_admin.html pages (ORG-01..04)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 02-04-PLAN.md — Superadmin & dept dashboards + schedule PATCH + login redirect + dept_admin.html (DASH-01, DASH-02, T13-06)
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 02-05-PLAN.md — Kiosk dept-name slice + full-phase smoke checkpoint (KIOSK-01) [checkpoint]
+
 **UI hint**: yes
 
 ### Phase 3: T-13 Timesheet Grid
@@ -113,6 +133,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. RBAC Foundation | 5/5 | Complete   | 2026-06-11 |
-| 2. Org/Dept Data Model | 0/TBD | Not started | - |
+| 2. Org/Dept Data Model | 0/5 | Planned | - |
 | 3. T-13 Timesheet Grid | 0/TBD | Not started | - |
 | 4. Export & Employee Cabinet | 0/TBD | Not started | - |

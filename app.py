@@ -17,6 +17,8 @@ ATTENDANCE_FILE = os.path.join(DATA_DIR, "attendance.json")
 CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
 LOGS_FILE = os.path.join(DATA_DIR, "logs.json")
 USERS_FILE = os.path.join(DATA_DIR, "users.json")
+ORGS_FILE = os.path.join(DATA_DIR, "orgs.json")
+DEPTS_FILE = os.path.join(DATA_DIR, "depts.json")
 os.makedirs(FACES_DIR, exist_ok=True)
 
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
@@ -118,6 +120,32 @@ def load_attendance():
 def save_attendance(data):
     with open(ATTENDANCE_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+# ─── Data helpers: Orgs / Depts ───────────────────────────────────────────────
+
+def load_orgs():
+    if os.path.exists(ORGS_FILE):
+        with open(ORGS_FILE) as f:
+            return json.load(f)
+    return {}
+
+def save_orgs(data):
+    with open(ORGS_FILE, "w", encoding="utf-8") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+        fcntl.flock(fh, fcntl.LOCK_UN)
+
+def load_depts():
+    if os.path.exists(DEPTS_FILE):
+        with open(DEPTS_FILE) as f:
+            return json.load(f)
+    return {}
+
+def save_depts(data):
+    with open(DEPTS_FILE, "w", encoding="utf-8") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+        fcntl.flock(fh, fcntl.LOCK_UN)
 
 def append_log(entry):
     logs = []

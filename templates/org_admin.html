@@ -68,6 +68,7 @@ tr:last-child td { border-bottom: none; }
 <div class="nav-tabs">
   <span class="tab active" id="tabDepts" onclick="switchTab('depts')">Отделы</span>
   <span class="tab" id="tabEmployees" onclick="switchTab('employees')">Сотрудники</span>
+  <span class="tab" id="tabSettings" onclick="switchTab('settings')">Настройки киоска</span>
   <a class="tab" href="/admin">Отчёты</a>
   <a class="tab" href="/register">Регистрация</a>
 </div>
@@ -127,6 +128,92 @@ tr:last-child td { border-bottom: none; }
   </div>
 </div>
 
+<div id="panelSettings" class="page hidden">
+  <div style="max-width:560px;">
+    <h2 style="font-size:18px;font-weight:600;margin-bottom:20px;">Настройки киоска</h2>
+
+    <!-- Live URLs -->
+    <div class="card" style="max-width:100%;margin-bottom:20px;">
+      <h3 style="font-size:14px;font-weight:600;margin-bottom:14px;color:#546e7a;">Ссылки</h3>
+      <div class="form-group">
+        <label>URL киоска</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="kioskUrl" readonly style="background:#f4f6fb;flex:1;"
+            value="{{ request.host_url.rstrip('/') }}/kiosk/{{ org_token }}">
+          <button class="btn-secondary" onclick="copyUrl('kioskUrl')">Копировать</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label>URL регистрации</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="regUrl" readonly style="background:#f4f6fb;flex:1;"
+            value="{{ request.host_url.rstrip('/') }}/register/{{ reg_token }}">
+          <button class="btn-secondary" onclick="copyUrl('regUrl')">Копировать</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PIN settings -->
+    <div class="card" style="max-width:100%;margin-bottom:20px;">
+      <h3 style="font-size:14px;font-weight:600;margin-bottom:14px;color:#546e7a;">Пин-коды</h3>
+      <div class="form-group">
+        <label>PIN киоска (4 цифры)</label>
+        <input type="text" id="newKioskPin" maxlength="4" pattern="\d{4}" placeholder="Введите новый PIN" style="max-width:200px;">
+      </div>
+      <div id="kioskPinError" class="error-msg hidden"></div>
+      <div class="form-actions">
+        <button class="btn-primary" onclick="saveKioskPin()">Сохранить PIN киоска</button>
+      </div>
+
+      <div style="margin-top:20px;">
+        <div class="form-group">
+          <label>PIN регистрации (4 цифры)</label>
+          <input type="text" id="newRegPin" maxlength="4" pattern="\d{4}" placeholder="Введите новый PIN" style="max-width:200px;">
+        </div>
+        <div id="regPinError" class="error-msg hidden"></div>
+        <div class="form-actions">
+          <button class="btn-primary" onclick="saveRegPin()">Сохранить PIN регистрации</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Registration link regen -->
+    <div class="card" style="max-width:100%;margin-bottom:20px;">
+      <h3 style="font-size:14px;font-weight:600;margin-bottom:14px;color:#546e7a;">Ссылка регистрации</h3>
+      <p style="font-size:13px;color:#546e7a;margin-bottom:14px;">После смены ссылки старая перестанет работать.</p>
+      <div id="regenError" class="error-msg hidden"></div>
+      <button class="btn-primary" onclick="regenRegToken()">Сгенерировать новую ссылку регистрации</button>
+    </div>
+
+    <!-- Registration expiry -->
+    <div class="card" style="max-width:100%;margin-bottom:20px;">
+      <h3 style="font-size:14px;font-weight:600;margin-bottom:14px;color:#546e7a;">Срок действия ссылки регистрации</h3>
+      <div class="form-group">
+        <label>Срок действия ссылки</label>
+        <input type="datetime-local" id="regExpiry" value="{{ reg_token_expires[:16] if reg_token_expires else '' }}" style="max-width:240px;">
+      </div>
+      <div id="expiryError" class="error-msg hidden"></div>
+      <div class="form-actions">
+        <button class="btn-primary" onclick="saveExpiry()">Сохранить срок</button>
+        <button class="btn-secondary" onclick="clearExpiry()">Без срока</button>
+      </div>
+    </div>
+
+    <!-- Display name -->
+    <div class="card" style="max-width:100%;margin-bottom:20px;">
+      <h3 style="font-size:14px;font-weight:600;margin-bottom:14px;color:#546e7a;">Название на киоске</h3>
+      <div class="form-group">
+        <label>Название на киоске</label>
+        <input type="text" id="displayName" value="{{ kiosk_display_name }}" placeholder="{{ org_name }}">
+      </div>
+      <div id="displayNameError" class="error-msg hidden"></div>
+      <div class="form-actions">
+        <button class="btn-primary" onclick="saveDisplayName()">Сохранить название</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="panelEmployees" class="page hidden">
   <div class="table-card">
     <table>
@@ -149,6 +236,7 @@ tr:last-child td { border-bottom: none; }
 // ─── State ────────────────────────────────────────────────────────────────────
 let allDepts = [];
 let allEmployees = [];
+const ORG_ID = "{{ org_id }}";
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
@@ -160,8 +248,10 @@ async function init() {
 function switchTab(tab) {
   document.getElementById('tabDepts').classList.toggle('active', tab === 'depts');
   document.getElementById('tabEmployees').classList.toggle('active', tab === 'employees');
+  document.getElementById('tabSettings').classList.toggle('active', tab === 'settings');
   document.getElementById('panelDepts').classList.toggle('hidden', tab !== 'depts');
   document.getElementById('panelEmployees').classList.toggle('hidden', tab !== 'employees');
+  document.getElementById('panelSettings').classList.toggle('hidden', tab !== 'settings');
 }
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
@@ -367,6 +457,109 @@ async function reassignEmployee(empId, deptId) {
     alert('Ошибка при сохранении. Попробуйте ещё раз.');
     await loadEmployees();
   }
+}
+
+// ─── Settings: helpers ────────────────────────────────────────────────────────
+async function patchSettings(payload, errElId) {
+  const errEl = document.getElementById(errElId);
+  errEl.classList.add('hidden');
+  try {
+    const resp = await fetch(`/api/orgs/${ORG_ID}/settings`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      errEl.textContent = data.error || 'Ошибка при сохранении. Попробуйте ещё раз.';
+      errEl.classList.remove('hidden');
+      return null;
+    }
+    return data;
+  } catch (e) {
+    errEl.textContent = 'Ошибка соединения. Попробуйте ещё раз.';
+    errEl.classList.remove('hidden');
+    return null;
+  }
+}
+
+function copyUrl(inputId) {
+  const el = document.getElementById(inputId);
+  el.select();
+  document.execCommand('copy');
+}
+
+// ─── Settings: PIN actions ────────────────────────────────────────────────────
+async function saveKioskPin() {
+  const pin = document.getElementById('newKioskPin').value.trim();
+  if (pin && (pin.length !== 4 || !/^\d{4}$/.test(pin))) {
+    const errEl = document.getElementById('kioskPinError');
+    errEl.textContent = 'PIN должен быть 4-значным числом.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  const result = await patchSettings({kiosk_pin: pin || null}, 'kioskPinError');
+  if (result) {
+    document.getElementById('newKioskPin').value = '';
+    alert('PIN киоска обновлён.');
+  }
+}
+
+async function saveRegPin() {
+  const pin = document.getElementById('newRegPin').value.trim();
+  if (pin && (pin.length !== 4 || !/^\d{4}$/.test(pin))) {
+    const errEl = document.getElementById('regPinError');
+    errEl.textContent = 'PIN должен быть 4-значным числом.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  const result = await patchSettings({reg_pin: pin || null}, 'regPinError');
+  if (result) {
+    document.getElementById('newRegPin').value = '';
+    alert('PIN регистрации обновлён.');
+  }
+}
+
+// ─── Settings: reg_token regen ────────────────────────────────────────────────
+async function regenRegToken() {
+  if (!window.confirm('Сгенерировать новую ссылку? Старая ссылка перестанет работать.')) return;
+  const result = await patchSettings({regen_reg_token: true}, 'regenError');
+  if (result && result.reg_token) {
+    const origin = window.location.origin;
+    const newUrl = `${origin}/register/${result.reg_token}`;
+    document.getElementById('regUrl').value = newUrl;
+    alert('Ссылка регистрации обновлена.');
+  }
+}
+
+// ─── Settings: reg_token_expires ──────────────────────────────────────────────
+async function saveExpiry() {
+  const val = document.getElementById('regExpiry').value;
+  if (!val) {
+    const errEl = document.getElementById('expiryError');
+    errEl.textContent = 'Выберите дату и время.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  // datetime-local gives "YYYY-MM-DDTHH:MM" — append ":00" for ISO compliance
+  const iso = val.length === 16 ? val + ':00' : val;
+  const result = await patchSettings({reg_token_expires: iso}, 'expiryError');
+  if (result) alert('Срок действия ссылки сохранён.');
+}
+
+async function clearExpiry() {
+  const result = await patchSettings({reg_token_expires: null}, 'expiryError');
+  if (result) {
+    document.getElementById('regExpiry').value = '';
+    alert('Срок действия ссылки снят.');
+  }
+}
+
+// ─── Settings: kiosk_display_name ─────────────────────────────────────────────
+async function saveDisplayName() {
+  const name = document.getElementById('displayName').value.trim();
+  const result = await patchSettings({kiosk_display_name: name}, 'displayNameError');
+  if (result) alert('Название киоска обновлено.');
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

@@ -508,9 +508,24 @@ def org_admin_page():
     user = users.get(session.get("user_id"), {})
     username = user.get("username", "")
     role = user.get("role", "")
-    org = load_orgs().get(session.get("org_id"))
+    caller_org_id = session.get("org_id")
+    org = load_orgs().get(caller_org_id)
     org_name = org.get("name") if org else ""
-    return render_template("org_admin.html", username=username, role=role, org_name=org_name)
+    org_token = org.get("org_token", "") if org else ""
+    reg_token = org.get("reg_token", "") if org else ""
+    reg_token_expires = org.get("reg_token_expires") if org else None
+    kiosk_display_name = org.get("kiosk_display_name", "") if org else ""
+    return render_template(
+        "org_admin.html",
+        username=username,
+        role=role,
+        org_name=org_name,
+        org_id=caller_org_id or "",
+        org_token=org_token,
+        reg_token=reg_token,
+        reg_token_expires=reg_token_expires or "",
+        kiosk_display_name=kiosk_display_name,
+    )
 
 
 @app.route("/dept_admin")
@@ -718,13 +733,55 @@ def update_org_settings(org_id):
     if caller_role == "org_admin" and session.get("org_id") != org_id:
         return jsonify({"error": "forbidden"}), 403
     data = request.json or {}
+
+    # kiosk_pin — validate 4 digits; store as bcrypt hash
     if "kiosk_pin" in data:
         pin = data["kiosk_pin"]
-        if pin and (len(str(pin)) != 4 or not str(pin).isdigit()):
-            return jsonify({"error": "PIN должен быть 4-значным числом"}), 400
-        orgs[org_id]["kiosk_pin"] = str(pin) if pin else None
+        if pin:
+            if len(str(pin)) != 4 or not str(pin).isdigit():
+                return jsonify({"error": "PIN должен быть 4-значным числом"}), 400
+            orgs[org_id]["kiosk_pin"] = hash_pin(pin)
+        else:
+            orgs[org_id]["kiosk_pin"] = None
+
+    # reg_pin — same validation and bcrypt storage
+    if "reg_pin" in data:
+        pin = data["reg_pin"]
+        if pin:
+            if len(str(pin)) != 4 or not str(pin).isdigit():
+                return jsonify({"error": "PIN должен быть 4-значным числом"}), 400
+            orgs[org_id]["reg_pin"] = hash_pin(pin)
+        else:
+            orgs[org_id]["reg_pin"] = None
+
+    # regen_reg_token — generate a new unique 8-hex reg_token
+    if data.get("regen_reg_token"):
+        seen = set()
+        for org in orgs.values():
+            if org.get("org_token"):
+                seen.add(org["org_token"])
+            if org.get("reg_token"):
+                seen.add(org["reg_token"])
+        orgs[org_id]["reg_token"] = generate_unique_token(seen)
+
+    # reg_token_expires — store ISO string or clear to None
+    if "reg_token_expires" in data:
+        expires = data["reg_token_expires"]
+        if expires:
+            try:
+                datetime.fromisoformat(expires)
+            except (ValueError, TypeError):
+                return jsonify({"error": "Неверный формат даты (ожидается ISO 8601)"}), 400
+            orgs[org_id]["reg_token_expires"] = expires
+        else:
+            orgs[org_id]["reg_token_expires"] = None
+
+    # kiosk_display_name — store trimmed string (allow empty)
+    if "kiosk_display_name" in data:
+        orgs[org_id]["kiosk_display_name"] = str(data["kiosk_display_name"]).strip()
+
     save_orgs(orgs)
-    return jsonify({"status": "updated"})
+    return jsonify({"status": "updated", "reg_token": orgs[org_id].get("reg_token")})
 
 
 @app.route("/api/kiosk/<org_token>/verify_pin", methods=["POST"])

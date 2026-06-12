@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Суперадмин — МедКонтроль</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f6fb; color: #1a2340; min-height: 100vh; }
+header { background: #fff; border-bottom: 1px solid #e2e6f0; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.logo { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
+.logo-icon { width: 34px; height: 34px; background: #1565C0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.user-badge { font-size: 13px; color: #546e7a; }
+.btn-logout { padding: 7px 14px; background: #fff; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; color: #546e7a; cursor: pointer; text-decoration: none; transition: all 0.15s; }
+.btn-logout:hover { background: #ffebee; color: #c62828; border-color: #ef9a9a; }
+.nav-tabs { display: flex; gap: 4px; padding: 0 24px; background: #fff; border-bottom: 1px solid #e2e6f0; }
+.tab { padding: 12px 20px; font-size: 13px; font-weight: 600; color: #78909c; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; text-decoration: none; display: inline-block; }
+.tab.active { color: #1565C0; border-bottom-color: #1565C0; }
+.tab:hover:not(.active) { color: #1a2340; }
+.page { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+.stat-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 12px; padding: 16px; }
+.stat-label { font-size: 11px; color: #78909c; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-val { font-size: 26px; font-weight: 600; }
+.stat-val.blue { color: #1565C0; }
+.stat-val.green { color: #2E7D32; }
+.stat-val.orange { color: #E65100; }
+.stat-val.gray { color: #546e7a; }
+.table-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; overflow: hidden; margin-bottom: 20px; }
+table { width: 100%; border-collapse: collapse; }
+thead { background: #f8fafd; }
+th { padding: 12px 12px; text-align: left; font-size: 11px; font-weight: 600; color: #546e7a; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e6f0; white-space: nowrap; }
+td { padding: 12px 12px; font-size: 13px; border-bottom: 1px solid #f0f3f8; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 14px; font-size: 11px; font-weight: 600; }
+.btn-primary { padding: 8px 16px; background: #1565C0; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+.btn-primary:hover { background: #0d47a1; }
+.btn-secondary { padding: 8px 16px; background: #fff; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; color: #546e7a; }
+.btn-edit { padding: 6px 12px; background: #fff; border: 1px solid #cfd8dc; border-radius: 6px; font-size: 12px; color: #546e7a; cursor: pointer; }
+.btn-edit:hover { background: #f4f6fb; }
+.btn-delete { padding: 6px 12px; background: #fff; border: 1px solid #ef9a9a; border-radius: 6px; font-size: 12px; color: #c62828; cursor: pointer; }
+.btn-delete:hover { background: #ffebee; }
+.card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; padding: 24px; max-width: 480px; margin-bottom: 20px; }
+.form-group { margin-bottom: 16px; }
+.form-group label { font-size: 13px; font-weight: 600; color: #546e7a; display: block; margin-bottom: 6px; }
+.form-group input, .form-group textarea { width: 100%; padding: 8px 12px; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 13px; color: #1a2340; outline: none; font-family: inherit; }
+.form-group input:focus, .form-group textarea:focus { border-color: #1565C0; }
+.form-actions { display: flex; gap: 10px; margin-top: 8px; }
+.hidden { display: none; }
+.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.error-msg { font-size: 13px; color: #c62828; margin-top: 8px; }
+@media (max-width: 700px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><div class="logo-icon">🏥</div> МедКонтроль — Суперадмин</div>
+  <div class="header-right">
+    <span class="user-badge">{{ username }}</span>
+    <a href="/" class="btn-logout" style="border-color:#cfd8dc;color:#546e7a;">← Киоск</a>
+    <a href="/logout" class="btn-logout">Выйти</a>
+  </div>
+</header>
+
+<div class="nav-tabs">
+  <span class="tab active" id="tabOrgs" onclick="switchTab('orgs')">Организации</span>
+  <a class="tab" href="/admin" id="tabUsers">Пользователи</a>
+  <a class="tab" href="/admin" id="tabReports">Отчёты →</a>
+</div>
+
+<div id="panelOrgs" class="page">
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Организации</div>
+      <div class="stat-val blue" id="statOrgs">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Сотрудников</div>
+      <div class="stat-val blue" id="statEmployees">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Сегодня пришли</div>
+      <div class="stat-val green" id="statCheckins">—</div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn-primary" onclick="toggleAddForm()">+ Добавить организацию</button>
+  </div>
+
+  <div id="addOrgPanel" class="card hidden">
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;" id="formTitle">Новая организация</h3>
+    <input type="hidden" id="editOrgId" value="">
+    <div class="form-group">
+      <label>Название *</label>
+      <input type="text" id="orgName" placeholder="Введите название организации">
+    </div>
+    <div class="form-group">
+      <label>Описание</label>
+      <input type="text" id="orgDescription" placeholder="Краткое описание (необязательно)">
+    </div>
+    <div id="formError" class="error-msg hidden"></div>
+    <div class="form-actions">
+      <button class="btn-primary" onclick="saveOrg()" id="saveBtn">Создать организацию</button>
+      <button class="btn-secondary" onclick="cancelForm()">Отмена</button>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Название</th>
+          <th>Сотрудников</th>
+          <th>Описание</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody id="orgsTableBody">
+        <tr><td colspan="4" style="text-align:center;color:#90a4ae;padding:28px;">Загрузка...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let allOrgs = [];
+let allEmployees = [];
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  await Promise.all([loadOrgs(), loadStats()]);
+}
+
+// ─── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById('tabOrgs').classList.toggle('active', tab === 'orgs');
+  document.getElementById('panelOrgs').classList.toggle('hidden', tab !== 'orgs');
+}
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const resp = await fetch('/api/superadmin_stats');
+    if (resp.ok) {
+      const stats = await resp.json();
+      document.getElementById('statOrgs').textContent = stats.orgs ?? '—';
+      document.getElementById('statEmployees').textContent = stats.employees ?? '—';
+      document.getElementById('statCheckins').textContent = stats.checkins_today ?? '—';
+    } else {
+      // Graceful degradation: endpoint lands in 02-04
+      document.getElementById('statOrgs').textContent = '—';
+      document.getElementById('statEmployees').textContent = '—';
+      document.getElementById('statCheckins').textContent = '—';
+    }
+  } catch (e) {
+    document.getElementById('statOrgs').textContent = '—';
+    document.getElementById('statEmployees').textContent = '—';
+    document.getElementById('statCheckins').textContent = '—';
+  }
+}
+
+// ─── Orgs CRUD ────────────────────────────────────────────────────────────────
+async function loadOrgs() {
+  try {
+    const [orgsResp, empsResp] = await Promise.all([
+      fetch('/api/orgs'),
+      fetch('/api/employees'),
+    ]);
+    allOrgs = orgsResp.ok ? await orgsResp.json() : [];
+    const empsData = empsResp.ok ? await empsResp.json() : {};
+    allEmployees = typeof empsData === 'object' && !Array.isArray(empsData)
+      ? Object.values(empsData)
+      : empsData;
+    renderOrgs();
+  } catch (e) {
+    document.getElementById('orgsTableBody').innerHTML =
+      '<tr><td colspan="4" style="text-align:center;color:#c62828;padding:28px;">Ошибка при сохранении. Попробуйте ещё раз.</td></tr>';
+  }
+}
+
+function renderOrgs() {
+  const tbody = document.getElementById('orgsTableBody');
+  if (!allOrgs.length) {
+    tbody.innerHTML =
+      '<tr><td colspan="4" style="text-align:center;color:#90a4ae;padding:28px;">Организации не найдены. Создайте первую организацию.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = allOrgs.map(org => {
+    const empCount = allEmployees.filter(e => e.org_id === org.id).length;
+    const desc = org.description ? `<span style="color:#546e7a;">${escapeHtml(org.description)}</span>` : '<span style="color:#bdbdbd;">—</span>';
+    return `<tr>
+      <td style="font-weight:500;">${escapeHtml(org.name)}</td>
+      <td style="color:#1565C0;font-weight:600;">${empCount}</td>
+      <td>${desc}</td>
+      <td style="display:flex;gap:8px;align-items:center;">
+        <button class="btn-edit" onclick="startEdit('${org.id}')">Изменить</button>
+        <button class="btn-delete" onclick="deleteOrg('${org.id}', '${escapeHtml(org.name)}')">Удалить</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function toggleAddForm() {
+  const panel = document.getElementById('addOrgPanel');
+  const isHidden = panel.classList.contains('hidden');
+  if (isHidden) {
+    // Reset to create mode
+    document.getElementById('editOrgId').value = '';
+    document.getElementById('orgName').value = '';
+    document.getElementById('orgDescription').value = '';
+    document.getElementById('formTitle').textContent = 'Новая организация';
+    document.getElementById('saveBtn').textContent = 'Создать организацию';
+    document.getElementById('formError').classList.add('hidden');
+    panel.classList.remove('hidden');
+  } else {
+    panel.classList.add('hidden');
+  }
+}
+
+function startEdit(orgId) {
+  const org = allOrgs.find(o => o.id === orgId);
+  if (!org) return;
+  document.getElementById('editOrgId').value = orgId;
+  document.getElementById('orgName').value = org.name;
+  document.getElementById('orgDescription').value = org.description || '';
+  document.getElementById('formTitle').textContent = 'Изменить организацию';
+  document.getElementById('saveBtn').textContent = 'Сохранить изменения';
+  document.getElementById('formError').classList.add('hidden');
+  document.getElementById('addOrgPanel').classList.remove('hidden');
+  document.getElementById('orgName').focus();
+}
+
+function cancelForm() {
+  document.getElementById('addOrgPanel').classList.add('hidden');
+  document.getElementById('formError').classList.add('hidden');
+}
+
+async function saveOrg() {
+  const editId = document.getElementById('editOrgId').value;
+  const name = document.getElementById('orgName').value.trim();
+  const description = document.getElementById('orgDescription').value.trim();
+  const errEl = document.getElementById('formError');
+
+  if (!name) {
+    errEl.textContent = 'Заполните все обязательные поля.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  errEl.classList.add('hidden');
+
+  try {
+    let resp;
+    if (editId) {
+      resp = await fetch(`/api/orgs/${editId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name, description}),
+      });
+    } else {
+      resp = await fetch('/api/orgs', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name, description}),
+      });
+    }
+    if (resp.ok) {
+      cancelForm();
+      await loadOrgs();
+      await loadStats();
+    } else {
+      const data = await resp.json();
+      errEl.textContent = data.error || 'Ошибка при сохранении. Попробуйте ещё раз.';
+      errEl.classList.remove('hidden');
+    }
+  } catch (e) {
+    errEl.textContent = 'Ошибка при сохранении. Попробуйте ещё раз.';
+    errEl.classList.remove('hidden');
+  }
+}
+
+async function deleteOrg(orgId, orgName) {
+  if (!window.confirm(`Удалить организацию «${orgName}»? Это действие нельзя отменить.`)) return;
+  try {
+    const resp = await fetch(`/api/orgs/${orgId}`, {method: 'DELETE'});
+    if (resp.ok) {
+      await loadOrgs();
+      await loadStats();
+    } else if (resp.status === 409) {
+      alert('Не удалось удалить. Возможно, запись используется.');
+    } else {
+      alert('Ошибка при сохранении. Попробуйте ещё раз.');
+    }
+  } catch (e) {
+    alert('Ошибка при сохранении. Попробуйте ещё раз.');
+  }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+init();
+</script>
+</body>
+</html>

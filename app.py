@@ -229,7 +229,12 @@ def login_page():
             session["role"] = user["role"]
             session["org_id"] = user.get("org_id")
             session["dept_id"] = user.get("dept_id")
-            if user["role"] in ("superadmin", "org_admin", "dept_admin"):
+            role = user["role"]
+            if role == "superadmin":
+                return redirect(url_for("superadmin_page"))
+            elif role == "org_admin":
+                return redirect(url_for("org_admin_page"))
+            elif role in ("dept_admin", "viewer"):
                 return redirect(url_for("admin_page"))
             else:
                 return redirect(url_for("dashboard_page"))
@@ -268,6 +273,28 @@ def admin_page():
         for role_key in ROLE_HIERARCHY[creator_idx + 1:]:
             creatable_roles.append((role_key, ROLE_DISPLAY.get(role_key, role_key)))
     return render_template("admin.html", username=username, creatable_roles=creatable_roles)
+
+# ─── Page routes: Role Dashboards ─────────────────────────────────────────────
+
+@app.route("/superadmin")
+@require_role("superadmin")
+def superadmin_page():
+    users = load_users()
+    user = users.get(session.get("user_id"), {})
+    username = user.get("username", "")
+    role = user.get("role", "")
+    return render_template("superadmin.html", username=username, role=role)
+
+
+@app.route("/org_admin")
+@require_role("org_admin")
+def org_admin_page():
+    users = load_users()
+    user = users.get(session.get("user_id"), {})
+    username = user.get("username", "")
+    role = user.get("role", "")
+    return render_template("org_admin.html", username=username, role=role)
+
 
 @app.route("/dashboard")
 @require_role()
@@ -371,6 +398,147 @@ def update_user(user_id):
     save_users(users)
     return jsonify({"status": "updated", "active": users[user_id]["active"]})
 
+# ─── API: Orgs ────────────────────────────────────────────────────────────────
+
+@app.route("/api/orgs", methods=["GET"])
+@require_role("superadmin", "org_admin", "dept_admin")
+def list_orgs():
+    return jsonify(list(load_orgs().values()))
+
+
+@app.route("/api/orgs", methods=["POST"])
+@require_role("superadmin")
+def create_org():
+    data = request.json or {}
+    name = data.get("name", "").strip()
+    if not name:
+        return jsonify({"error": "Название организации не может быть пустым"}), 400
+    org_id = str(uuid.uuid4())
+    orgs = load_orgs()
+    orgs[org_id] = {
+        "id": org_id,
+        "name": name,
+        "description": data.get("description", ""),
+        "created_at": datetime.now().isoformat(),
+    }
+    save_orgs(orgs)
+    return jsonify({"id": org_id, "status": "created"})
+
+
+@app.route("/api/orgs/<org_id>", methods=["PUT"])
+@require_role("superadmin")
+def update_org(org_id):
+    orgs = load_orgs()
+    if org_id not in orgs:
+        return jsonify({"error": "Организация не найдена"}), 404
+    data = request.json or {}
+    if "name" in data:
+        name = data["name"].strip()
+        if not name:
+            return jsonify({"error": "Название организации не может быть пустым"}), 400
+        orgs[org_id]["name"] = name
+    if "description" in data:
+        orgs[org_id]["description"] = data["description"]
+    save_orgs(orgs)
+    return jsonify({"status": "updated"})
+
+
+@app.route("/api/orgs/<org_id>", methods=["DELETE"])
+@require_role("superadmin")
+def delete_org(org_id):
+    orgs = load_orgs()
+    if org_id not in orgs:
+        return jsonify({"error": "Организация не найдена"}), 404
+    employees = load_employees()
+    if any(e.get("org_id") == org_id for e in employees.values()):
+        return jsonify({"error": "Организация содержит сотрудников"}), 409
+    del orgs[org_id]
+    save_orgs(orgs)
+    return jsonify({"status": "deleted"})
+
+
+# ─── API: Depts ───────────────────────────────────────────────────────────────
+
+@app.route("/api/depts", methods=["GET"])
+@require_role("superadmin", "org_admin", "dept_admin")
+def list_depts():
+    caller_role = session.get("role")
+    caller_org_id = session.get("org_id")
+    depts = load_depts()
+    if caller_role in ("org_admin", "dept_admin"):
+        result = [d for d in depts.values() if d.get("org_id") == caller_org_id]
+    else:
+        result = list(depts.values())
+    return jsonify(result)
+
+
+@app.route("/api/depts", methods=["POST"])
+@require_role("superadmin", "org_admin")
+def create_dept():
+    caller_role = session.get("role")
+    caller_org_id = session.get("org_id")
+    data = request.json or {}
+    target_org_id = data.get("org_id")
+    name = data.get("name", "").strip()
+    if not name:
+        return jsonify({"error": "Название отдела не может быть пустым"}), 400
+    if caller_role == "org_admin" and target_org_id != caller_org_id:
+        return jsonify({"error": "forbidden"}), 403
+    dept_id = str(uuid.uuid4())
+    depts = load_depts()
+    depts[dept_id] = {
+        "id": dept_id,
+        "org_id": target_org_id,
+        "name": name,
+        "head_name": data.get("head_name", ""),
+        "created_at": datetime.now().isoformat(),
+    }
+    save_depts(depts)
+    return jsonify({"id": dept_id, "status": "created"})
+
+
+@app.route("/api/depts/<dept_id>", methods=["PUT"])
+@require_role("superadmin", "org_admin")
+def update_dept(dept_id):
+    caller_role = session.get("role")
+    caller_org_id = session.get("org_id")
+    depts = load_depts()
+    if dept_id not in depts:
+        return jsonify({"error": "Отдел не найден"}), 404
+    dept = depts[dept_id]
+    if caller_role == "org_admin" and dept.get("org_id") != caller_org_id:
+        return jsonify({"error": "forbidden"}), 403
+    data = request.json or {}
+    if "name" in data:
+        name = data["name"].strip()
+        if not name:
+            return jsonify({"error": "Название отдела не может быть пустым"}), 400
+        depts[dept_id]["name"] = name
+    if "head_name" in data:
+        depts[dept_id]["head_name"] = data["head_name"]
+    save_depts(depts)
+    return jsonify({"status": "updated"})
+
+
+@app.route("/api/depts/<dept_id>", methods=["DELETE"])
+@require_role("superadmin", "org_admin")
+def delete_dept(dept_id):
+    caller_role = session.get("role")
+    caller_org_id = session.get("org_id")
+    depts = load_depts()
+    if dept_id not in depts:
+        return jsonify({"error": "Отдел не найден"}), 404
+    dept = depts[dept_id]
+    if caller_role == "org_admin" and dept.get("org_id") != caller_org_id:
+        return jsonify({"error": "forbidden"}), 403
+    employees = load_employees()
+    if any(e.get("dept_id") == dept_id for e in employees.values()):
+        return jsonify({"error": "Отдел содержит сотрудников"}), 409
+    del depts[dept_id]
+    save_depts(depts)
+    return jsonify({"status": "deleted"})
+
+
 # ─── API: Employees ───────────────────────────────────────────────────────────
 
 @app.route("/api/employees", methods=["GET"])
@@ -381,21 +549,70 @@ def get_employees():
 @app.route("/api/employees", methods=["POST"])
 @require_role("superadmin", "org_admin", "dept_admin")
 def add_employee():
-    data = request.json
+    caller_role = session.get("role")
+    caller_dept_id = session.get("dept_id")
+    caller_org_id = session.get("org_id")
+    data = request.json or {}
+
+    # Scope gate: dept_admin may only create in their own dept
+    target_dept_id = data.get("dept_id")
+    if caller_role == "dept_admin" and target_dept_id != caller_dept_id:
+        return jsonify({"error": "forbidden"}), 403
+
     employees = load_employees()
     emp_id = str(int(time.time() * 1000))
     label = len(employees) + 1
+
+    # Determine org_id/dept_id: dept_admin defaults to session values when omitted
+    org_id = data.get("org_id") if caller_role != "dept_admin" else (data.get("org_id") or caller_org_id)
+    dept_id = target_dept_id if caller_role != "dept_admin" else caller_dept_id
+
     employees[emp_id] = {
         "id": emp_id,
         "name": data["name"],
-        "role": data["role"],
+        "role": data.get("role", "employee"),
         "label": label,
         "registered_at": datetime.now().isoformat(),
-        "face_count": 0
+        "face_count": 0,
+        "org_id": org_id,
+        "dept_id": dept_id,
+        "schedule": data.get("schedule", {"start": "09:00", "end": "18:00", "work_days": [1, 2, 3, 4, 5]}),
     }
     save_employees(employees)
     os.makedirs(os.path.join(FACES_DIR, emp_id), exist_ok=True)
     return jsonify({"id": emp_id, "status": "created"})
+
+
+@app.route("/api/employees/<emp_id>", methods=["PATCH"])
+@require_role("superadmin", "org_admin")
+def update_employee_assignment(emp_id):
+    """ORG-04: reassign employee to another dept; org_admin restricted to own org scope."""
+    caller_role = session.get("role")
+    caller_org_id = session.get("org_id")
+    employees = load_employees()
+    if emp_id not in employees:
+        return jsonify({"error": "Сотрудник не найден"}), 404
+
+    data = request.json or {}
+
+    # Whitelist: only dept_id (and org_id for superadmin); never touch label/face_count/name
+    allowed_keys = {"dept_id", "org_id"} if caller_role == "superadmin" else {"dept_id"}
+    update_data = {k: v for k, v in data.items() if k in allowed_keys}
+
+    if "dept_id" in update_data:
+        target_dept_id = update_data["dept_id"]
+        if caller_role == "org_admin":
+            # Verify target dept belongs to caller's org
+            depts = load_depts()
+            target_dept = depts.get(target_dept_id)
+            if not target_dept or target_dept.get("org_id") != caller_org_id:
+                return jsonify({"error": "forbidden"}), 403
+
+    for k, v in update_data.items():
+        employees[emp_id][k] = v
+
+    save_employees(employees)
+    return jsonify({"status": "updated"})
 
 @app.route("/api/employees/<emp_id>", methods=["DELETE"])
 @require_role("superadmin", "org_admin", "dept_admin")

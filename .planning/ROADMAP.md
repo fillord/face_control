@@ -75,7 +75,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Wave 1** *(blocked on Wave 0)*
 
-- [ ] 02-02-PLAN.md — Data foundation: ORGS_FILE/DEPTS_FILE + load/save helpers + standalone migrate.py (MIG-01, MIG-02)
+- [x] 02-02-PLAN.md — Data foundation: ORGS_FILE/DEPTS_FILE + load/save helpers + standalone migrate.py (MIG-01, MIG-02)
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -133,6 +133,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. RBAC Foundation | 5/5 | Complete   | 2026-06-11 |
-| 2. Org/Dept Data Model | 1/5 | In Progress|  |
+| 2. Org/Dept Data Model | 2/5 | In Progress|  |
 | 3. T-13 Timesheet Grid | 0/TBD | Not started | - |
 | 4. Export & Employee Cabinet | 0/TBD | Not started | - |

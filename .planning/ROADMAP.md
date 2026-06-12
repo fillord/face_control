@@ -71,7 +71,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 5 plans
 **Wave 0** *(test scaffold)*
 
-- [ ] 02-01-PLAN.md — Failing pytest scaffold + conftest extension for all 10 Phase 2 requirements (ORG/MIG/T13/DASH/KIOSK stubs)
+- [x] 02-01-PLAN.md — Failing pytest scaffold + conftest extension for all 10 Phase 2 requirements (ORG/MIG/T13/DASH/KIOSK stubs)
 
 **Wave 1** *(blocked on Wave 0)*
 
@@ -133,6 +133,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. RBAC Foundation | 5/5 | Complete   | 2026-06-11 |
-| 2. Org/Dept Data Model | 0/5 | Planned | - |
+| 2. Org/Dept Data Model | 1/5 | In Progress|  |
 | 3. T-13 Timesheet Grid | 0/TBD | Not started | - |
 | 4. Export & Employee Cabinet | 0/TBD | Not started | - |

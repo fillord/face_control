@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Табель Т-13 — МедКонтроль</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f6fb; color: #1a2340; min-height: 100vh; }
+header { background: #fff; border-bottom: 1px solid #e2e6f0; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.logo { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
+.logo-icon { width: 34px; height: 34px; background: #1565C0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.user-badge { font-size: 13px; color: #546e7a; }
+.btn-logout { padding: 7px 14px; background: #fff; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; color: #546e7a; cursor: pointer; text-decoration: none; transition: all 0.15s; }
+.btn-logout:hover { background: #ffebee; color: #c62828; border-color: #ef9a9a; }
+.page { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
+.selector-bar { background: #fff; border: 1px solid #e2e6f0; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-size: 11px; font-weight: 600; color: #546e7a; text-transform: uppercase; letter-spacing: 0.05em; }
+.form-group input[type="month"],
+.form-group select { padding: 8px 12px; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 13px; color: #1a2340; outline: none; font-family: inherit; background: #fff; }
+.form-group input[type="month"]:focus,
+.form-group select:focus { border-color: #1565C0; outline: 2px solid #1565C0; }
+.btn-primary { padding: 8px 16px; background: #1565C0; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s; height: 36px; }
+.btn-primary:hover { background: #0d47a1; }
+.table-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; overflow-x: auto; margin-bottom: 20px; }
+.holiday-banner { background: #FFFDE7; border-bottom: 1px solid #F9A825; border-radius: 0; padding: 12px 16px; font-size: 13px; color: #5D4037; }
+table { border-collapse: collapse; min-width: max-content; table-layout: fixed; }
+thead { background: #f8fafd; }
+thead th { padding: 4px; font-size: 11px; font-weight: 600; color: #546e7a; text-align: center; border-bottom: 1px solid #e2e6f0; white-space: nowrap; }
+thead th.emp-col { text-align: left; padding: 4px 12px; width: 180px; min-width: 180px; text-transform: uppercase; letter-spacing: 0.05em; }
+thead th.day-col { width: 32px; min-width: 32px; }
+thead th.total-col { width: 60px; min-width: 60px; text-transform: uppercase; letter-spacing: 0.05em; }
+thead th.weekend { color: #9E9E9E; }
+tbody td { padding: 4px; font-size: 13px; border-bottom: 1px solid #f0f3f8; text-align: center; vertical-align: middle; }
+tbody td.emp-name { text-align: left; padding: 8px 12px; font-size: 13px; font-weight: 500; color: #1a2340; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+tbody td.sym-cell { font-weight: 600; font-size: 13px; cursor: default; font-variant-numeric: tabular-nums; }
+tbody td.sym-cell.editable { cursor: pointer; }
+tbody td.sym-cell.editable:hover { outline: 2px solid #1565C0; }
+tbody td.sym-ou { font-size: 11px; font-weight: 600; }
+tbody tr:last-child td { border-bottom: none; }
+.totals-row td { background: #f8fafd; font-size: 13px; font-weight: 600; color: #1565C0; border-top: 2px solid #e2e6f0; }
+.totals-row td.label { color: #546e7a; text-align: left; padding: 8px 12px; }
+.empty-state { padding: 28px; text-align: center; font-size: 13px; color: #90a4ae; }
+.page-title { font-size: 18px; font-weight: 600; color: #1a2340; margin-bottom: 16px; }
+/* Override dropdown */
+#override-dropdown { position: absolute; background: #fff; border: 1px solid #e2e6f0; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); padding: 4px; z-index: 100; min-width: 180px; }
+#override-dropdown button { display: block; width: 100%; text-align: left; padding: 8px 12px; font-size: 13px; border: none; background: none; cursor: pointer; border-radius: 8px; font-family: inherit; color: #1a2340; }
+#override-dropdown button:hover { background: #f4f6fb; }
+#override-dropdown button.restore { color: #546e7a; border-top: 1px solid #f0f3f8; margin-top: 4px; }
+/* Error toast */
+#error-toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: #FFEBEE; border: 1px solid #EF9A9A; border-radius: 8px; padding: 10px 16px; font-size: 13px; color: #C62828; z-index: 200; display: none; }
+.hidden { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><div class="logo-icon">🏥</div> МедКонтроль{% if dept_name %} — {{ dept_name }}{% endif %}</div>
+  <div class="header-right">
+    <span class="user-badge">{{ username }}</span>
+    <a href="/" class="btn-logout" style="border-color:#cfd8dc;color:#546e7a;">← Киоск</a>
+    <a href="/logout" class="btn-logout">Выйти</a>
+  </div>
+</header>
+
+<div class="page">
+  <h1 class="page-title">Табель Т-13</h1>
+
+  <!-- ─── Selector bar ──────────────────────────────────────────────── -->
+  <form method="GET" action="/timesheet" class="selector-bar">
+    <div class="form-group">
+      <label for="month-input">Месяц</label>
+      <input type="month" id="month-input" name="month" value="{{ month_str }}">
+    </div>
+    {% if role in ("org_admin", "superadmin") %}
+    <div class="form-group">
+      <label for="dept-select">Отдел</label>
+      <select id="dept-select" name="dept_id">
+        {% if role == "org_admin" %}
+          {% for opt in dept_options %}
+            <option value="{{ opt.id }}" {% if opt.id == dept_id %}selected{% endif %}>{{ opt.name }}</option>
+          {% endfor %}
+        {% else %}
+          {# superadmin: grouped by org #}
+          {% for group in dept_options %}
+            <optgroup label="{{ group.org_name }}">
+              {% for opt in group.depts %}
+                <option value="{{ opt.id }}" {% if opt.id == dept_id %}selected{% endif %}>{{ opt.name }}</option>
+              {% endfor %}
+            </optgroup>
+          {% endfor %}
+        {% endif %}
+      </select>
+    </div>
+    {% endif %}
+    <button type="submit" class="btn-primary">Показать табель</button>
+  </form>
+
+  <!-- ─── T-13 Grid ────────────────────────────────────────────────── -->
+  <div class="table-card">
+    {% if missing_holiday_year %}
+    <div class="holiday-banner">
+      Праздники за {{ year }} год не загружены. Выходные (В) отмечены автоматически, государственные праздники — нет.
+    </div>
+    {% endif %}
+
+    {% if not dept_id %}
+    <div class="empty-state">Выберите отдел для просмотра табеля.</div>
+    {% elif not grid_rows %}
+    <div class="empty-state">В этом отделе нет сотрудников.</div>
+    {% else %}
+    {# Weekday abbreviations (ISO: 1=Mon...7=Sun) #}
+    {% set wd_abbrev = {1: "Пн", 2: "Вт", 3: "Ср", 4: "Чт", 5: "Пт", 6: "Сб", 7: "Вс"} %}
+    {# Symbol title map for accessibility #}
+    {% set sym_titles = {
+      "Я": "Я — явка",
+      "О": "О — опоздание",
+      "У": "У — ранний уход",
+      "ОУ": "ОУ — опоздание и ранний уход",
+      "В": "В — выходной или праздник",
+      "НН": "НН — неявка по невыясненной причине",
+      "П": "П — прогул",
+      "Б": "Б — больничный",
+      "К": "К — командировка"
+    } %}
+    {# Symbol background colors #}
+    {% set sym_bg = {
+      "Я": "#E8F5E9",
+      "О": "#FFF3E0",
+      "У": "#FFF8E1",
+      "ОУ": "#FFF3E0",
+      "В": "#F3F4F6",
+      "НН": "#FAFAFA",
+      "П": "#FFEBEE",
+      "Б": "#E3F2FD",
+      "К": "#F3E5F5"
+    } %}
+    {# Symbol text colors #}
+    {% set sym_fg = {
+      "Я": "#1B5E20",
+      "О": "#BF360C",
+      "У": "#F57F17",
+      "ОУ": "#BF360C",
+      "В": "#9E9E9E",
+      "НН": "#90A4AE",
+      "П": "#C62828",
+      "Б": "#1565C0",
+      "К": "#6A1B9A"
+    } %}
+    <table>
+      <thead>
+        <!-- Row 1: day numbers -->
+        <tr>
+          <th class="emp-col" scope="col" rowspan="2">Сотрудник</th>
+          {% for d in days %}
+          <th class="day-col{% if d.isoweekday() >= 6 or d.isoformat() in holidays_set %} weekend{% endif %}" scope="col">{{ d.day }}</th>
+          {% endfor %}
+          <th class="total-col" scope="col">Я</th>
+          <th class="total-col" scope="col">Ч</th>
+          <th class="total-col" scope="col">П/НН</th>
+          <th class="total-col" scope="col">О</th>
+          <th class="total-col" scope="col">Б/К</th>
+        </tr>
+        <!-- Row 2: weekday abbreviations -->
+        <tr>
+          {% for d in days %}
+          <th class="day-col{% if d.isoweekday() >= 6 or d.isoformat() in holidays_set %} weekend{% endif %}" scope="col">{{ wd_abbrev[d.isoweekday()] }}</th>
+          {% endfor %}
+          <th class="total-col" scope="col" style="font-size:10px;color:#90a4ae;">(дни)</th>
+          <th class="total-col" scope="col" style="font-size:10px;color:#90a4ae;">(часы)</th>
+          <th class="total-col" scope="col" style="font-size:10px;color:#90a4ae;">(пропуски)</th>
+          <th class="total-col" scope="col" style="font-size:10px;color:#90a4ae;">(опозд.)</th>
+          <th class="total-col" scope="col" style="font-size:10px;color:#90a4ae;">(б/л+ком.)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for emp_id, emp_name, symbols, totals in grid_rows %}
+        <tr>
+          <td class="emp-name" scope="row">{{ emp_name }}</td>
+          {% for i in range(days|length) %}
+          {% set sym = symbols[i] %}
+          {% set d = days[i] %}
+          {% if sym is none %}
+          <td class="sym-cell" style="background:transparent;color:#BDBDBD;" title="Нет данных (будущий день)" data-emp="{{ emp_id }}" data-date="{{ d.isoformat() }}"></td>
+          {% else %}
+          <td class="sym-cell{% if sym == 'ОУ' %} sym-ou{% endif %}{% if can_edit and sym != 'В' %} editable{% endif %}"
+              style="background:{{ sym_bg.get(sym, 'transparent') }};color:{{ sym_fg.get(sym, '#1a2340') }};"
+              title="{{ sym_titles.get(sym, sym) }}"
+              data-emp="{{ emp_id }}"
+              data-date="{{ d.isoformat() }}"
+              {% if can_edit and sym != 'В' %}tabindex="0" onclick="openOverrideDropdown(this)"{% endif %}>{{ sym }}</td>
+          {% endif %}
+          {% endfor %}
+          <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.days_worked }}</td>
+          <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.hours_worked }}</td>
+          <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.absences }}</td>
+          <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.late }}</td>
+          <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.vac_sick }}</td>
+        </tr>
+        {% endfor %}
+        <!-- Totals row -->
+        <tr class="totals-row">
+          <td class="label">Итого</td>
+          {% for d in days %}
+          <td></td>
+          {% endfor %}
+          <td style="text-align:center;">{{ grid_rows|sum(attribute='3.days_worked') if grid_rows else 0 }}</td>
+          <td style="text-align:center;">{{ "%.1f"|format(grid_rows|sum(attribute='3.hours_worked')) if grid_rows else 0 }}</td>
+          <td style="text-align:center;">{{ grid_rows|sum(attribute='3.absences') if grid_rows else 0 }}</td>
+          <td style="text-align:center;">{{ grid_rows|sum(attribute='3.late') if grid_rows else 0 }}</td>
+          <td style="text-align:center;">{{ grid_rows|sum(attribute='3.vac_sick') if grid_rows else 0 }}</td>
+        </tr>
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Override dropdown -->
+<div id="override-dropdown" class="hidden">
+  <button onclick="applyOverride('Б')">Б — Больничный</button>
+  <button onclick="applyOverride('К')">К — Командировка</button>
+  <button onclick="applyOverride('П')">П — Прогул</button>
+  <button class="restore" onclick="applyOverride('auto')">Восстановить автоматически</button>
+</div>
+
+<!-- Error toast -->
+<div id="error-toast"></div>
+
+<script>
+// ─── Override dropdown ─────────────────────────────────────────────────────────
+var _activeCell = null;
+
+function openOverrideDropdown(cell) {
+  var dropdown = document.getElementById('override-dropdown');
+  var rect = cell.getBoundingClientRect();
+  dropdown.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+  dropdown.style.left = (rect.left + window.scrollX) + 'px';
+  dropdown.classList.remove('hidden');
+  _activeCell = cell;
+}
+
+document.addEventListener('click', function(e) {
+  var dropdown = document.getElementById('override-dropdown');
+  if (!dropdown.classList.contains('hidden') && !dropdown.contains(e.target) && e.target !== _activeCell) {
+    dropdown.classList.add('hidden');
+    _activeCell = null;
+  }
+});
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.getElementById('override-dropdown').classList.add('hidden');
+    _activeCell = null;
+  }
+});
+
+async function applyOverride(symbol) {
+  var dropdown = document.getElementById('override-dropdown');
+  dropdown.classList.add('hidden');
+  if (!_activeCell) return;
+  var empId = _activeCell.dataset.emp;
+  var dateStr = _activeCell.dataset.date;
+  _activeCell = null;
+
+  var method = symbol === 'auto' ? 'DELETE' : 'POST';
+  var body = JSON.stringify(symbol === 'auto'
+    ? { emp_id: empId, date: dateStr }
+    : { emp_id: empId, date: dateStr, symbol: symbol });
+
+  try {
+    var resp = await fetch('/api/timesheet/override', {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body
+    });
+    if (resp.ok) {
+      // Reload page to reflect updated symbol
+      window.location.reload();
+    } else {
+      var msg = resp.status === 403
+        ? 'Нет прав для изменения этой ячейки.'
+        : 'Недопустимый символ. Выберите Б, К или П.';
+      showToast(msg);
+    }
+  } catch (e) {
+    showToast('Ошибка соединения. Попробуйте ещё раз.');
+  }
+}
+
+// ─── Toast ─────────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  var toast = document.getElementById('error-toast');
+  toast.textContent = msg;
+  toast.style.display = 'block';
+  setTimeout(function() { toast.style.display = 'none'; }, 3000);
+}
+
+// ─── Keyboard support for editable cells ──────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('editable')) {
+    e.preventDefault();
+    openOverrideDropdown(e.target);
+  }
+});
+
+// ─── escHtml utility ──────────────────────────────────────────────────────────
+function escHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>

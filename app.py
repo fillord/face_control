@@ -1,4 +1,4 @@
-import os, json, base64, time, shutil, uuid
+import os, json, base64, time, shutil, uuid, secrets
 import fcntl
 from datetime import datetime, date
 from functools import wraps
@@ -146,6 +146,26 @@ def save_depts(data):
         fcntl.flock(fh, fcntl.LOCK_EX)
         json.dump(data, fh, ensure_ascii=False, indent=2)
         fcntl.flock(fh, fcntl.LOCK_UN)
+
+# ─── Org tokens / PIN helpers ─────────────────────────────────────────────────
+
+def generate_unique_token(existing_tokens):
+    """Generate an 8-char hex token (secrets.token_hex(4)) not already in existing_tokens."""
+    while True:
+        token = secrets.token_hex(4)
+        if token not in existing_tokens:
+            return token
+
+
+def hash_pin(pin):
+    """Return a bcrypt hash of the given PIN string."""
+    return bcrypt.hashpw(str(pin).encode(), bcrypt.gensalt()).decode()
+
+
+def is_bcrypt_hash(value):
+    """Return True if value looks like a bcrypt hash (starts with '$2b$')."""
+    return bool(value and str(value).startswith("$2b$"))
+
 
 def append_log(entry):
     logs = []
@@ -433,11 +453,27 @@ def create_org():
         return jsonify({"error": "Название организации не может быть пустым"}), 400
     org_id = str(uuid.uuid4())
     orgs = load_orgs()
+    # Build a seen-set of all existing tokens to guarantee uniqueness
+    seen_tokens = set()
+    for org in orgs.values():
+        if org.get("org_token"):
+            seen_tokens.add(org["org_token"])
+        if org.get("reg_token"):
+            seen_tokens.add(org["reg_token"])
+    org_token = generate_unique_token(seen_tokens)
+    seen_tokens.add(org_token)
+    reg_token = generate_unique_token(seen_tokens)
     orgs[org_id] = {
         "id": org_id,
         "name": name,
         "description": data.get("description", ""),
         "created_at": datetime.now().isoformat(),
+        "org_token": org_token,
+        "reg_token": reg_token,
+        "kiosk_pin": hash_pin("0000"),
+        "reg_pin": hash_pin("1234"),
+        "reg_token_expires": None,
+        "kiosk_display_name": name,
     }
     save_orgs(orgs)
     return jsonify({"id": org_id, "status": "created"})

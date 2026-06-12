@@ -154,7 +154,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 - Verify: curl http://127.0.0.1:5051/login → 200; curl http://127.0.0.1:5051/kiosk/<org_token> → 200
 
 **Depends on:** Phase 2
-**Plans:** 1/5 plans executed
+**Plans:** 2/5 plans executed
 
 Plans:
 
@@ -164,7 +164,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 05-02-PLAN.md — Token kiosk: /kiosk/<org_token> + bcrypt verify_pin, touchscreen PIN pad (no keyboard), dept-name display (absorbs 02-05), old org_id routes removed, error_token.html
+- [x] 05-02-PLAN.md — Token kiosk: /kiosk/<org_token> + bcrypt verify_pin, touchscreen PIN pad (no keyboard), dept-name display (absorbs 02-05), old org_id routes removed, error_token.html
 
 **Wave 3** *(blocked on Wave 2)*
 

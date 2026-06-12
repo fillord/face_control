@@ -93,6 +93,9 @@ def init_users():
 
 ROLE_HIERARCHY = ['superadmin', 'org_admin', 'dept_admin', 'viewer', 'employee']
 
+# Roles that are permitted to log in via the admin login page (AUTH-ROLE-01)
+ALLOWED_LOGIN_ROLES = ("superadmin", "org_admin", "dept_admin")
+
 def require_role(*allowed_roles):
     def decorator(f):
         @wraps(f)
@@ -185,6 +188,23 @@ def hash_pin(pin):
 def is_bcrypt_hash(value):
     """Return True if value looks like a bcrypt hash (starts with '$2b$')."""
     return bool(value and str(value).startswith("$2b$"))
+
+
+def is_reg_token_expired(org):
+    """Return True if org.reg_token_expires is set and in the past.
+
+    None/empty -> False (no expiry set).
+    Malformed datetime string -> False (safe default — do not block on bad data).
+    Timezone-aware ISO strings are compared naively by stripping tzinfo (Pitfall 6).
+    """
+    expires_str = org.get("reg_token_expires")
+    if not expires_str:
+        return False
+    try:
+        expires = datetime.fromisoformat(expires_str).replace(tzinfo=None)
+        return datetime.now() > expires
+    except (ValueError, TypeError):
+        return False
 
 
 def append_log(entry):
@@ -288,23 +308,26 @@ def login_page():
             error = "Ваш аккаунт деактивирован. Обратитесь к администратору."
             print(f"LOGIN_FAIL: username={username!r} reason=deactivated", flush=True)
         elif user and bcrypt.checkpw(password, user["password_hash"].encode()):
-            session.clear()
-            session["user_id"] = user["id"]
-            session["role"] = user["role"]
-            session["org_id"] = user.get("org_id")
-            session["dept_id"] = user.get("dept_id")
             role = user["role"]
-            print(f"LOGIN_OK: username={username!r} role={role!r}", flush=True)
-            if role == "superadmin":
-                return redirect(url_for("superadmin_page"))
-            elif role == "org_admin":
-                return redirect(url_for("org_admin_page"))
-            elif role in ("dept_admin", "viewer"):
-                return redirect(url_for("dept_admin_page"))
-            elif role == "employee":
-                return redirect(url_for("employee_page"))
+            # AUTH-ROLE-01: only allowed roles may log in
+            if role not in ALLOWED_LOGIN_ROLES:
+                print(f"LOGIN_FAIL: username={username!r} role={role!r} reason=role_not_allowed", flush=True)
+                error = "Доступ запрещён для этой роли"
             else:
-                return redirect(url_for("dashboard_page"))
+                session.clear()
+                session["user_id"] = user["id"]
+                session["role"] = role
+                session["org_id"] = user.get("org_id")
+                session["dept_id"] = user.get("dept_id")
+                print(f"LOGIN_OK: username={username!r} role={role!r}", flush=True)
+                if role == "superadmin":
+                    return redirect(url_for("superadmin_page"))
+                elif role == "org_admin":
+                    return redirect(url_for("org_admin_page"))
+                elif role == "dept_admin":
+                    return redirect(url_for("dept_admin_page"))
+                else:
+                    return redirect(url_for("dashboard_page"))
         else:
             print(f"LOGIN_FAIL: username={username!r} user_found={user is not None} hash_match=False", flush=True)
             error = "Неверный логин или пароль"
@@ -341,6 +364,98 @@ def register_page():
         visible_orgs=visible_orgs,
         visible_depts=visible_depts
     )
+
+# ─── Page routes: Public token registration ────────────────────────────────────
+
+@app.route("/register/<reg_token>")
+def register_token(reg_token):
+    """Public, token-gated mobile employee self-registration page (REG-TOKEN-01..02..03)."""
+    orgs = load_orgs()
+    org_id, org = find_org_by_token(orgs, "reg_token", reg_token)
+    if not org:
+        return render_template("error_token.html", message="Ссылка недействительна"), 404
+    if is_reg_token_expired(org):
+        return render_template("error_token.html",
+                               message="Ссылка истекла. Обратитесь к администратору."), 410
+    depts = load_depts()
+    org_depts = [d for d in depts.values() if d.get("org_id") == org_id]
+    return render_template(
+        "register_token.html",
+        reg_token=reg_token,
+        org_id=org_id,
+        org_name=org.get("name", ""),
+        has_pin=bool(org.get("reg_pin")),
+        depts=org_depts,
+    )
+
+
+# ─── API: Public token registration ───────────────────────────────────────────
+
+@app.route("/api/register/<reg_token>/verify_pin", methods=["POST"])
+def register_token_verify_pin(reg_token):
+    """Verify reg_pin for a registration token link (REG-TOKEN-04..05)."""
+    orgs = load_orgs()
+    org_id, org = find_org_by_token(orgs, "reg_token", reg_token)
+    if not org:
+        return jsonify({"error": "not_found"}), 404
+    if is_reg_token_expired(org):
+        return jsonify({"error": "link_expired"}), 410
+    stored = org.get("reg_pin")
+    if not stored:
+        # No PIN configured — open registration
+        return jsonify({"verified": True})
+    entered = str((request.json or {}).get("pin", ""))
+    if len(entered) != 4 or not entered.isdigit():
+        return jsonify({"error": "invalid_pin"}), 400
+    if bcrypt.checkpw(entered.encode(), stored.encode()):
+        return jsonify({"verified": True})
+    return jsonify({"error": "wrong_pin", "verified": False}), 401
+
+
+@app.route("/api/register/<reg_token>/submit", methods=["POST"])
+def register_token_submit(reg_token):
+    """Create a new employee scoped to the registration token's org (REG-TOKEN-06)."""
+    orgs = load_orgs()
+    org_id, org = find_org_by_token(orgs, "reg_token", reg_token)
+    if not org:
+        return jsonify({"error": "not_found"}), 404
+    if is_reg_token_expired(org):
+        return jsonify({"error": "link_expired"}), 410
+
+    data = request.json or {}
+    name = data.get("name", "").strip()
+    dept_id = data.get("dept_id", "")
+
+    if not name:
+        return jsonify({"error": "ФИО обязательно"}), 400
+
+    # Validate dept_id belongs to the token's org
+    if dept_id:
+        depts = load_depts()
+        dept = depts.get(dept_id)
+        if not dept or dept.get("org_id") != org_id:
+            return jsonify({"error": "Недопустимый отдел для этой ссылки"}), 400
+
+    employees = load_employees()
+    emp_id = str(int(time.time() * 1000))
+    label = len(employees) + 1
+
+    employees[emp_id] = {
+        "id": emp_id,
+        "name": name,
+        "role": "employee",
+        "label": label,
+        "registered_at": datetime.now().isoformat(),
+        "face_count": 0,
+        "org_id": org_id,
+        "dept_id": dept_id or None,
+        "schedule": {"start": "09:00", "end": "18:00", "work_days": [1, 2, 3, 4, 5]},
+    }
+    save_employees(employees)
+    os.makedirs(os.path.join(FACES_DIR, emp_id), exist_ok=True)
+    print(f"REGISTER_TOKEN: emp_id={emp_id!r} name={name!r} org_id={org_id!r} dept_id={dept_id!r}", flush=True)
+    return jsonify({"id": emp_id, "status": "created"})
+
 
 ROLE_DISPLAY = {
     "superadmin": "Суперадмин",

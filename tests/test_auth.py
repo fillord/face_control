@@ -228,3 +228,39 @@ def test_deactivated_user(client, tmp_data):
     )
     # The response body should contain the login page (not a redirect)
     assert rv.status_code == 200 or b"login" in rv.data.lower()
+
+
+# ─── AUTH-ROLE-01: Login with disallowed role (viewer) is rejected ─────────────
+
+def test_viewer_login_rejected(client, tmp_data):
+    """AUTH-ROLE-01: A user with role 'viewer' and correct password must NOT be
+    authenticated — login must return login page (200 or 302 to login) with no session set."""
+    user_id = "test-uid-viewer"
+    seed_users(tmp_data, {
+        user_id: {
+            "id": user_id,
+            "username": "viewer_user",
+            "password_hash": BCRYPT_HASH_SUPERADMIN,
+            "role": "viewer",
+            "active": True,
+            "org_id": None,
+            "dept_id": None,
+        }
+    })
+
+    rv = client.post(
+        "/login",
+        data={"username": "viewer_user", "password": "superadmin123"},
+        follow_redirects=False,
+    )
+    # Must NOT redirect to a dashboard (which would be 302 to /superadmin, /org_admin, /dept_admin, /employee, /dashboard)
+    # Must return 200 (login page with error) or be rejected
+    assert rv.status_code == 200, (
+        f"Viewer role login must return login page (200), not redirect. Got {rv.status_code}"
+    )
+
+    # Session must NOT contain user_id (not authenticated)
+    with client.session_transaction() as sess:
+        assert "user_id" not in sess, (
+            f"Session should NOT contain user_id after viewer role login rejection"
+        )

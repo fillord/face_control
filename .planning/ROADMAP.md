@@ -141,6 +141,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 **Goal:** Introduce token-based kiosk and registration URLs with bcrypt-hashed PIN auth; migrate organizations.json to carry org_token, kiosk_pin, reg_token, reg_pin, reg_token_expires, kiosk_display_name; restrict users.json to superadmin/org_admin/dept_manager (employees are NOT users); rebuild all pages in Russian with МедКонтроль branding and role-scoped navigation; provide touchscreen kiosk PIN pad and mobile-friendly registration page; ship migrate.py for existing-org upgrade; absorbs Plan 02-05 (kiosk dept display).
 **Requirements**:
+
 - organizations.json: add org_token (8-char random), kiosk_pin (bcrypt, default "0000"), reg_token (8-char random), reg_pin (bcrypt, default "1234"), reg_token_expires (ISO datetime), kiosk_display_name
 - Kiosk URL: /kiosk/<org_token> — touchscreen 4-digit PIN pad
 - Registration URL: /register/<reg_token> — mobile-friendly, expires via reg_token_expires
@@ -151,22 +152,28 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 - migrate.py: update existing orgs, generate tokens, set default PINs, preserve employees and attendance data
 - Post-deploy: python migrate.py && pm2 restart face-recognition
 - Verify: curl http://127.0.0.1:5051/login → 200; curl http://127.0.0.1:5051/kiosk/<org_token> → 200
+
 **Depends on:** Phase 2
-**Plans:** 5 plans
+**Plans:** 1/5 plans executed
 
 Plans:
 
 **Wave 1**
-- [ ] 05-01-PLAN.md — Org data model + migrate.py: org_token/reg_token/bcrypt PINs/reg_token_expires/kiosk_display_name, plaintext re-hash, idempotent migration, create_org provisioning
+
+- [x] 05-01-PLAN.md — Org data model + migrate.py: org_token/reg_token/bcrypt PINs/reg_token_expires/kiosk_display_name, plaintext re-hash, idempotent migration, create_org provisioning
 
 **Wave 2** *(blocked on Wave 1)*
+
 - [ ] 05-02-PLAN.md — Token kiosk: /kiosk/<org_token> + bcrypt verify_pin, touchscreen PIN pad (no keyboard), dept-name display (absorbs 02-05), old org_id routes removed, error_token.html
 
 **Wave 3** *(blocked on Wave 2)*
+
 - [ ] 05-03-PLAN.md — Token registration: public /register/<reg_token> with expiry + bcrypt reg_pin + submit, mobile register_token.html, login role allowlist (AUTH-ROLE-01)
 
 **Wave 4** *(blocked on Wave 3)*
+
 - [ ] 05-04-PLAN.md — Russian UI + МедКонтроль branding audit, role-scoped headers (Суперадмин / org name / dept name), role-only navigation
 
 **Wave 5** *(blocked on Wave 4)*
+
 - [ ] 05-05-PLAN.md — org_admin kiosk-settings panel: change kiosk/reg PINs (bcrypt), regenerate reg_token, set/clear expiry, edit display name, live URLs; own-org scope

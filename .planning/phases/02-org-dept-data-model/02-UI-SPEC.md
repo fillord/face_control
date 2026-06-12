@@ -42,12 +42,22 @@ Declared values (multiples of 4 only). Extracted from existing templates:
 | 2xl | 48px | Not declared explicitly — avoid; use xl + lg combination |
 | 3xl | 64px | Not used in admin pages — avoid |
 
-Exceptions:
-- Stat cards: `padding: 16px 18px` (18px horizontal — matches existing admin.html `.stat-card`)
-- Table cells: `padding: 12px 14px` (td), `padding: 11px 14px` (th) — match exactly
-- Header: `padding: 14px 24px` — match exactly across all new templates
+**Exceptions (inherited from admin.html — matched verbatim for visual consistency):**
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| xs-alt | 6px | Destructive/edit button vertical padding (`padding: 6px 12px`) |
+| sm-alt | 12px | Table cell padding, destructive button horizontal padding, input vertical padding (`padding: 8px 12px`) |
+| md-alt | 20px | Nav tab horizontal padding (`padding: 12px 20px`) |
+
+These three values appear in the existing admin.html and are carried forward verbatim. Do not introduce additional off-scale values.
+
+Derived values in active use:
+- Stat cards: `padding: 16px` (square padding)
+- Table cells: `padding: 12px 12px` (th), `padding: 12px 12px` (td)
+- Header: `padding: 16px 24px`
 - Nav tabs: `padding: 12px 20px` per tab item
-- Button padding: `9px 16px` for primary action buttons; `7px 14px` for secondary/logout buttons
+- Button padding: `8px 16px` for primary and secondary action buttons; `6px 12px` for destructive/inline edit buttons
 
 ---
 
@@ -60,9 +70,7 @@ Exceptions:
 | Heading | 16px | 600 | 1.2 | Logo text, card titles, section headings (h3 in forms) |
 | Display | 26px | 600 | 1.0 | Stat values (.stat-val) — numeric figures only |
 
-Additional size in active use: 14px / weight 500 — nav tabs, primary button text, chart titles.
-
-**Rule:** Do not introduce any new font sizes. Use the four declared sizes above and the 14px/500 tab-level size. All text is `color: #1a2340` (body) or `color: #546e7a` (muted/secondary).
+**Rule:** Exactly 2 font weights are used: 400 (body/regular) and 600 (emphasis — labels, headings, display, nav tab active text, buttons). Do not introduce weight 500 or any other weight. Do not introduce any new font sizes beyond these four. All text is `color: #1a2340` (body) or `color: #546e7a` (muted/secondary).
 
 ---
 
@@ -85,7 +93,7 @@ Additional size in active use: 14px / weight 500 — nav tabs, primary button te
 **Accent (`#1565C0`) reserved for:**
 - Logo icon background
 - Active nav tab bottom border and text color
-- Primary action buttons (e.g., "Создать организацию", "Добавить отдел", "Сохранить")
+- Primary action buttons (e.g., "Создать организацию", "Добавить отдел", "Сохранить изменения")
 - Input/select focus border
 - Blue stat values (total count metrics)
 - Employee avatar initials that fall in the blue color slot
@@ -118,7 +126,7 @@ These components must be implemented consistently across all three new templates
 ### Stat Card
 
 ```
-.stat-card: background #fff, border 1px #e2e6f0, border-radius 12px, padding 16px 18px
+.stat-card: background #fff, border 1px #e2e6f0, border-radius 12px, padding 16px
 .stat-label: font-size 11px, color #78909c, text-transform uppercase, letter-spacing 0.05em
 .stat-val: font-size 26px, font-weight 600, color per semantic meaning
 Layout: .stats-grid — CSS Grid, repeat(3, 1fr) for 3-card rows, gap 12px
@@ -134,8 +142,8 @@ Phase 2 stat cards per template:
 ```
 .table-card: background #fff, border 1px #e2e6f0, border-radius 14px, overflow hidden
 thead: background #f8fafd
-th: padding 11px 14px, font-size 11px, font-weight 600, color #546e7a, uppercase, letter-spacing 0.05em
-td: padding 12px 14px, font-size 13px, border-bottom 1px #f0f3f8
+th: padding 12px 12px, font-size 11px, font-weight 600, color #546e7a, uppercase, letter-spacing 0.05em
+td: padding 12px 12px, font-size 13px, border-bottom 1px #f0f3f8
 tr:last-child td: border-bottom none
 ```
 
@@ -143,15 +151,15 @@ tr:last-child td: border-bottom none
 
 Primary (accent):
 ```
-padding: 9px 16px; background: #1565C0; color: #fff; border: none; border-radius: 8px;
-font-size: 13px; font-weight: 500; cursor: pointer;
+padding: 8px 16px; background: #1565C0; color: #fff; border: none; border-radius: 8px;
+font-size: 13px; font-weight: 600; cursor: pointer;
 hover: background #0d47a1
 ```
 
 Secondary / cancel:
 ```
-padding: 9px 16px; background: #fff; border: 1px solid #cfd8dc; border-radius: 8px;
-font-size: 13px; font-weight: 500; cursor: pointer; color: #546e7a;
+padding: 8px 16px; background: #fff; border: 1px solid #cfd8dc; border-radius: 8px;
+font-size: 13px; font-weight: 600; cursor: pointer; color: #546e7a;
 ```
 
 Destructive (delete):
@@ -173,8 +181,8 @@ hover: background #f4f6fb
 .card (form container): background #fff, border 1px #e2e6f0, border-radius 14px, padding 24px
 max-width: 480px for single-column forms
 .form-group: margin-bottom 16px
-label: font-size 13px, font-weight 500, color #546e7a, display block, margin-bottom 6px
-input/select (full-width): width 100%, padding 9px 12px, border 1px #cfd8dc, border-radius 8px,
+label: font-size 13px, font-weight 600, color #546e7a, display block, margin-bottom 6px
+input/select (full-width): width 100%, padding 8px 12px, border 1px #cfd8dc, border-radius 8px,
   font-size 13px, color #1a2340; focus: border-color #1565C0
 ```
 
@@ -182,7 +190,7 @@ input/select (full-width): width 100%, padding 9px 12px, border 1px #cfd8dc, bor
 
 ```
 .nav-tabs: display flex, gap 4px, padding 0 24px, background #fff, border-bottom 1px #e2e6f0
-.tab: padding 12px 20px, font-size 14px, font-weight 500, color #78909c,
+.tab: padding 12px 20px, font-size 13px, font-weight 600, color #78909c,
   border-bottom 2px solid transparent, transition all 0.15s
 .tab.active: color #1565C0, border-bottom-color #1565C0
 .tab:hover:not(.active): color #1a2340
@@ -192,7 +200,7 @@ input/select (full-width): width 100%, padding 9px 12px, border 1px #cfd8dc, bor
 
 ```
 .badge: display inline-flex, align-items center, gap 4px, padding 3px 9px,
-  border-radius 14px, font-size 11px, font-weight 500
+  border-radius 14px, font-size 11px, font-weight 600
 Use semantic badge colors from Color section above.
 ```
 
@@ -218,7 +226,7 @@ Render only if dept_name is non-empty (graceful degradation — no empty element
 ### superadmin.html
 
 ```
-header (shared pattern)
+header (shared pattern): padding 16px 24px
 nav-tabs: [Организации] [Пользователи] [Отчёты →]
 page (max-width 1100px, padding 24px 20px):
   .stats-grid (3 cards)
@@ -226,10 +234,12 @@ page (max-width 1100px, padding 24px 20px):
   inline "Добавить организацию" form panel (initially hidden, toggled by button)
 ```
 
+Focal point: the org table.
+
 ### org_admin.html
 
 ```
-header (shared pattern)
+header (shared pattern): padding 16px 24px
 nav-tabs: [Отделы] [Сотрудники] [Отчёты →]
 page:
   .stats-grid (3 cards)
@@ -238,10 +248,12 @@ page:
   .table-card (employees table: Имя, Отдел, График, Статус)
 ```
 
+Focal point: the dept table.
+
 ### dept_admin.html
 
 ```
-header (shared pattern)
+header (shared pattern): padding 16px 24px
 nav-tabs: [Посещаемость] [Сотрудники] [Отчёты →]
 page:
   .stats-grid (3 cards — live today)
@@ -249,6 +261,8 @@ page:
   .table-card (employee list: Имя, График, Действия [Изменить график])
   inline "Изменить график" form panel (per-employee, initially hidden)
 ```
+
+Focal point: the stat cards.
 
 ---
 
@@ -260,7 +274,7 @@ All copy is in Russian (ru) to match the existing codebase (admin.html, kiosk.ht
 |---------|------|
 | Primary CTA — create org | Создать организацию |
 | Primary CTA — create dept | Добавить отдел |
-| Primary CTA — save changes | Сохранить |
+| Primary CTA — save changes | Сохранить изменения |
 | Primary CTA — add employee (dept context) | Добавить сотрудника |
 | Secondary CTA — cancel inline form | Отмена |
 | Toggle add form | + Добавить организацию / + Добавить отдел |

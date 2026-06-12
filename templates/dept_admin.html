@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Отдел — МедКонтроль</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f6fb; color: #1a2340; min-height: 100vh; }
+header { background: #fff; border-bottom: 1px solid #e2e6f0; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.logo { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
+.logo-icon { width: 34px; height: 34px; background: #1565C0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.user-badge { font-size: 13px; color: #546e7a; }
+.btn-logout { padding: 7px 14px; background: #fff; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; color: #546e7a; cursor: pointer; text-decoration: none; transition: all 0.15s; }
+.btn-logout:hover { background: #ffebee; color: #c62828; border-color: #ef9a9a; }
+.nav-tabs { display: flex; gap: 4px; padding: 0 24px; background: #fff; border-bottom: 1px solid #e2e6f0; }
+.tab { padding: 12px 20px; font-size: 13px; font-weight: 600; color: #78909c; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; text-decoration: none; display: inline-block; }
+.tab.active { color: #1565C0; border-bottom-color: #1565C0; }
+.tab:hover:not(.active) { color: #1a2340; }
+.page { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+.stat-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 12px; padding: 16px; }
+.stat-label { font-size: 11px; color: #78909c; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-val { font-size: 26px; font-weight: 600; }
+.stat-val.blue { color: #1565C0; }
+.stat-val.green { color: #2E7D32; }
+.stat-val.orange { color: #E65100; }
+.stat-val.gray { color: #546e7a; }
+.table-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; overflow: hidden; margin-bottom: 20px; }
+table { width: 100%; border-collapse: collapse; }
+thead { background: #f8fafd; }
+th { padding: 12px 12px; text-align: left; font-size: 11px; font-weight: 600; color: #546e7a; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e6f0; white-space: nowrap; }
+td { padding: 12px 12px; font-size: 13px; border-bottom: 1px solid #f0f3f8; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 14px; font-size: 11px; font-weight: 600; }
+.badge-present { background: #E8F5E9; color: #1B5E20; }
+.badge-late { background: #FFF3E0; color: #BF360C; border: 1px solid #FFCC80; }
+.badge-absent { background: #FAFAFA; color: #90A4AE; border: 1px solid #e0e0e0; }
+.btn-primary { padding: 8px 16px; background: #1565C0; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+.btn-primary:hover { background: #0d47a1; }
+.btn-secondary { padding: 8px 16px; background: #fff; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; color: #546e7a; }
+.btn-edit { padding: 6px 12px; background: #fff; border: 1px solid #cfd8dc; border-radius: 6px; font-size: 12px; color: #546e7a; cursor: pointer; }
+.btn-edit:hover { background: #f4f6fb; }
+.card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; padding: 24px; max-width: 480px; margin-bottom: 20px; }
+.form-group { margin-bottom: 16px; }
+.form-group label { font-size: 13px; font-weight: 600; color: #546e7a; display: block; margin-bottom: 6px; }
+.form-group input[type="time"] { width: 100%; padding: 8px 12px; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 13px; color: #1a2340; outline: none; font-family: inherit; }
+.form-group input[type="time"]:focus { border-color: #1565C0; }
+.weekdays { display: flex; gap: 8px; flex-wrap: wrap; }
+.weekday-label { display: flex; align-items: center; gap: 4px; font-size: 13px; color: #1a2340; cursor: pointer; }
+.weekday-label input[type="checkbox"] { cursor: pointer; }
+.form-actions { display: flex; gap: 10px; margin-top: 8px; }
+.hidden { display: none; }
+.error-msg { font-size: 13px; color: #c62828; margin-top: 8px; }
+.schedule-str { font-size: 13px; color: #546e7a; font-variant-numeric: tabular-nums; }
+.empty-state { padding: 24px; text-align: center; font-size: 13px; color: #90a4ae; }
+@media (max-width: 700px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><div class="logo-icon">🏥</div> МедКонтроль — Отдел</div>
+  <div class="header-right">
+    <span class="user-badge">{{ username }}</span>
+    <a href="/" class="btn-logout" style="border-color:#cfd8dc;color:#546e7a;">← Киоск</a>
+    <a href="/logout" class="btn-logout">Выйти</a>
+  </div>
+</header>
+
+<div class="nav-tabs">
+  <span class="tab active" id="tabAttendance" onclick="switchTab('attendance')">Посещаемость</span>
+  <span class="tab" id="tabEmployees" onclick="switchTab('employees')">Сотрудники</span>
+  <a class="tab" href="/admin">Отчёты →</a>
+</div>
+
+<!-- ═══ TAB: ПОСЕЩАЕМОСТЬ ═══ -->
+<div id="panelAttendance" class="page">
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Пришли</div>
+      <div class="stat-val green" id="statPresent">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Отсутствуют</div>
+      <div class="stat-val orange" id="statAbsent">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Опоздали</div>
+      <div class="stat-val orange" id="statLate">—</div>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Сотрудник</th>
+          <th>Приход</th>
+          <th>Уход</th>
+          <th>Статус</th>
+          <th>График</th>
+        </tr>
+      </thead>
+      <tbody id="attendanceBody">
+        <tr><td colspan="5" class="empty-state">Загрузка...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ TAB: СОТРУДНИКИ ═══ -->
+<div id="panelEmployees" class="page hidden">
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Имя</th>
+          <th>График</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody id="employeesBody">
+        <tr><td colspan="3" class="empty-state">Загрузка...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// ─── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(name) {
+  ['attendance', 'employees'].forEach(function(t) {
+    var panel = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
+    var tab = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+    if (panel) panel.classList.add('hidden');
+    if (tab) tab.classList.remove('active');
+  });
+  var activePanel = document.getElementById('panel' + name.charAt(0).toUpperCase() + name.slice(1));
+  var activeTab = document.getElementById('tab' + name.charAt(0).toUpperCase() + name.slice(1));
+  if (activePanel) activePanel.classList.remove('hidden');
+  if (activeTab) activeTab.classList.add('active');
+}
+
+// ─── Weekday abbreviations (ISO 1=Mon..7=Sun) ─────────────────────────────────
+var WEEKDAY_NAMES = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+function weekdaysLabel(work_days) {
+  if (!work_days || !work_days.length) return '—';
+  // Format as range abbreviation when Mon-Fri
+  var sorted = work_days.slice().sort(function(a, b) { return a - b; });
+  if (sorted.length === 5 && sorted[0] === 1 && sorted[4] === 5) return 'Пн–Пт';
+  if (sorted.length === 7) return 'Пн–Вс';
+  return sorted.map(function(d) { return WEEKDAY_NAMES[d - 1]; }).join(', ');
+}
+
+function scheduleStr(schedule) {
+  if (!schedule) return '—';
+  return (schedule.start || '09:00') + ' – ' + (schedule.end || '18:00') + '  ' + weekdaysLabel(schedule.work_days);
+}
+
+// ─── Load attendance data ──────────────────────────────────────────────────────
+var attendanceData = [];
+
+async function loadAttendance() {
+  try {
+    var resp = await fetch('/api/dept_attendance_today');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    var data = await resp.json();
+    attendanceData = data.employees || [];
+    var stats = data.stats || {};
+    document.getElementById('statPresent').textContent = stats.present !== undefined ? stats.present : '—';
+    document.getElementById('statAbsent').textContent = stats.absent !== undefined ? stats.absent : '—';
+    document.getElementById('statLate').textContent = stats.late !== undefined ? stats.late : '—';
+    renderAttendance(data.employees || []);
+    renderEmployees(data.employees || []);
+  } catch (e) {
+    document.getElementById('statPresent').textContent = '—';
+    document.getElementById('statAbsent').textContent = '—';
+    document.getElementById('statLate').textContent = '—';
+    document.getElementById('attendanceBody').innerHTML = '<tr><td colspan="5" class="empty-state">Ошибка при сохранении. Попробуйте ещё раз.</td></tr>';
+  }
+}
+
+function badgeHtml(status) {
+  if (status === 'present') return '<span class="badge badge-present">Пришёл</span>';
+  if (status === 'late') return '<span class="badge badge-late">Опоздал</span>';
+  return '<span class="badge badge-absent">Отсутствует</span>';
+}
+
+function renderAttendance(employees) {
+  var tbody = document.getElementById('attendanceBody');
+  if (!employees.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Сегодня никто ещё не отметился.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = employees.map(function(emp) {
+    var checkIn = emp.check_in || '—';
+    var checkOut = emp.check_out || '—';
+    return '<tr>' +
+      '<td>' + escHtml(emp.name) + '</td>' +
+      '<td>' + escHtml(checkIn) + '</td>' +
+      '<td>' + escHtml(checkOut) + '</td>' +
+      '<td>' + badgeHtml(emp.status) + '</td>' +
+      '<td class="schedule-str">' + escHtml(emp.schedule || '—') + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+// ─── Employee schedule editing ─────────────────────────────────────────────────
+var editingEmpId = null;
+
+function renderEmployees(employees) {
+  var tbody = document.getElementById('employeesBody');
+  if (!employees.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="empty-state">Сотрудники не найдены.</td></tr>';
+    return;
+  }
+  var html = employees.map(function(emp) {
+    var schedStr = emp.schedule || '—';
+    return '<tr id="row-' + escHtml(emp.emp_id) + '">' +
+      '<td>' + escHtml(emp.name) + '</td>' +
+      '<td class="schedule-str">' + escHtml(schedStr) + '</td>' +
+      '<td><button class="btn-edit" onclick="openScheduleForm(\'' + escHtml(emp.emp_id) + '\')">Изменить график</button></td>' +
+      '</tr>' +
+      '<tr id="form-row-' + escHtml(emp.emp_id) + '" class="hidden">' +
+      '<td colspan="3">' + scheduleFormHtml(emp.emp_id) + '</td>' +
+      '</tr>';
+  }).join('');
+  tbody.innerHTML = html;
+}
+
+function scheduleFormHtml(empId) {
+  return '<div class="card" style="max-width:100%;margin:8px 0;">' +
+    '<div class="form-group">' +
+    '<label>Начало рабочего дня</label>' +
+    '<input type="time" id="start-' + empId + '" value="09:00">' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label>Конец рабочего дня</label>' +
+    '<input type="time" id="end-' + empId + '" value="18:00">' +
+    '</div>' +
+    '<div class="form-group">' +
+    '<label>Рабочие дни</label>' +
+    '<div class="weekdays">' +
+    [['Пн',1],['Вт',2],['Ср',3],['Чт',4],['Пт',5],['Сб',6],['Вс',7]].map(function(pair) {
+      var checked = pair[1] <= 5 ? ' checked' : '';
+      return '<label class="weekday-label"><input type="checkbox" id="wd-' + empId + '-' + pair[1] + '" value="' + pair[1] + '"' + checked + '> ' + pair[0] + '</label>';
+    }).join('') +
+    '</div>' +
+    '</div>' +
+    '<div class="form-actions">' +
+    '<button class="btn-primary" onclick="saveSchedule(\'' + empId + '\')">Сохранить изменения</button>' +
+    '<button class="btn-secondary" onclick="closeScheduleForm(\'' + empId + '\')">Отмена</button>' +
+    '</div>' +
+    '<div class="error-msg hidden" id="err-' + empId + '"></div>' +
+    '</div>';
+}
+
+function openScheduleForm(empId) {
+  // Close any other open form first
+  if (editingEmpId && editingEmpId !== empId) {
+    closeScheduleForm(editingEmpId);
+  }
+  editingEmpId = empId;
+  var formRow = document.getElementById('form-row-' + empId);
+  if (formRow) formRow.classList.remove('hidden');
+}
+
+function closeScheduleForm(empId) {
+  var formRow = document.getElementById('form-row-' + empId);
+  if (formRow) formRow.classList.add('hidden');
+  if (editingEmpId === empId) editingEmpId = null;
+  var errEl = document.getElementById('err-' + empId);
+  if (errEl) { errEl.textContent = ''; errEl.classList.add('hidden'); }
+}
+
+async function saveSchedule(empId) {
+  var startEl = document.getElementById('start-' + empId);
+  var endEl = document.getElementById('end-' + empId);
+  var errEl = document.getElementById('err-' + empId);
+
+  var start = startEl ? startEl.value : '';
+  var end = endEl ? endEl.value : '';
+  var work_days = [];
+  [1,2,3,4,5,6,7].forEach(function(d) {
+    var cb = document.getElementById('wd-' + empId + '-' + d);
+    if (cb && cb.checked) work_days.push(d);
+  });
+
+  if (!start || !end || !work_days.length) {
+    if (errEl) { errEl.textContent = 'Заполните все обязательные поля.'; errEl.classList.remove('hidden'); }
+    return;
+  }
+
+  try {
+    var resp = await fetch('/api/employees/' + empId + '/schedule', {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({start: start, end: end, work_days: work_days}),
+    });
+    if (!resp.ok) {
+      var errData = await resp.json().catch(function() { return {}; });
+      var msg = (resp.status === 400) ? (errData.error || 'Заполните все обязательные поля.') : 'Ошибка при сохранении. Попробуйте ещё раз.';
+      if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); }
+      return;
+    }
+    closeScheduleForm(empId);
+    await loadAttendance();
+  } catch(e) {
+    if (errEl) { errEl.textContent = 'Ошибка при сохранении. Попробуйте ещё раз.'; errEl.classList.remove('hidden'); }
+  }
+}
+
+// ─── Utility ──────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+loadAttendance();
+</script>
+</body>
+</html>

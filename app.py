@@ -214,7 +214,15 @@ def kiosk():
 @app.route("/login", methods=["GET", "POST"])
 def login_page():
     if request.method == "GET" and session.get("user_id"):
-        return redirect(url_for("admin_page"))
+        role_now = session.get("role")
+        if role_now == "superadmin":
+            return redirect(url_for("superadmin_page"))
+        elif role_now == "org_admin":
+            return redirect(url_for("org_admin_page"))
+        elif role_now in ("dept_admin", "viewer"):
+            return redirect(url_for("dept_admin_page"))
+        else:
+            return redirect(url_for("dashboard_page"))
     error = None
     if request.method == "POST":
         users = load_users()
@@ -235,7 +243,7 @@ def login_page():
             elif role == "org_admin":
                 return redirect(url_for("org_admin_page"))
             elif role in ("dept_admin", "viewer"):
-                return redirect(url_for("admin_page"))
+                return redirect(url_for("dept_admin_page"))
             else:
                 return redirect(url_for("dashboard_page"))
         else:
@@ -294,6 +302,16 @@ def org_admin_page():
     username = user.get("username", "")
     role = user.get("role", "")
     return render_template("org_admin.html", username=username, role=role)
+
+
+@app.route("/dept_admin")
+@require_role("dept_admin", "viewer")
+def dept_admin_page():
+    users = load_users()
+    user = users.get(session.get("user_id"), {})
+    username = user.get("username", "")
+    role = user.get("role", "")
+    return render_template("dept_admin.html", username=username, role=role)
 
 
 @app.route("/dashboard")
@@ -627,6 +645,57 @@ def delete_employee(emp_id):
         train_recognizer()
     return jsonify({"status": "deleted"})
 
+@app.route("/api/employees/<emp_id>", methods=["GET"])
+@require_role("superadmin", "org_admin", "dept_admin")
+def get_employee(emp_id):
+    employees = load_employees()
+    if emp_id not in employees:
+        return jsonify({"error": "Сотрудник не найден"}), 404
+    return jsonify(employees[emp_id])
+
+@app.route("/api/employees/<emp_id>/schedule", methods=["PATCH"])
+@require_role("superadmin", "org_admin", "dept_admin")
+def update_employee_schedule(emp_id):
+    """T13-06: Update per-employee work schedule with HH:MM validation."""
+    caller_role = session.get("role")
+    caller_dept_id = session.get("dept_id")
+    employees = load_employees()
+    if emp_id not in employees:
+        return jsonify({"error": "Сотрудник не найден"}), 404
+
+    # Scope gate: dept_admin may only edit employees in their own dept
+    emp = employees[emp_id]
+    if caller_role == "dept_admin" and emp.get("dept_id") != caller_dept_id:
+        return jsonify({"error": "forbidden"}), 403
+
+    data = request.json or {}
+    start = data.get("start", "")
+    end = data.get("end", "")
+    work_days = data.get("work_days")
+
+    # Validate HH:MM format with range check
+    def valid_time(t):
+        import re
+        if not re.match(r'^\d{2}:\d{2}$', str(t)):
+            return False
+        h, m = map(int, t.split(":"))
+        return 0 <= h <= 23 and 0 <= m <= 59
+
+    if not valid_time(start) or not valid_time(end):
+        return jsonify({"error": "Неверный формат времени"}), 400
+
+    # Validate work_days is a list of ints in 1..7
+    if not isinstance(work_days, list) or not work_days:
+        return jsonify({"error": "Неверный формат рабочих дней"}), 400
+    for d in work_days:
+        if not isinstance(d, int) or d < 1 or d > 7:
+            return jsonify({"error": "Неверный формат рабочих дней"}), 400
+
+    # Whitelist: only update schedule sub-fields
+    employees[emp_id]["schedule"] = {"start": start, "end": end, "work_days": work_days}
+    save_employees(employees)
+    return jsonify({"status": "updated"})
+
 @app.route("/api/employees/<emp_id>/reset", methods=["POST"])
 @require_role("superadmin", "org_admin", "dept_admin")
 def reset_employee_face(emp_id):
@@ -641,6 +710,95 @@ def reset_employee_face(emp_id):
     save_employees(employees)
     train_recognizer()
     return jsonify({"status": "reset", "face_count": 0})
+
+# ─── API: Dashboards ──────────────────────────────────────────────────────────
+
+@app.route("/api/superadmin_stats", methods=["GET"])
+@require_role("superadmin")
+def superadmin_stats():
+    """DASH-01: System-wide stats for superadmin dashboard."""
+    attendance = load_attendance()
+    today = date.today().isoformat()
+    today_records = attendance.get(today, {})
+    checkins_today = sum(
+        1 for rec in today_records.values() if rec.get("check_in")
+    )
+    return jsonify({
+        "orgs": len(load_orgs()),
+        "employees": len(load_employees()),
+        "checkins_today": checkins_today,
+    })
+
+
+@app.route("/api/dept_attendance_today", methods=["GET"])
+@require_role("dept_admin", "org_admin", "superadmin")
+def dept_attendance_today():
+    """DASH-02: Today's attendance scoped by caller role (dept_admin→dept, org_admin→org, superadmin→all)."""
+    role = session.get("role")
+    dept_id = session.get("dept_id")
+    org_id = session.get("org_id")
+
+    employees = load_employees()
+    attendance = load_attendance()
+    today = date.today().isoformat()
+    today_weekday = date.today().weekday() + 1  # ISO 1=Mon, 7=Sun
+    today_records = attendance.get(today, {})
+
+    # Filter employees by scope
+    if role == "dept_admin":
+        scoped = {eid: e for eid, e in employees.items() if e.get("dept_id") == dept_id}
+    elif role == "org_admin":
+        scoped = {eid: e for eid, e in employees.items() if e.get("org_id") == org_id}
+    else:  # superadmin — all employees
+        scoped = employees
+
+    result = []
+    present = absent = late = 0
+
+    for eid, emp in scoped.items():
+        schedule = emp.get("schedule", {"start": "09:00", "end": "18:00", "work_days": [1, 2, 3, 4, 5]})
+        work_days = schedule.get("work_days", [1, 2, 3, 4, 5])
+
+        if today_weekday not in work_days:
+            continue  # Day off — do not count as absent (A3)
+
+        rec = today_records.get(eid)
+        check_in = rec.get("check_in") if rec else None
+        check_out = rec.get("check_out") if rec else None
+
+        # Late detection: check_in > schedule.start + 15 min grace (A1)
+        schedule_start = schedule.get("start", "09:00")
+        sh, sm = map(int, schedule_start.split(":"))
+        late_m = sm + 15
+        if late_m < 60:
+            late_threshold = f"{sh:02d}:{late_m:02d}:00"
+        else:
+            late_threshold = f"{sh + 1:02d}:{late_m % 60:02d}:00"
+
+        if check_in:
+            if check_in > late_threshold:
+                status = "late"
+                late += 1
+            else:
+                status = "present"
+                present += 1
+        else:
+            status = "absent"
+            absent += 1
+
+        result.append({
+            "emp_id": eid,
+            "name": emp["name"],
+            "check_in": check_in,
+            "check_out": check_out,
+            "status": status,
+            "schedule": f"{schedule.get('start')} – {schedule.get('end')}",
+        })
+
+    return jsonify({
+        "employees": result,
+        "stats": {"present": present, "absent": absent, "late": late},
+    })
 
 # ─── API: Face Registration ───────────────────────────────────────────────────
 

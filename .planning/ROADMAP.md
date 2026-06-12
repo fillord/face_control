@@ -83,7 +83,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 02-04-PLAN.md — Superadmin & dept dashboards + schedule PATCH + login redirect + dept_admin.html (DASH-01, DASH-02, T13-06)
+- [x] 02-04-PLAN.md — Superadmin & dept dashboards + schedule PATCH + login redirect + dept_admin.html (DASH-01, DASH-02, T13-06)
 
 **Wave 4** *(blocked on Wave 3)*
 
@@ -133,6 +133,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. RBAC Foundation | 5/5 | Complete   | 2026-06-11 |
-| 2. Org/Dept Data Model | 3/5 | In Progress|  |
+| 2. Org/Dept Data Model | 4/5 | In Progress|  |
 | 3. T-13 Timesheet Grid | 0/TBD | Not started | - |
 | 4. Export & Employee Cabinet | 0/TBD | Not started | - |

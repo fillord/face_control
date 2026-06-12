@@ -154,7 +154,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 - Verify: curl http://127.0.0.1:5051/login → 200; curl http://127.0.0.1:5051/kiosk/<org_token> → 200
 
 **Depends on:** Phase 2
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 
@@ -176,4 +176,4 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 05-05-PLAN.md — org_admin kiosk-settings panel: change kiosk/reg PINs (bcrypt), regenerate reg_token, set/clear expiry, edit display name, live URLs; own-org scope
+- [x] 05-05-PLAN.md — org_admin kiosk-settings panel: change kiosk/reg PINs (bcrypt), regenerate reg_token, set/clear expiry, edit display name, live URLs; own-org scope

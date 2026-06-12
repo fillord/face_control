@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Учёт посещаемости — Поликлиника</title>
+<title>Учёт посещаемости — {{ org_name or 'МедКонтроль' }}</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0f1e; color: #e8eaf6; min-height: 100vh; display: flex; flex-direction: column; }
@@ -91,6 +91,21 @@ canvas#overlay { position: absolute; inset: 0; width: 100%; height: 100%; transf
 .nav-links { padding: 16px 24px; border-top: 1px solid #1e2a4a; display: flex; gap: 8px; }
 .nav-link { flex: 1; padding: 10px; text-align: center; border-radius: 8px; font-size: 13px; font-weight: 500; text-decoration: none; border: 1px solid #1e2a4a; color: #7986cb; transition: all 0.2s; }
 .nav-link:hover { background: #1a2240; color: #c5cae9; }
+/* PIN screen overlay — touchscreen button pad */
+#pinScreen { position: fixed; inset: 0; background: rgba(6,11,24,0.96); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; z-index: 100; }
+#pinScreen.hidden { display: none; }
+#pinTitle { font-size: 18px; font-weight: 600; color: #e8eaf6; }
+#pinDisplay { display: flex; gap: 14px; margin-bottom: 4px; }
+#pinDisplay span { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #5c6bc0; display: inline-block; transition: background 0.1s; }
+#pinDisplay span.filled { background: #5c6bc0; }
+.pin-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.pin-grid button { width: 72px; height: 72px; border-radius: 12px; border: 1px solid #1e2a4a; background: #0d1429; color: #e8eaf6; font-size: 26px; font-weight: 600; cursor: pointer; transition: background 0.12s, transform 0.08s; touch-action: manipulation; }
+.pin-grid button:hover { background: #1a2240; }
+.pin-grid button:active { background: #1565C0; transform: scale(0.96); }
+.pin-grid button.pin-back { font-size: 20px; color: #7986cb; }
+.pin-grid button.pin-ok { background: #1565C0; color: #fff; }
+.pin-grid button.pin-ok:hover { background: #0d47a1; }
+#pinError { color: #EF5350; font-size: 13px; min-height: 20px; }
 </style>
 </head>
 <body>
@@ -99,11 +114,39 @@ canvas#overlay { position: absolute; inset: 0; width: 100%; height: 100%; transf
     <div class="logo-icon">🏥</div>
     <div>
       <div class="logo-text">МедКонтроль</div>
-      <div class="logo-sub">Система учёта рабочего времени</div>
+      <div class="logo-sub">{{ org_name or 'Система учёта рабочего времени' }}</div>
     </div>
   </div>
   <div class="clock" id="clock">--:--:--</div>
 </header>
+
+{% if has_pin %}
+<!-- PIN screen — touchscreen button pad only, keyboard-free -->
+<div id="pinScreen">
+  <div id="pinTitle">Введите PIN для доступа</div>
+  <div id="pinDisplay">
+    <span id="pinDot0"></span>
+    <span id="pinDot1"></span>
+    <span id="pinDot2"></span>
+    <span id="pinDot3"></span>
+  </div>
+  <div class="pin-grid">
+    <button type="button" onclick="pinPress('1')">1</button>
+    <button type="button" onclick="pinPress('2')">2</button>
+    <button type="button" onclick="pinPress('3')">3</button>
+    <button type="button" onclick="pinPress('4')">4</button>
+    <button type="button" onclick="pinPress('5')">5</button>
+    <button type="button" onclick="pinPress('6')">6</button>
+    <button type="button" onclick="pinPress('7')">7</button>
+    <button type="button" onclick="pinPress('8')">8</button>
+    <button type="button" onclick="pinPress('9')">9</button>
+    <button type="button" class="pin-back" onclick="pinPress('back')">⌫</button>
+    <button type="button" onclick="pinPress('0')">0</button>
+    <button type="button" class="pin-ok" onclick="pinPress('ok')">OK</button>
+  </div>
+  <div id="pinError"></div>
+</div>
+{% endif %}
 
 <div class="main">
   <div class="camera-section">
@@ -186,6 +229,7 @@ canvas#overlay { position: absolute; inset: 0; width: 100%; height: 100%; transf
     </div>
 
     <div class="nav-links">
+      <!-- reg_token wiring to /kiosk/<reg_token>/register happens in plan 05-05 -->
       <a href="/login?next=/register" class="nav-link">📷 Регистрация</a>
       <a href="/login?next=/admin" class="nav-link">📊 Отчёты</a>
     </div>
@@ -216,6 +260,8 @@ let scanning = false;
 let cooldownUntil = 0;
 const COOLDOWN_MS = 4000;
 const hasEmployees = {{ 'true' if has_employees else 'false' }};
+const ORG_ID = {{ ('"' + org_id + '"') if org_id else 'null' }};
+const ORG_TOKEN = {{ ('"' + org_token + '"') if org_token else 'null' }};
 
 function updateClock() {
   const now = new Date();
@@ -274,7 +320,7 @@ async function recognize() {
     const resp = await fetch("/api/recognize", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image })
+      body: JSON.stringify({ image, org_id: ORG_ID })
     });
     const data = await resp.json();
 
@@ -389,7 +435,8 @@ function showResult(data) {
 }
 
 async function loadLog() {
-  const resp = await fetch("/api/attendance");
+  const params = ORG_ID ? `?org_id=${ORG_ID}` : "";
+  const resp = await fetch(`/api/kiosk_log${params}`);
   const rows = await resp.json();
   const container = document.getElementById("logItems");
   const events = [];
@@ -411,6 +458,77 @@ async function loadLog() {
 
 loadLog();
 if (hasEmployees) setInterval(recognize, 1500);
+
+// ─── PIN pad — touchscreen button pad ───────────────────────────────────────
+
+const PIN_KEY = 'kiosk_pin_unlocked_' + (ORG_TOKEN || 'root');
+let pinDigits = [];
+
+function isPinUnlocked() {
+  return localStorage.getItem(PIN_KEY) === '1';
+}
+
+function unlockPin() {
+  localStorage.setItem(PIN_KEY, '1');
+  const screen = document.getElementById("pinScreen");
+  if (screen) screen.classList.add("hidden");
+}
+
+function updatePinDisplay() {
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById("pinDot" + i);
+    if (dot) dot.className = i < pinDigits.length ? "filled" : "";
+  }
+}
+
+async function submitPin() {
+  const pin = pinDigits.join('');
+  try {
+    const resp = await fetch(`/api/kiosk/${ORG_TOKEN}/verify_pin`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin })
+    });
+    const data = await resp.json();
+    if (data.verified) {
+      unlockPin();
+      document.getElementById("pinError").textContent = "";
+    } else {
+      document.getElementById("pinError").textContent = "Неверный PIN-код. Попробуйте снова.";
+      pinDigits = [];
+      updatePinDisplay();
+    }
+  } catch(e) {
+    document.getElementById("pinError").textContent = "Ошибка соединения. Повторите попытку.";
+    pinDigits = [];
+    updatePinDisplay();
+  }
+}
+
+function pinPress(val) {
+  if (val === 'back') {
+    pinDigits.pop();
+    updatePinDisplay();
+  } else if (val === 'ok') {
+    if (pinDigits.length === 4) submitPin();
+  } else {
+    if (pinDigits.length < 4) {
+      pinDigits.push(val);
+      updatePinDisplay();
+      // Auto-submit when 4th digit entered
+      if (pinDigits.length === 4) submitPin();
+    }
+  }
+}
+
+// Show or hide PIN screen on load
+(function initPin() {
+  const screen = document.getElementById("pinScreen");
+  if (!screen) return; // no has_pin
+  if (isPinUnlocked()) {
+    screen.classList.add("hidden");
+  }
+})();
 </script>
 </body>
 </html>

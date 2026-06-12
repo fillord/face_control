@@ -508,7 +508,9 @@ def org_admin_page():
     user = users.get(session.get("user_id"), {})
     username = user.get("username", "")
     role = user.get("role", "")
-    return render_template("org_admin.html", username=username, role=role)
+    org = load_orgs().get(session.get("org_id"))
+    org_name = org.get("name") if org else ""
+    return render_template("org_admin.html", username=username, role=role, org_name=org_name)
 
 
 @app.route("/dept_admin")
@@ -518,7 +520,9 @@ def dept_admin_page():
     user = users.get(session.get("user_id"), {})
     username = user.get("username", "")
     role = user.get("role", "")
-    return render_template("dept_admin.html", username=username, role=role)
+    dept = load_depts().get(session.get("dept_id"))
+    dept_name = dept.get("name") if dept else ""
+    return render_template("dept_admin.html", username=username, role=role, dept_name=dept_name)
 
 
 @app.route("/dashboard")

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Отдел — МедКонтроль</title>
+<title>{% if dept_name %}{{ dept_name }} — МедКонтроль{% else %}МедКонтроль{% endif %}</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f6fb; color: #1a2340; min-height: 100vh; }
@@ -62,7 +62,7 @@ tr:last-child td { border-bottom: none; }
 </head>
 <body>
 <header>
-  <div class="logo"><div class="logo-icon">🏥</div> МедКонтроль — Отдел</div>
+  <div class="logo"><div class="logo-icon">🏥</div> МедКонтроль{% if dept_name %} — {{ dept_name }}{% endif %}</div>
   <div class="header-right">
     <span class="user-badge">{{ username }}</span>
     <a href="/" class="btn-logout" style="border-color:#cfd8dc;color:#546e7a;">← Киоск</a>

@@ -651,17 +651,17 @@ _(Table is not empty — A1 and A3 should be confirmed with user before Phase 3 
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should deleting an org cascade-delete its depts and set emp org_id to null, or should it be blocked if employees exist?**
    - What we know: D-12 only mentions delete action in UI; no cascade behavior specified.
    - What's unclear: Whether a backend guard (return 409 if employees exist under org) is required.
-   - Recommendation: Block delete if any employee has `org_id` matching the deleted org. Return `{"error": "Организация содержит сотрудников"}`, 409. This is the safe default. Apply same logic for dept delete.
+   - RESOLVED: Block delete if any employee has `org_id` matching the deleted org. Return `{"error": "Организация содержит сотрудников"}`, 409. This is the safe default. Apply same logic for dept delete.
 
 2. **Is the login redirect update (D-11) a replacement of the existing redirect or an extension?**
    - What we know: Phase 1 CONTEXT D-08 says all admin roles go to `/admin`; Phase 2 CONTEXT D-11 says update to role-specific routes.
    - What's unclear: The existing `login_page()` in app.py line 204 uses a single `if user["role"] in ("superadmin", "org_admin", "dept_admin"): return redirect(url_for("admin_page"))`.
-   - Recommendation: Replace the single branch with role-specific redirects per D-11. This is a clean in-place replacement, not an extension.
+   - RESOLVED: Replace the single branch with role-specific redirects per D-11. This is a clean in-place replacement, not an extension.
 
 ---
 

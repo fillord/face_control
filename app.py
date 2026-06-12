@@ -744,6 +744,116 @@ def profile_page():
             success = "Пароль успешно изменён"
     return render_template("profile.html", error=error, success=success)
 
+# ─── Page routes: T-13 Timesheet ──────────────────────────────────────────────
+
+@app.route("/timesheet")
+@require_role("dept_admin", "org_admin", "superadmin")
+def timesheet():
+    """T13-01: Render the T-13 attendance timesheet grid for a dept/month."""
+    users = load_users()
+    user = users.get(session.get("user_id"), {})
+    username = user.get("username", "")
+    role = session.get("role")
+    session_dept_id = session.get("dept_id")
+    session_org_id = session.get("org_id")
+
+    # (a) Resolve month param
+    month_str = request.args.get("month", datetime.now().strftime("%Y-%m"))
+    try:
+        year, month_num = map(int, month_str.split("-"))
+        if not (1 <= month_num <= 12):
+            raise ValueError("invalid month")
+    except (ValueError, AttributeError):
+        year, month_num = datetime.now().year, datetime.now().month
+        month_str = f"{year:04d}-{month_num:02d}"
+
+    # (b) Resolve dept scope (D-08: dept_admin param is ignored — always forced to session dept)
+    dept_id_param = request.args.get("dept_id", "")
+    depts = load_depts()
+    dept_options = []
+
+    if role == "dept_admin":
+        dept_id = session_dept_id  # always fixed from session; param ignored
+    elif role == "org_admin":
+        if dept_id_param and dept_id_param in depts:
+            dept = depts[dept_id_param]
+            if dept.get("org_id") != session_org_id:
+                return render_template("403.html"), 403
+            dept_id = dept_id_param
+        else:
+            # Default to first dept in org
+            org_depts = [did for did, d in depts.items() if d.get("org_id") == session_org_id]
+            dept_id = org_depts[0] if org_depts else None
+        # Build dept_options for selector
+        dept_options = [
+            {"id": did, "name": d.get("name", did)}
+            for did, d in depts.items()
+            if d.get("org_id") == session_org_id
+        ]
+    else:  # superadmin
+        dept_id = dept_id_param or None
+        # Build dept_options grouped by org for superadmin
+        orgs = load_orgs()
+        dept_options = []
+        for org_id_key, org in orgs.items():
+            org_depts = [
+                {"id": did, "name": d.get("name", did), "org_name": org.get("name", org_id_key)}
+                for did, d in depts.items()
+                if d.get("org_id") == org_id_key
+            ]
+            if org_depts:
+                dept_options.append({"org_id": org_id_key, "org_name": org.get("name", org_id_key), "depts": org_depts})
+
+    # Resolve dept name for display
+    if dept_id and dept_id in depts:
+        dept_name = depts[dept_id].get("name", "")
+    else:
+        dept_name = ""
+
+    # (c) Build days list
+    _, num_days = calendar.monthrange(year, month_num)
+    days = [date(year, month_num, 1) + timedelta(days=i) for i in range(num_days)]
+
+    # (d) Load data
+    attendance = load_attendance()
+    employees = load_employees()
+    overrides = load_timesheet_overrides()
+    holidays_set = get_holidays_set(year)
+    missing_holiday_year = is_holiday_year_missing(year)
+
+    # Filter employees to dept scope (Pitfall 3: None dept_id is out-of-scope)
+    if dept_id:
+        scoped_employees = {eid: e for eid, e in employees.items() if e.get("dept_id") == dept_id}
+    else:
+        scoped_employees = {}
+
+    # (e) Build grid rows and totals
+    grid_rows = []
+    for emp_id, emp in scoped_employees.items():
+        schedule = emp.get("schedule", {"start": "09:00", "end": "18:00", "work_days": [1, 2, 3, 4, 5]})
+        symbols = [compute_symbol(d, emp_id, attendance, overrides, schedule, holidays_set) for d in days]
+        totals = compute_employee_totals(symbols, schedule)
+        grid_rows.append((emp_id, emp.get("name", emp_id), symbols, totals))
+
+    # (f) Render template
+    return render_template(
+        "timesheet.html",
+        username=username,
+        role=role,
+        dept_name=dept_name,
+        dept_id=dept_id,
+        dept_options=dept_options,
+        month_str=month_str,
+        year=year,
+        month_num=month_num,
+        days=days,
+        grid_rows=grid_rows,
+        holidays_set=holidays_set,
+        missing_holiday_year=missing_holiday_year,
+        can_edit=(role in ("dept_admin", "org_admin", "superadmin")),
+    )
+
+
 # ─── API: Users ───────────────────────────────────────────────────────────────
 
 @app.route("/api/users", methods=["GET"])

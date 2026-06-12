@@ -43,7 +43,7 @@ Declared values (must be multiples of 4):
 | 3xl | 64px | — (reserved) |
 
 Exceptions:
-- Grid cell padding for day columns: 6px vertical / 4px horizontal (compact; 31 columns must fit in viewport)
+- Grid cell padding for day columns: 4px vertical / 4px horizontal (compact; 31 columns must fit in viewport)
 - Employee name column: 12px padding (matches existing `th`/`td` 12px padding from dept_admin.html)
 - Totals row: same 8px vertical / 12px horizontal as body rows, bold weight instead of extra padding
 
@@ -58,15 +58,15 @@ Exceptions:
 | Body | 13px | 400 | 1.4 |
 | Label (table headers, form labels) | 11px | 600 | 1.3 |
 | Subheading (card titles, section titles) | 14px | 600 | 1.3 |
-| Heading (page section h2) | 18px | 600 | 1.2 |
+| Heading (page section h2, stat card values) | 18px | 600 | 1.2 |
+
+Note: Stat card values (days worked counts above the grid) use 18px/600 — the Heading slot. The previous 26px `.stat-val` size from existing dashboards is retired for this phase to keep the scale at exactly 4 sizes.
 
 **Grid cell symbol text:** 13px weight 600, centered, font-variant-numeric: tabular-nums.
 
 **"ОУ" combined cell:** 11px weight 600 to fit two characters without expanding column width.
 
-**Stat values (totals row summary counts):** 26px weight 600 — matches `.stat-val` in existing dashboards. Used only in summary stat cards above the grid.
-
-**Source:** Extracted from `dept_admin.html` and `org_admin.html` inline styles. Existing body/td is 13px/400; th is 11px/600; `.stat-val` is 26px/600.
+**Source:** Extracted from `dept_admin.html` and `org_admin.html` inline styles. Existing body/td is 13px/400; th is 11px/600.
 
 ---
 
@@ -112,12 +112,14 @@ This banner appears inside `.table-card` above the grid when the displayed year 
 
 ## Component Inventory
 
+**Visual Hierarchy:** Primary visual anchor is the T-13 grid table. Stat summary cards above the grid provide data context; the grid itself is the first interactive focus on load. All other elements (selector bar, holiday banner, DASH-04 section) are secondary and receive lower visual weight via smaller type and subdued background colors.
+
 ### New Components (timesheet.html)
 
 **Selector Bar** — `<form method="GET">` row at top of `.page`:
 - Month `<input type="month">` — existing form-group input style, `border: 1px solid #cfd8dc`, `border-radius: 8px`, `padding: 8px 12px`
 - Department `<select>` (org_admin / superadmin only) — same style as form-group select; dept_admin sees no selector (dept fixed from session)
-- Submit button: `.btn-primary` — "Показать" (13px/600, #1565C0 background)
+- Submit button: `.btn-primary` — "Показать табель" (13px/600, #1565C0 background)
 
 **Holiday-Missing Banner** — inside `.table-card`, above `<table>`:
 - `background: #FFFDE7; border: 1px solid #F9A825; border-radius: 8px; padding: 12px 16px; margin-bottom: 0; font-size: 13px; color: #5D4037`
@@ -131,10 +133,10 @@ This banner appears inside `.table-card` above the grid when the displayed year 
 **Grid Header Row** — two-row header:
 - Row 1: "Сотрудник" spanning name col; day numbers 1–31 (or days in month) each in 32px col; then total columns (Я, Ч, П/НН, О, Б/К)
 - Row 2: weekday abbreviations (Пн/Вт/Ср/Чт/Пт/Сб/Вс) under each day number; weekend/holiday day numbers displayed in #9E9E9E
-- Header style: `background: #f8fafd; font-size: 11px; font-weight: 600; color: #546e7a; text-align: center; padding: 6px 4px; border-bottom: 1px solid #e2e6f0; white-space: nowrap`
+- Header style: `background: #f8fafd; font-size: 11px; font-weight: 600; color: #546e7a; text-align: center; padding: 4px; border-bottom: 1px solid #e2e6f0; white-space: nowrap`
 
 **Grid Body Cells (symbol cells)**:
-- `text-align: center; font-size: 13px; font-weight: 600; padding: 6px 4px; cursor: pointer; border-bottom: 1px solid #f0f3f8`
+- `text-align: center; font-size: 13px; font-weight: 600; padding: 4px; cursor: pointer; border-bottom: 1px solid #f0f3f8`
 - Editable cells (non-auto-derived, or overridable): `cursor: pointer` + hover: `outline: 2px solid #1565C0` on the cell
 - Non-editable cells (viewer role): `cursor: default`, no hover outline
 - "ОУ" cells: `font-size: 11px; font-weight: 600; color: #BF360C; background: #FFF3E0`
@@ -151,7 +153,7 @@ This banner appears inside `.table-card` above the grid when the displayed year 
 **Inline Override Dropdown** — appears when an editable cell is clicked (dept_admin+):
 - Absolutely positioned `<div>` under clicked cell: `background: #fff; border: 1px solid #e2e6f0; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); padding: 4px; z-index: 100`
 - Contains 3 `<button>` elements (one per manual symbol: Б, К, П):
-  - `display: block; width: 100%; text-align: left; padding: 6px 12px; font-size: 13px; border: none; background: none; cursor: pointer; border-radius: 6px`
+  - `display: block; width: 100%; text-align: left; padding: 8px 12px; font-size: 13px; border: none; background: none; cursor: pointer; border-radius: 8px`
   - Hover: `background: #f4f6fb`
 - Button labels (Russian): "Б — Больничный", "К — Командировка", "П — Прогул"
 - A fourth option "Восстановить авто" restores auto-derived value (removes override)
@@ -159,7 +161,7 @@ This banner appears inside `.table-card` above the grid when the displayed year 
 
 **DASH-04 Summary Section** — added to `org_admin.html` as a new tab or section:
 - Section heading: `<h2 style="font-size:18px;font-weight:600;margin-bottom:20px;">Сводка по отделам</h2>`
-- Month picker: `<input type="month">` + `.btn-primary` "Показать" in `.toolbar` row
+- Month picker: `<input type="month">` + `.btn-primary` "Показать табель" in `.toolbar` row
 - Summary table inside `.table-card`: columns — Отдел, Сотрудников, Рабочих дней, Явки (%), with `th` style matching existing pattern
 - Attendance rate cell: `font-weight: 600; color: #1565C0` for values ≥ 80%; `color: #E65100` for values < 80%
 
@@ -201,7 +203,7 @@ All copy is in Russian. No English strings in UI.
 | Element | Copy |
 |---------|------|
 | Page title (`<title>`) | Табель Т-13 — МедКонтроль |
-| Primary CTA (selector form) | Показать |
+| Primary CTA (selector form) | Показать табель |
 | Grid empty state (no employees) | "В этом отделе нет сотрудников." |
 | Grid empty state (no dept selected) | "Выберите отдел для просмотра табеля." |
 | Error state (load failure) | "Ошибка при загрузке табеля. Попробуйте ещё раз." |

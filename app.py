@@ -1,6 +1,7 @@
 import os, json, base64, time, shutil, uuid, tempfile, sys, secrets
 import fcntl
-from datetime import datetime, date
+import calendar
+from datetime import datetime, date, timedelta
 from functools import wraps
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for
 import numpy as np
@@ -19,6 +20,7 @@ LOGS_FILE = os.path.join(DATA_DIR, "logs.json")
 USERS_FILE = os.path.join(DATA_DIR, "users.json")
 ORGS_FILE = os.path.join(DATA_DIR, "orgs.json")
 DEPTS_FILE = os.path.join(DATA_DIR, "depts.json")
+TIMESHEET_OVERRIDES_FILE = os.path.join(DATA_DIR, "timesheet_overrides.json")
 os.makedirs(FACES_DIR, exist_ok=True)
 
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
@@ -161,6 +163,176 @@ def save_depts(data):
         fcntl.flock(fh, fcntl.LOCK_EX)
         json.dump(data, fh, ensure_ascii=False, indent=2)
         fcntl.flock(fh, fcntl.LOCK_UN)
+
+# ─── T-13 Timesheet ───────────────────────────────────────────────────────────
+
+# Add next year's dates before January 1 of that year
+KZ_HOLIDAYS = {
+    2024: [
+        "2024-01-01", "2024-01-02", "2024-01-07", "2024-03-08",
+        "2024-03-21", "2024-03-22", "2024-03-23",
+        "2024-05-01", "2024-05-07", "2024-05-09",
+        "2024-07-06", "2024-08-30",
+        "2024-10-25", "2024-12-01", "2024-12-16", "2024-12-17",
+    ],
+    2025: [
+        "2025-01-01", "2025-01-02", "2025-01-07", "2025-03-08",
+        "2025-03-21", "2025-03-22", "2025-03-23",
+        "2025-05-01", "2025-05-07", "2025-05-09",
+        "2025-07-06", "2025-08-30",
+        "2025-10-25", "2025-12-01", "2025-12-16", "2025-12-17",
+    ],
+    2026: [
+        "2026-01-01", "2026-01-02", "2026-01-07", "2026-03-08",
+        "2026-03-21", "2026-03-22", "2026-03-23",
+        "2026-05-01", "2026-05-07", "2026-05-09",
+        "2026-07-06", "2026-08-30",
+        "2026-10-25", "2026-12-01", "2026-12-16", "2026-12-17",
+    ],
+}
+
+MANUAL_SYMBOLS = {"Б", "К", "П"}
+
+
+def load_timesheet_overrides():
+    if os.path.exists(TIMESHEET_OVERRIDES_FILE):
+        try:
+            with open(TIMESHEET_OVERRIDES_FILE) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"WARNING: load_timesheet_overrides failed ({e}), returning empty dict", file=sys.stderr, flush=True)
+            return {}
+    return {}
+
+
+def save_timesheet_overrides(data):
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=DATA_DIR, prefix="overrides_", suffix=".tmp")
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as fh:
+            fcntl.flock(fh, fcntl.LOCK_EX)
+            json.dump(data, fh, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, TIMESHEET_OVERRIDES_FILE)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
+def get_holidays_set(year):
+    """Return a set of ISO date strings for KZ holidays in the given year."""
+    return set(KZ_HOLIDAYS.get(year, []))
+
+
+def is_holiday_year_missing(year):
+    """Return True if no KZ holiday data is available for the given year."""
+    return year not in KZ_HOLIDAYS
+
+
+def compute_symbol(day_date, emp_id, attendance, overrides, schedule, holidays_set):
+    """Return the T-13 symbol for one employee on one calendar day.
+
+    Priority: override > В (weekend/holiday) > future-day None > attendance-derived > НН
+    """
+    date_str = day_date.isoformat()
+
+    # 1. Manual override takes highest priority
+    emp_overrides = overrides.get(emp_id, {})
+    if date_str in emp_overrides:
+        return emp_overrides[date_str]
+
+    # 2. Weekend or public holiday → В
+    work_days = schedule.get("work_days", [1, 2, 3, 4, 5])
+    if day_date.isoweekday() not in work_days or date_str in holidays_set:
+        return "В"
+
+    # 3. Future work day → None (no data yet; exclude from totals)
+    if day_date > date.today():
+        return None
+
+    # 4. Work day — check attendance
+    day_records = attendance.get(date_str, {})
+    rec = day_records.get(emp_id)
+    if not rec or not rec.get("check_in"):
+        return "НН"
+
+    check_in = rec["check_in"]
+    # Normalize HH:MM to HH:MM:SS for consistent string comparison (Pitfall 1)
+    if len(check_in) == 5:
+        check_in += ":00"
+
+    check_out = rec.get("check_out")
+    if check_out and len(check_out) == 5:
+        check_out += ":00"
+
+    # Late threshold: schedule start + 15 min (as HH:MM:00 string, Pitfall 1)
+    sh, sm = map(int, schedule.get("start", "09:00").split(":"))
+    late_m = sm + 15
+    if late_m >= 60:
+        late_threshold = f"{sh + 1:02d}:{late_m % 60:02d}:00"
+    else:
+        late_threshold = f"{sh:02d}:{late_m:02d}:00"
+
+    # Early departure threshold: schedule end - 15 min (as HH:MM:00 string)
+    eh, em = map(int, schedule.get("end", "18:00").split(":"))
+    early_m = em - 15
+    if early_m < 0:
+        early_threshold = f"{eh - 1:02d}:{60 + early_m:02d}:00"
+    else:
+        early_threshold = f"{eh:02d}:{early_m:02d}:00"
+
+    is_late = check_in > late_threshold
+    is_early = bool(check_out) and check_out < early_threshold
+
+    if is_late and is_early:
+        return "ОУ"
+    elif is_late:
+        return "О"
+    elif is_early:
+        return "У"
+    return "Я"
+
+
+def compute_employee_totals(symbols, schedule):
+    """Compute T13-07 totals from an employee's list of symbols for one month.
+
+    Excludes None symbols (future days) from all counts.
+    days_worked counts Я/О/У/ОУ; late counts О/ОУ; absences counts П/НН;
+    vac_sick counts Б/К; hours_worked = days_worked × daily_hours.
+    """
+    days_worked = sum(1 for s in symbols if s in ("Я", "О", "У", "ОУ"))
+    sh, sm = map(int, schedule.get("start", "09:00").split(":"))
+    eh, em = map(int, schedule.get("end", "18:00").split(":"))
+    daily_hours = (eh * 60 + em - (sh * 60 + sm)) / 60
+    return {
+        "days_worked": days_worked,
+        "hours_worked": round(days_worked * daily_hours, 1),
+        "absences": sum(1 for s in symbols if s in ("П", "НН")),
+        "late": sum(1 for s in symbols if s in ("О", "ОУ")),
+        "vac_sick": sum(1 for s in symbols if s in ("Б", "К")),
+    }
+
+
+def compute_timesheet_grid(year, month_num, scoped_employees, attendance, overrides, holidays_set):
+    """Build the grid rows and totals for the T-13 timesheet.
+
+    Returns (days, grid_rows) where:
+      days: list of date objects for the month
+      grid_rows: list of (emp_id, name, symbols, totals) tuples
+    """
+    _, num_days = calendar.monthrange(year, month_num)
+    days = [date(year, month_num, 1) + timedelta(days=i) for i in range(num_days)]
+
+    grid_rows = []
+    for emp_id, emp in scoped_employees.items():
+        schedule = emp.get("schedule", {"start": "09:00", "end": "18:00", "work_days": [1, 2, 3, 4, 5]})
+        symbols = [compute_symbol(d, emp_id, attendance, overrides, schedule, holidays_set) for d in days]
+        totals = compute_employee_totals(symbols, schedule)
+        grid_rows.append((emp_id, emp.get("name", emp_id), symbols, totals))
+
+    return days, grid_rows
+
 
 # ─── Org tokens / PIN helpers ─────────────────────────────────────────────────
 

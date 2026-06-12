@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """
-migrate.py — Phase 2 data migration
+migrate.py — Phase 2 + Phase 5 data migration
 Run once: python migrate.py
 
-Adds org_id, dept_id, and schedule fields to every existing employee record.
-Creates default org "Главная организация" and dept "Основной отдел" in orgs.json and depts.json.
+Phase 2: Adds org_id, dept_id, and schedule fields to every existing employee record.
+         Creates default org "Главная организация" and dept "Основной отдел".
+Phase 5: Adds org_token, reg_token, kiosk_pin (bcrypt), reg_pin (bcrypt),
+         reg_token_expires, kiosk_display_name to every org.
+         Re-hashes any existing plaintext kiosk_pin values with bcrypt.
+
 Backs up employees.json before patching.
 Warns (never aborts) on face recognizer label integrity issues.
 """
@@ -12,9 +16,12 @@ import fcntl
 import glob
 import json
 import os
+import secrets
 import shutil
 import uuid
 from datetime import datetime
+
+import bcrypt
 
 import cv2
 import numpy as np
@@ -75,6 +82,94 @@ def check_label_integrity(employees):
     recognizer.train(faces, np.array(labels))
     trained_labels = set(int(x) for x in recognizer.getLabels().flatten())
     return trained_labels
+
+
+# ─── Phase 5: Org token / PIN migration ──────────────────────────────────────
+
+def _is_bcrypt(value):
+    """Return True if value is already a bcrypt hash (starts with '$2b$')."""
+    return bool(value and str(value).startswith("$2b$"))
+
+
+def _gen_token(seen):
+    """Generate an 8-char hex token (secrets.token_hex(4)) not in seen set."""
+    while True:
+        token = secrets.token_hex(4)
+        if token not in seen:
+            return token
+
+
+def migrate_org_tokens(orgs):
+    """Backfill token and PIN fields on every org in the orgs dict (mutates in-place).
+
+    Idempotent: fields that already exist with correct values are not changed.
+
+    Fields added per org:
+      org_token           — unique 8-char hex token
+      reg_token           — unique 8-char hex token (differs from org_token)
+      kiosk_pin           — bcrypt hash of "0000" (or re-hash of existing plaintext)
+      reg_pin             — bcrypt hash of "1234" (or re-hash of existing plaintext)
+      reg_token_expires   — None (no expiry by default)
+      kiosk_display_name  — org["name"] if not already set
+    """
+    # Build a seen-set of all existing tokens for uniqueness guarantees
+    seen = set()
+    for org in orgs.values():
+        if org.get("org_token"):
+            seen.add(org["org_token"])
+        if org.get("reg_token"):
+            seen.add(org["reg_token"])
+
+    for org_id, org in orgs.items():
+        updated_fields = []
+
+        # org_token
+        if not org.get("org_token"):
+            token = _gen_token(seen)
+            org["org_token"] = token
+            seen.add(token)
+            updated_fields.append("org_token")
+
+        # reg_token (must differ from org_token)
+        if not org.get("reg_token"):
+            token = _gen_token(seen)
+            org["reg_token"] = token
+            seen.add(token)
+            updated_fields.append("reg_token")
+
+        # kiosk_pin: None → hash "0000"; plaintext → re-hash; bcrypt → leave
+        kp = org.get("kiosk_pin")
+        if kp is None or "kiosk_pin" not in org:
+            org["kiosk_pin"] = bcrypt.hashpw(b"0000", bcrypt.gensalt()).decode()
+            updated_fields.append("kiosk_pin(default)")
+        elif not _is_bcrypt(kp):
+            # Plaintext detected — re-hash preserving the original PIN value
+            org["kiosk_pin"] = bcrypt.hashpw(str(kp).encode(), bcrypt.gensalt()).decode()
+            updated_fields.append("kiosk_pin(re-hashed)")
+
+        # reg_pin: None → hash "1234"; plaintext → re-hash; bcrypt → leave
+        rp = org.get("reg_pin")
+        if rp is None or "reg_pin" not in org:
+            org["reg_pin"] = bcrypt.hashpw(b"1234", bcrypt.gensalt()).decode()
+            updated_fields.append("reg_pin(default)")
+        elif not _is_bcrypt(rp):
+            org["reg_pin"] = bcrypt.hashpw(str(rp).encode(), bcrypt.gensalt()).decode()
+            updated_fields.append("reg_pin(re-hashed)")
+
+        # reg_token_expires: set to None if missing
+        if "reg_token_expires" not in org:
+            org["reg_token_expires"] = None
+            updated_fields.append("reg_token_expires")
+
+        # kiosk_display_name: default to org name if missing or empty
+        if not org.get("kiosk_display_name"):
+            org["kiosk_display_name"] = org.get("name", "")
+            updated_fields.append("kiosk_display_name")
+
+        if updated_fields:
+            print(f"  OK  {org.get('name', org_id)}: добавлено/обновлено {', '.join(updated_fields)}")
+        else:
+            print(f"  --  {org.get('name', org_id)}: без изменений (все поля уже присутствуют)")
 
 
 def run_migration():
@@ -163,15 +258,20 @@ def run_migration():
             warnings.append(warn_msg)
             warn_count += 1
 
-    # ── Step 6: Save all data files ───────────────────────────────────────────
+    # ── Step 6: Phase 5 — backfill org token/PIN fields ──────────────────────
+    print("\n  [Phase 5] Обновление токенов и PIN-кодов организаций...")
+    orgs = _load_json(ORGS_FILE)
+    migrate_org_tokens(orgs)
     _save_json(ORGS_FILE, orgs)
+
+    # ── Step 7: Save remaining data files ─────────────────────────────────────
     _save_json(DEPTS_FILE, depts)
     if employees:
         _save_json(EMPLOYEES_FILE, employees)
 
     # ── Summary line ──────────────────────────────────────────────────────────
     print(
-        f"Миграция завершена: {updated_count} сотрудников обновлено, "
+        f"\nМиграция завершена: {updated_count} сотрудников обновлено, "
         f"{warn_count} предупреждений."
     )
 

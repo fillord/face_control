@@ -105,7 +105,26 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Monthly totals row shows correct counts: days worked, hours worked, absences (П+НН), late arrivals (О), vacation/sick days (Б+К).
   5. Org_admin can view a per-department summary report for a selected month showing total employees and attendance rate % (days present / total work days) per department.
 
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+
+**Wave 0** *(test scaffold)*
+
+- [ ] 03-01-PLAN.md — Failing/xfail pytest scaffold (T13-01..08, DASH-04, D-05, D-08) + conftest TIMESHEET_OVERRIDES_FILE guard
+
+**Wave 1** *(blocked on Wave 0)*
+
+- [ ] 03-02-PLAN.md — Symbol engine + KZ_HOLIDAYS + /timesheet grid render slice (auto-derive Я/О/У/В/НН/ОУ, totals row, holiday banner, dept scope)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 03-03-PLAN.md — Inline override slice: POST/DELETE /api/timesheet/override (scope + {Б,К,П} whitelist) + in-cell dropdown JS
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 03-04-PLAN.md — DASH-04 org_admin per-dept summary + KZ holiday verification + full-phase smoke [checkpoint]
+
 **UI hint**: yes
 
 ### Phase 4: Export & Employee Cabinet
@@ -134,7 +153,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. RBAC Foundation | 5/5 | Complete   | 2026-06-11 |
 | 2. Org/Dept Data Model | 4/5 | In Progress|  |
-| 3. T-13 Timesheet Grid | 0/TBD | Not started | - |
+| 3. T-13 Timesheet Grid | 0/4 | Not started | - |
 | 4. Export & Employee Cabinet | 0/TBD | Not started | - |
 
 ### Phase 5: Token-based Kiosk, Registration & Russian UI

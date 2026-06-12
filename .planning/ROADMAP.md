@@ -154,7 +154,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 - Verify: curl http://127.0.0.1:5051/login → 200; curl http://127.0.0.1:5051/kiosk/<org_token> → 200
 
 **Depends on:** Phase 2
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans executed
 
 Plans:
 
@@ -172,7 +172,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 05-04-PLAN.md — Russian UI + МедКонтроль branding audit, role-scoped headers (Суперадмин / org name / dept name), role-only navigation
+- [x] 05-04-PLAN.md — Russian UI + МедКонтроль branding audit, role-scoped headers (Суперадмин / org name / dept name), role-only navigation
 
 **Wave 5** *(blocked on Wave 4)*
 

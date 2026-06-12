@@ -154,7 +154,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 - Verify: curl http://127.0.0.1:5051/login → 200; curl http://127.0.0.1:5051/kiosk/<org_token> → 200
 
 **Depends on:** Phase 2
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 
 Plans:
 
@@ -168,7 +168,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 05-03-PLAN.md — Token registration: public /register/<reg_token> with expiry + bcrypt reg_pin + submit, mobile register_token.html, login role allowlist (AUTH-ROLE-01)
+- [x] 05-03-PLAN.md — Token registration: public /register/<reg_token> with expiry + bcrypt reg_pin + submit, mobile register_token.html, login role allowlist (AUTH-ROLE-01)
 
 **Wave 4** *(blocked on Wave 3)*
 

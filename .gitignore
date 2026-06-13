@@ -1,0 +1,28 @@
+# SQLite database — do not commit (DB-05)
+data/app.db
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Python egg / distribution
+*.egg-info/
+dist/
+build/
+
+# Test / coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editor / OS
+.DS_Store
+*.swp
+*.swo

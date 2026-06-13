@@ -210,7 +210,7 @@ Plans:
   4. Concurrent writes are handled by SQLAlchemy transactions; manual fcntl locking code is removed.
   5. app.db is created automatically on first run if it does not exist; SECRET_KEY and DATABASE_URL are the only required env vars.
 
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans executed (completed 2026-06-13)
 
 Plans:
 
@@ -228,4 +228,4 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 06-04-PLAN.md — ORM rewrite of attendance/recognition/timesheet routes + migrate_to_sqlite.py + .gitignore + real-data migration smoke [checkpoint]
+- [x] 06-04-PLAN.md — ORM rewrite of attendance/recognition/timesheet routes + migrate_to_sqlite.py + .gitignore + real-data migration smoke [checkpoint]

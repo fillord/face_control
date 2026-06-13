@@ -452,7 +452,7 @@ def append_log(entry):
         confidence_pct=entry.get("confidence_pct"),
     )
     db.session.add(log)
-    db.session.commit()
+    db.session.flush()  # assign id without committing so cap check sees the new row
     count = LogEntry.query.count()
     if count > 10000:
         excess = count - 10000
@@ -460,7 +460,7 @@ def append_log(entry):
             db.select(LogEntry.id).order_by(LogEntry.id.asc()).limit(excess)
         ).scalars().all()
         LogEntry.query.filter(LogEntry.id.in_(oldest_ids)).delete(synchronize_session=False)
-        db.session.commit()
+    db.session.commit()
 
 # ─── CV helpers ───────────────────────────────────────────────────────────────
 

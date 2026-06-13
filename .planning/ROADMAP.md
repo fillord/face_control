@@ -111,15 +111,15 @@ Plans:
 
 **Wave 0** *(test scaffold)*
 
-- [ ] 03-01-PLAN.md — Failing/xfail pytest scaffold (T13-01..08, DASH-04, D-05, D-08) + conftest TIMESHEET_OVERRIDES_FILE guard
+- [x] 03-01-PLAN.md — Failing/xfail pytest scaffold (T13-01..08, DASH-04, D-05, D-08) + conftest TIMESHEET_OVERRIDES_FILE guard
 
 **Wave 1** *(blocked on Wave 0)*
 
-- [ ] 03-02-PLAN.md — Symbol engine + KZ_HOLIDAYS + /timesheet grid render slice (auto-derive Я/О/У/В/НН/ОУ, totals row, holiday banner, dept scope)
+- [x] 03-02-PLAN.md — Symbol engine + KZ_HOLIDAYS + /timesheet grid render slice (auto-derive Я/О/У/В/НН/ОУ, totals row, holiday banner, dept scope)
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 03-03-PLAN.md — Inline override slice: POST/DELETE /api/timesheet/override (scope + {Б,К,П} whitelist) + in-cell dropdown JS
+- [x] 03-03-PLAN.md — Inline override slice: POST/DELETE /api/timesheet/override (scope + {Б,К,П} whitelist) + in-cell dropdown JS
 
 **Wave 3** *(blocked on Wave 2)*
 
@@ -153,7 +153,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. RBAC Foundation | 5/5 | Complete   | 2026-06-11 |
 | 2. Org/Dept Data Model | 4/5 | In Progress|  |
-| 3. T-13 Timesheet Grid | 0/4 | Not started | - |
+| 3. T-13 Timesheet Grid | 3/4 | In Progress|  |
 | 4. Export & Employee Cabinet | 0/TBD | Not started | - |
 
 ### Phase 5: Token-based Kiosk, Registration & Russian UI
@@ -173,7 +173,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 - Verify: curl http://127.0.0.1:5051/login → 200; curl http://127.0.0.1:5051/kiosk/<org_token> → 200
 
 **Depends on:** Phase 2
-**Plans:** 5/5 plans complete
+**Plans:** 3/4 plans executed
 
 Plans:
 

@@ -153,10 +153,17 @@ def load_orgs():
     return {}
 
 def save_orgs(data):
-    with open(ORGS_FILE, "w", encoding="utf-8") as fh:
-        fcntl.flock(fh, fcntl.LOCK_EX)
-        json.dump(data, fh, ensure_ascii=False, indent=2)
-        fcntl.flock(fh, fcntl.LOCK_UN)
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=DATA_DIR, prefix="orgs_", suffix=".tmp")
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, ORGS_FILE)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 def load_depts():
     if os.path.exists(DEPTS_FILE):
@@ -165,10 +172,17 @@ def load_depts():
     return {}
 
 def save_depts(data):
-    with open(DEPTS_FILE, "w", encoding="utf-8") as fh:
-        fcntl.flock(fh, fcntl.LOCK_EX)
-        json.dump(data, fh, ensure_ascii=False, indent=2)
-        fcntl.flock(fh, fcntl.LOCK_UN)
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=DATA_DIR, prefix="depts_", suffix=".tmp")
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, DEPTS_FILE)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 # ─── T-13 Timesheet ───────────────────────────────────────────────────────────
 

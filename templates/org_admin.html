@@ -551,6 +551,10 @@ async function reassignEmployee(empId, deptId) {
       const data = await resp.json();
       alert(data.error || 'Ошибка при сохранении. Попробуйте ещё раз.');
       await loadEmployees();
+    } else {
+      const emp = allEmployees.find(e => e.id === empId);
+      if (emp) emp.dept_id = deptId;
+      renderDepts();
     }
   } catch (e) {
     alert('Ошибка при сохранении. Попробуйте ещё раз.');

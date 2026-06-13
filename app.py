@@ -1071,6 +1071,8 @@ def create_user():
         return jsonify({"error": "Пароль должен содержать не менее 8 символов"}), 400
     if target_role not in ROLE_HIERARCHY:
         return jsonify({"error": "Недопустимая роль"}), 400
+    if target_role == "viewer":
+        return jsonify({"error": "Роль 'viewer' не поддерживается в текущей версии"}), 400
     if (creator_role not in ROLE_HIERARCHY or
             ROLE_HIERARCHY.index(creator_role) >= ROLE_HIERARCHY.index(target_role)):
         return jsonify({"error": "forbidden"}), 403

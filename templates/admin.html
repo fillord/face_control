@@ -68,7 +68,11 @@ tr.row-early-leave { background: #f0f8ff; }
   <div class="logo"><div class="logo-icon">🏥</div> МедКонтроль — Отчёты</div>
   <div class="header-right">
     <span class="user-badge">{{ username }}</span>
+    {% if session.role == 'org_admin' %}
+    <a href="/org_admin" class="btn-logout" style="border-color:#cfd8dc;color:#546e7a;">← Управление</a>
+    {% else %}
     <a href="/" class="btn-logout" style="border-color:#cfd8dc;color:#546e7a;">← Киоск</a>
+    {% endif %}
     <a href="/logout" class="btn-logout">Выйти</a>
   </div>
 </header>

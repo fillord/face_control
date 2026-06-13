@@ -1016,8 +1016,12 @@ def timesheet_override():
 @require_role("superadmin", "org_admin", "dept_admin")
 def list_users():
     users = load_users()
+    caller_role = session.get("role")
+    caller_org_id = session.get("org_id")
     result = []
     for u in users.values():
+        if caller_role == "org_admin" and u.get("org_id") != caller_org_id:
+            continue
         result.append({
             "id": u["id"],
             "username": u["username"],
@@ -1045,6 +1049,9 @@ def create_user():
     if (creator_role not in ROLE_HIERARCHY or
             ROLE_HIERARCHY.index(creator_role) >= ROLE_HIERARCHY.index(target_role)):
         return jsonify({"error": "forbidden"}), 403
+    # superadmin may only create org_admin; org_admin manages all roles below them
+    if creator_role == "superadmin" and target_role != "org_admin":
+        return jsonify({"error": "Суперадминистратор может создавать только администраторов организаций"}), 403
     users = load_users()
     if any(u["username"] == username for u in users.values()):
         return jsonify({"error": "Пользователь с таким логином уже существует"}), 400
@@ -1260,12 +1267,14 @@ def create_dept():
     caller_role = session.get("role")
     caller_org_id = session.get("org_id")
     data = request.json or {}
-    target_org_id = data.get("org_id")
     name = data.get("name", "").strip()
     if not name:
         return jsonify({"error": "Название отдела не может быть пустым"}), 400
-    if caller_role == "org_admin" and target_org_id != caller_org_id:
-        return jsonify({"error": "forbidden"}), 403
+    # org_admin always creates within their own org regardless of request body
+    if caller_role == "org_admin":
+        target_org_id = caller_org_id
+    else:
+        target_org_id = data.get("org_id")
     dept_id = str(uuid.uuid4())
     depts = load_depts()
     depts[dept_id] = {

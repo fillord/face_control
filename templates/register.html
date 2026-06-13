@@ -78,7 +78,13 @@ canvas#faceCanvas { position: absolute; inset: 0; width: 100%; height: 100%; tra
 <header>
   <div class="logo"><div class="logo-icon">🏥</div> МедКонтроль — Регистрация</div>
   <div class="header-right">
+    {% if session.role == 'org_admin' %}
+    <a href="/org_admin" class="back-link">← Управление</a>
+    {% elif session.role == 'dept_admin' %}
+    <a href="/dept_admin" class="back-link">← Панель</a>
+    {% else %}
     <a href="/" class="back-link">← Киоск</a>
+    {% endif %}
     <a href="/logout" class="btn-logout">Выйти</a>
   </div>
 </header>

@@ -1,4 +1,4 @@
-import os, json, base64, time, shutil, uuid, tempfile, sys, secrets
+import os, json, base64, time, shutil, uuid, sys, secrets
 import calendar
 from datetime import datetime, date, timedelta
 from functools import wraps
@@ -31,8 +31,6 @@ db.init_app(app)
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 FACES_DIR = os.path.join(DATA_DIR, "faces")
-ATTENDANCE_FILE = os.path.join(DATA_DIR, "attendance.json")
-TIMESHEET_OVERRIDES_FILE = os.path.join(DATA_DIR, "timesheet_overrides.json")
 os.makedirs(FACES_DIR, exist_ok=True)
 
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
@@ -188,18 +186,6 @@ def load_users():
     }
 
 
-# ─── Data helpers ─────────────────────────────────────────────────────────────
-
-def load_attendance():
-    if os.path.exists(ATTENDANCE_FILE):
-        with open(ATTENDANCE_FILE) as f:
-            return json.load(f)
-    return {}
-
-def save_attendance(data):
-    with open(ATTENDANCE_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
 # ─── T-13 Timesheet ───────────────────────────────────────────────────────────
 
 # Add next year's dates before January 1 of that year
@@ -228,31 +214,6 @@ KZ_HOLIDAYS = {
 }
 
 MANUAL_SYMBOLS = {"Б", "К", "П"}
-
-
-def load_timesheet_overrides():
-    if os.path.exists(TIMESHEET_OVERRIDES_FILE):
-        try:
-            with open(TIMESHEET_OVERRIDES_FILE) as f:
-                return json.load(f)
-        except (json.JSONDecodeError, OSError) as e:
-            print(f"WARNING: load_timesheet_overrides failed ({e}), returning empty dict", file=sys.stderr, flush=True)
-            return {}
-    return {}
-
-
-def save_timesheet_overrides(data):
-    tmp_fd, tmp_path = tempfile.mkstemp(dir=DATA_DIR, prefix="overrides_", suffix=".tmp")
-    try:
-        with os.fdopen(tmp_fd, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, ensure_ascii=False, indent=2)
-        os.replace(tmp_path, TIMESHEET_OVERRIDES_FILE)
-    except Exception:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        raise
 
 
 def get_holidays_set(year):

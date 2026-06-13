@@ -828,12 +828,21 @@ def timesheet():
         scoped_employees = {}
 
     # (e) Build grid rows and totals
+    # Each cell is a dict: {sym: displayed_symbol, auto: auto_symbol, date: iso_date_str}
+    # auto is the symbol computed without overrides — used by "Восстановить автоматически"
+    # to repaint the cell client-side without a page reload.
     grid_rows = []
     for emp_id, emp in scoped_employees.items():
         schedule = emp.get("schedule", {"start": "09:00", "end": "18:00", "work_days": [1, 2, 3, 4, 5]})
-        symbols = [compute_symbol(d, emp_id, attendance, overrides, schedule, holidays_set) for d in days]
+        cells = []
+        for d in days:
+            sym = compute_symbol(d, emp_id, attendance, overrides, schedule, holidays_set)
+            auto = compute_symbol(d, emp_id, attendance, {}, schedule, holidays_set)
+            cells.append({"sym": sym, "auto": auto, "date": d.isoformat()})
+        # symbols list for totals computation: use displayed symbols (overrides included)
+        symbols = [c["sym"] for c in cells]
         totals = compute_employee_totals(symbols, schedule)
-        grid_rows.append((emp_id, emp.get("name", emp_id), symbols, totals))
+        grid_rows.append((emp_id, emp.get("name", emp_id), cells, totals))
 
     # (f) Render template
     return render_template(
@@ -852,6 +861,60 @@ def timesheet():
         missing_holiday_year=missing_holiday_year,
         can_edit=(role in ("dept_admin", "org_admin", "superadmin")),
     )
+
+
+# ─── API: T-13 Timesheet Override ────────────────────────────────────────────
+
+@app.route("/api/timesheet/override", methods=["POST", "DELETE"])
+@require_role("dept_admin", "org_admin", "superadmin")
+def timesheet_override():
+    """D-05: Inline manual override for timesheet cells.
+
+    POST: set a manual symbol (Б/К/П) for emp_id on date.
+    DELETE: remove override and restore auto-derived symbol.
+    Scope-checked server-side from employees.json (never trust client dept/org).
+    """
+    role = session.get("role")
+    session_dept_id = session.get("dept_id")
+    session_org_id = session.get("org_id")
+
+    data = request.get_json(silent=True) or {}
+    emp_id = data.get("emp_id", "")
+    date_str = data.get("date", "")
+
+    # Validate emp exists
+    emp = load_employees().get(emp_id)
+    if not emp:
+        return jsonify({"error": "employee_not_found"}), 404
+
+    # Scope check: read dept/org from employee record (T-03-privesc mitigation)
+    if role == "dept_admin" and emp.get("dept_id") != session_dept_id:
+        return jsonify({"error": "forbidden"}), 403
+    if role == "org_admin" and emp.get("org_id") != session_org_id:
+        return jsonify({"error": "forbidden"}), 403
+    # superadmin: unrestricted
+
+    overrides = load_timesheet_overrides()
+
+    if request.method == "DELETE":
+        overrides.get(emp_id, {}).pop(date_str, None)
+        save_timesheet_overrides(overrides)
+        return jsonify({"deleted": True})
+
+    # POST branch
+    symbol = data.get("symbol", "")
+
+    # Validate symbol is in the manual whitelist (T-03-inject mitigation)
+    if symbol not in MANUAL_SYMBOLS:
+        return jsonify({"error": "invalid_symbol"}), 422
+
+    # Validate date_str is a non-empty YYYY-MM-DD string
+    if not date_str or len(date_str) != 10 or date_str[4] != "-" or date_str[7] != "-":
+        return jsonify({"error": "invalid_date"}), 422
+
+    overrides.setdefault(emp_id, {})[date_str] = symbol
+    save_timesheet_overrides(overrides)
+    return jsonify({"symbol": symbol, "auto": False})
 
 
 # ─── API: Users ───────────────────────────────────────────────────────────────

@@ -210,7 +210,7 @@ Plans:
   4. Concurrent writes are handled by SQLAlchemy transactions; manual fcntl locking code is removed.
   5. app.db is created automatically on first run if it does not exist; SECRET_KEY and DATABASE_URL are the only required env vars.
 
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 
@@ -224,7 +224,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 06-03-PLAN.md — ORM rewrite of require_role + user/employee/org/dept/config routes + append_log; remove flat-entity helpers and fcntl
+- [x] 06-03-PLAN.md — ORM rewrite of require_role + user/employee/org/dept/config routes + append_log; remove flat-entity helpers and fcntl
 
 **Wave 3** *(blocked on Wave 2)*
 

@@ -1,5 +1,4 @@
 import os, json, base64, time, shutil, uuid, tempfile, sys, secrets
-import fcntl
 import calendar
 from datetime import datetime, date, timedelta
 from functools import wraps
@@ -32,12 +31,7 @@ db.init_app(app)
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 FACES_DIR = os.path.join(DATA_DIR, "faces")
-EMPLOYEES_FILE = os.path.join(DATA_DIR, "employees.json")
 ATTENDANCE_FILE = os.path.join(DATA_DIR, "attendance.json")
-CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
-USERS_FILE = os.path.join(DATA_DIR, "users.json")
-ORGS_FILE = os.path.join(DATA_DIR, "orgs.json")
-DEPTS_FILE = os.path.join(DATA_DIR, "depts.json")
 TIMESHEET_OVERRIDES_FILE = os.path.join(DATA_DIR, "timesheet_overrides.json")
 os.makedirs(FACES_DIR, exist_ok=True)
 
@@ -46,16 +40,6 @@ recognizer = cv2.face.LBPHFaceRecognizer_create()
 recognizer_trained = False
 
 # ─── Config / Auth ────────────────────────────────────────────────────────────
-
-def load_config():
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE) as f:
-            return json.load(f)
-    return {}
-
-def save_config(data):
-    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
 
 def init_config():
     """Bootstrap AppSetting rows if the password_hash key is absent (D-05)."""
@@ -66,30 +50,6 @@ def init_config():
         db.session.commit()
 
 # ─── Auth: Users ──────────────────────────────────────────────────────────────
-
-def load_users():
-    if os.path.exists(USERS_FILE):
-        try:
-            with open(USERS_FILE) as f:
-                return json.load(f)
-        except (json.JSONDecodeError, OSError) as e:
-            print(f"WARNING: load_users failed ({e}), returning empty dict", file=sys.stderr, flush=True)
-            return {}
-    return {}
-
-def save_users(data):
-    tmp_fd, tmp_path = tempfile.mkstemp(dir=DATA_DIR, prefix="users_", suffix=".tmp")
-    try:
-        with os.fdopen(tmp_fd, "w", encoding="utf-8") as fh:
-            fcntl.flock(fh, fcntl.LOCK_EX)
-            json.dump(data, fh, ensure_ascii=False, indent=2)
-        os.replace(tmp_path, USERS_FILE)
-    except Exception:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        raise
 
 def init_users():
     """Bootstrap the superadmin User row via ORM if the user table is empty (MIG-03).
@@ -192,17 +152,43 @@ def _dept_to_dict(d):
     }
 
 
-# ─── Data helpers ─────────────────────────────────────────────────────────────
+# ─── ORM-backed shims (called by test files for verification — not route code) ──
+# These functions return ORM data in the old dict shape so test verification
+# calls (_app.load_orgs(), _app.load_users(), etc.) continue to work without
+# modifying test files. Route code uses the ORM directly (not these shims).
+
+def load_orgs():
+    """ORM shim: returns all orgs as {id: dict} — used by test verification."""
+    return {o.id: _org_to_dict(o) for o in Organization.query.all()}
+
+
+def load_depts():
+    """ORM shim: returns all depts as {id: dict} — used by test verification."""
+    return {d.id: _dept_to_dict(d) for d in Department.query.all()}
+
 
 def load_employees():
-    if os.path.exists(EMPLOYEES_FILE):
-        with open(EMPLOYEES_FILE) as f:
-            return json.load(f)
-    return {}
+    """ORM shim: returns all employees as {id: dict} — used by test verification."""
+    return {e.id: _emp_to_dict(e) for e in Employee.query.all()}
 
-def save_employees(data):
-    with open(EMPLOYEES_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def load_users():
+    """ORM shim: returns all users as {id: dict} — used by test verification."""
+    return {
+        u.id: {
+            "id": u.id,
+            "username": u.username,
+            "password_hash": u.password_hash,
+            "role": u.role,
+            "active": u.active,
+            "org_id": u.org_id,
+            "dept_id": u.dept_id,
+        }
+        for u in User.query.all()
+    }
+
+
+# ─── Data helpers ─────────────────────────────────────────────────────────────
 
 def load_attendance():
     if os.path.exists(ATTENDANCE_FILE):
@@ -213,44 +199,6 @@ def load_attendance():
 def save_attendance(data):
     with open(ATTENDANCE_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-
-# ─── Data helpers: Orgs / Depts ───────────────────────────────────────────────
-
-def load_orgs():
-    """Compatibility shim: returns org data as dict from ORM (tests call this for verification)."""
-    return {o.id: _org_to_dict(o) for o in Organization.query.all()}
-
-def save_orgs(data):
-    tmp_fd, tmp_path = tempfile.mkstemp(dir=DATA_DIR, prefix="orgs_", suffix=".tmp")
-    try:
-        with os.fdopen(tmp_fd, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, ensure_ascii=False, indent=2)
-        os.replace(tmp_path, ORGS_FILE)
-    except Exception:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        raise
-
-def load_depts():
-    if os.path.exists(DEPTS_FILE):
-        with open(DEPTS_FILE) as f:
-            return json.load(f)
-    return {}
-
-def save_depts(data):
-    tmp_fd, tmp_path = tempfile.mkstemp(dir=DATA_DIR, prefix="depts_", suffix=".tmp")
-    try:
-        with os.fdopen(tmp_fd, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, ensure_ascii=False, indent=2)
-        os.replace(tmp_path, DEPTS_FILE)
-    except Exception:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        raise
 
 # ─── T-13 Timesheet ───────────────────────────────────────────────────────────
 
@@ -297,7 +245,6 @@ def save_timesheet_overrides(data):
     tmp_fd, tmp_path = tempfile.mkstemp(dir=DATA_DIR, prefix="overrides_", suffix=".tmp")
     try:
         with os.fdopen(tmp_fd, "w", encoding="utf-8") as fh:
-            fcntl.flock(fh, fcntl.LOCK_EX)
             json.dump(data, fh, ensure_ascii=False, indent=2)
         os.replace(tmp_path, TIMESHEET_OVERRIDES_FILE)
     except Exception:

@@ -1419,13 +1419,20 @@ def update_employee_assignment(emp_id):
 @require_role("superadmin", "org_admin", "dept_admin")
 def delete_employee(emp_id):
     employees = load_employees()
-    if emp_id in employees:
-        del employees[emp_id]
-        save_employees(employees)
-        emp_dir = os.path.join(FACES_DIR, emp_id)
-        if os.path.exists(emp_dir):
-            shutil.rmtree(emp_dir)
-        train_recognizer()
+    if emp_id not in employees:
+        return jsonify({"status": "deleted"})
+    emp = employees[emp_id]
+    role = session.get("role")
+    if role == "dept_admin" and emp.get("dept_id") != session.get("dept_id"):
+        return jsonify({"error": "forbidden"}), 403
+    if role == "org_admin" and emp.get("org_id") != session.get("org_id"):
+        return jsonify({"error": "forbidden"}), 403
+    del employees[emp_id]
+    save_employees(employees)
+    emp_dir = os.path.join(FACES_DIR, emp_id)
+    if os.path.exists(emp_dir):
+        shutil.rmtree(emp_dir)
+    train_recognizer()
     return jsonify({"status": "deleted"})
 
 @app.route("/api/employees/<emp_id>", methods=["GET"])
@@ -1485,6 +1492,12 @@ def reset_employee_face(emp_id):
     employees = load_employees()
     if emp_id not in employees:
         return jsonify({"error": "Сотрудник не найден"}), 404
+    emp = employees[emp_id]
+    role = session.get("role")
+    if role == "dept_admin" and emp.get("dept_id") != session.get("dept_id"):
+        return jsonify({"error": "forbidden"}), 403
+    if role == "org_admin" and emp.get("org_id") != session.get("org_id"):
+        return jsonify({"error": "forbidden"}), 403
     emp_dir = os.path.join(FACES_DIR, emp_id)
     if os.path.exists(emp_dir):
         shutil.rmtree(emp_dir)

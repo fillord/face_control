@@ -877,8 +877,8 @@ def timesheet():
     month_str = request.args.get("month", datetime.now().strftime("%Y-%m"))
     try:
         year, month_num = map(int, month_str.split("-"))
-        if not (1 <= month_num <= 12):
-            raise ValueError("invalid month")
+        if not (1 <= month_num <= 12 and 2000 <= year <= 2099):
+            raise ValueError("out of range")
     except (ValueError, AttributeError):
         year, month_num = datetime.now().year, datetime.now().month
         month_str = f"{year:04d}-{month_num:02d}"

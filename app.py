@@ -1055,10 +1055,13 @@ def create_user():
     users = load_users()
     if any(u["username"] == username for u in users.values()):
         return jsonify({"error": "Пользователь с таким логином уже существует"}), 400
-    # Auto-inherit scope from creator; allow explicit override from request body
+    # Determine org scope: org_admin and dept_admin are always forced to their own org
     caller_org_id = session.get("org_id")
     caller_dept_id = session.get("dept_id")
-    new_org_id = data.get("org_id") or (caller_org_id if creator_role != "superadmin" else None)
+    if creator_role == "superadmin":
+        new_org_id = data.get("org_id")
+    else:
+        new_org_id = caller_org_id  # org_admin/dept_admin may never cross org boundary
     new_dept_id = data.get("dept_id") or (caller_dept_id if creator_role == "dept_admin" else None)
     user_id = str(uuid.uuid4())
     users[user_id] = {

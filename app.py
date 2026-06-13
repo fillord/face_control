@@ -1035,7 +1035,7 @@ def list_users():
 @app.route("/api/users", methods=["POST"])
 @require_role("superadmin", "org_admin", "dept_admin")
 def create_user():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     username = data.get("username", "").strip()
     password = data.get("password", "")
     target_role = data.get("role", "")
@@ -1090,7 +1090,7 @@ def update_user(user_id):
             target_role not in ROLE_HIERARCHY or
             ROLE_HIERARCHY.index(caller_role) >= ROLE_HIERARCHY.index(target_role)):
         return jsonify({"error": "forbidden"}), 403
-    data = request.json
+    data = request.get_json(silent=True) or {}
     if "active" in data:
         users[user_id]["active"] = bool(data["active"])
     save_users(users)
@@ -1604,7 +1604,9 @@ def dept_attendance_today():
 @app.route("/api/register_face", methods=["POST"])
 @require_role("superadmin", "org_admin", "dept_admin")
 def register_face():
-    data = request.json
+    data = request.get_json(silent=True) or {}
+    if not data.get("emp_id") or not data.get("image"):
+        return jsonify({"error": "emp_id and image required"}), 400
     emp_id = data["emp_id"]
     employees = load_employees()
     if emp_id not in employees:
@@ -1657,7 +1659,9 @@ def recognize():
         if not ok:
             return jsonify({"error": "not_trained"}), 400
 
-    data = request.json
+    data = request.get_json(silent=True) or {}
+    if "image" not in data:
+        return jsonify({"error": "image required"}), 400
     img = decode_image(data["image"])
     face_roi, bbox = extract_face(img)
     if face_roi is None:

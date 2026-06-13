@@ -210,7 +210,7 @@ Plans:
   4. Concurrent writes are handled by SQLAlchemy transactions; manual fcntl locking code is removed.
   5. app.db is created automatically on first run if it does not exist; SECRET_KEY and DATABASE_URL are the only required env vars.
 
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 Plans:
 
@@ -220,7 +220,7 @@ Plans:
 
 **Wave 1** *(blocked on Wave 0)*
 
-- [ ] 06-02-PLAN.md — wire SQLAlchemy into app.py (config, startup create_all, ORM bootstrap) + rewrite conftest.py for in-memory SQLite
+- [x] 06-02-PLAN.md — wire SQLAlchemy into app.py (config, startup create_all, ORM bootstrap) + rewrite conftest.py for in-memory SQLite
 
 **Wave 2** *(blocked on Wave 1)*
 

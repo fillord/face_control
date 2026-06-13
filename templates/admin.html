@@ -207,6 +207,7 @@ tr.row-early-leave { background: #f0f8ff; }
 const COLORS = ["#1565C0","#1B5E20","#4A148C","#BF360C","#006064","#37474F"];
 function colorFor(name) { let h=0; for(let c of name) h=(h*31+c.charCodeAt(0))%COLORS.length; return COLORS[h]; }
 function initials(name) { return name.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase(); }
+function escapeHtml(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 
 const today = new Date().toISOString().split("T")[0];
 document.getElementById("datePicker").value = today;
@@ -259,8 +260,8 @@ async function loadUsers() {
       ? `<button onclick="deactivateUser('${u.id}', '${u.username}')" style="padding:5px 12px;background:#fff;border:1px solid #EF9A9A;border-radius:6px;font-size:12px;font-weight:500;color:#B71C1C;cursor:pointer;">Деактивировать</button>`
       : `<button onclick="reactivateUser('${u.id}')" class="btn-export" style="padding:5px 12px;font-size:12px;">Активировать</button>`;
     return `<tr>
-      <td style="font-weight:500;">${u.username}</td>
-      <td style="color:#546e7a;">${roleName}</td>
+      <td style="font-weight:500;">${escapeHtml(u.username)}</td>
+      <td style="color:#546e7a;">${escapeHtml(roleName)}</td>
       <td>${statusBadge}</td>
       <td>${actionBtn}</td>
     </tr>`;
@@ -382,9 +383,9 @@ function renderTable(rows) {
     return `<tr class="${rowClass}">
       <td><div class="emp-cell">
         <div class="emp-av" style="background:${col}22;color:${col};border:1.5px solid ${col}44;">${initials(r.name)}</div>
-        <span style="font-weight:500;">${r.name}</span>
+        <span style="font-weight:500;">${escapeHtml(r.name)}</span>
       </div></td>
-      <td style="color:#546e7a;">${r.role}</td>
+      <td style="color:#546e7a;">${escapeHtml(r.role)}</td>
       <td class="time-cell">${checkInHtml}</td>
       <td class="time-cell">${checkOutHtml}</td>
       <td>${r.duration ? `<span style="font-weight:500;">${r.duration}</span>` : '<span style="color:#bdbdbd">—</span>'}</td>
@@ -464,8 +465,8 @@ async function loadStats() {
   const sorted = [...data.employee_stats].sort((a, b) => b.hours - a.hours);
   statsBody.innerHTML = sorted.map(e => `
     <tr>
-      <td><span style="font-weight:500;">${e.name}</span></td>
-      <td style="color:#546e7a;">${e.role}</td>
+      <td><span style="font-weight:500;">${escapeHtml(e.name)}</span></td>
+      <td style="color:#546e7a;">${escapeHtml(e.role)}</td>
       <td style="font-weight:600;color:#1565C0;">${e.days}</td>
       <td style="font-weight:600;">${e.hours_str}</td>
       <td>${e.late_days > 0 ? `<span style="color:#BF360C;font-weight:500;">${e.late_days}</span>` : '<span style="color:#2E7D32;">0</span>'}</td>

@@ -1390,13 +1390,17 @@ def add_employee():
     emp_id = str(int(time.time() * 1000))
     label = len(employees) + 1
 
+    name = data.get("name", "").strip()
+    if not name:
+        return jsonify({"error": "ФИО обязательно"}), 400
+
     # Determine org_id/dept_id: dept_admin defaults to session values when omitted
     org_id = data.get("org_id") if caller_role != "dept_admin" else (data.get("org_id") or caller_org_id)
     dept_id = target_dept_id if caller_role != "dept_admin" else caller_dept_id
 
     employees[emp_id] = {
         "id": emp_id,
-        "name": data["name"],
+        "name": name,
         "role": data.get("role", "employee"),
         "label": label,
         "registered_at": datetime.now().isoformat(),

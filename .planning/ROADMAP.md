@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: RBAC Foundation** - Secure login, 5-role system, scope filter, and protected existing API routes (completed 2026-06-11)
 - [ ] **Phase 2: Org/Dept Data Model** - Org+dept structure, migration of existing employees, dashboards, and work schedules
-- [ ] **Phase 3: T-13 Timesheet Grid** - Symbol engine, grid view, auto-derivation from check-in data, monthly totals
+- [x] **Phase 3: T-13 Timesheet Grid** - Symbol engine, grid view, auto-derivation from check-in data, monthly totals (completed 2026-06-13)
 - [ ] **Phase 4: Export & Employee Cabinet** - Excel/CSV export and employee self-service timesheet view
 
 ## Phase Details
@@ -123,7 +123,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 03-04-PLAN.md — DASH-04 org_admin per-dept summary + KZ holiday verification + full-phase smoke [checkpoint]
+- [x] 03-04-PLAN.md — DASH-04 org_admin per-dept summary + KZ holiday verification + full-phase smoke [checkpoint]
 
 **UI hint**: yes
 
@@ -153,7 +153,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. RBAC Foundation | 5/5 | Complete   | 2026-06-11 |
 | 2. Org/Dept Data Model | 4/5 | In Progress|  |
-| 3. T-13 Timesheet Grid | 3/4 | In Progress|  |
+| 3. T-13 Timesheet Grid | 4/4 | Complete   | 2026-06-13 |
 | 4. Export & Employee Cabinet | 0/TBD | Not started | - |
 
 ### Phase 5: Token-based Kiosk, Registration & Russian UI
@@ -173,7 +173,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 - Verify: curl http://127.0.0.1:5051/login → 200; curl http://127.0.0.1:5051/kiosk/<org_token> → 200
 
 **Depends on:** Phase 2
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 

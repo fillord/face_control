@@ -250,6 +250,20 @@ def is_holiday_year_missing(year):
     return year not in KZ_HOLIDAYS
 
 
+def _time_threshold(base_hhmm, delta_minutes):
+    """Return 'HH:MM:SS' string for base_hhmm shifted by delta_minutes, clamped to [00:00:00, 23:59:59]."""
+    base = datetime.strptime(base_hhmm, "%H:%M")
+    result = base + timedelta(minutes=delta_minutes)
+    # Clamp to same calendar day to prevent midnight wraparound producing invalid strings
+    min_dt = base.replace(hour=0, minute=0, second=0)
+    max_dt = base.replace(hour=23, minute=59, second=59)
+    if result < min_dt:
+        result = min_dt
+    elif result > max_dt:
+        result = max_dt
+    return result.strftime("%H:%M:%S")
+
+
 def compute_symbol(day_date, emp_id, attendance, overrides, schedule, holidays_set):
     """Return the T-13 symbol for one employee on one calendar day.
 
@@ -286,21 +300,10 @@ def compute_symbol(day_date, emp_id, attendance, overrides, schedule, holidays_s
     if check_out and len(check_out) == 5:
         check_out += ":00"
 
-    # Late threshold: schedule start + 15 min (as HH:MM:00 string, Pitfall 1)
-    sh, sm = map(int, schedule.get("start", "09:00").split(":"))
-    late_m = sm + 15
-    if late_m >= 60:
-        late_threshold = f"{sh + 1:02d}:{late_m % 60:02d}:00"
-    else:
-        late_threshold = f"{sh:02d}:{late_m:02d}:00"
-
-    # Early departure threshold: schedule end - 15 min (as HH:MM:00 string)
-    eh, em = map(int, schedule.get("end", "18:00").split(":"))
-    early_m = em - 15
-    if early_m < 0:
-        early_threshold = f"{eh - 1:02d}:{60 + early_m:02d}:00"
-    else:
-        early_threshold = f"{eh:02d}:{early_m:02d}:00"
+    # Late threshold: schedule start + 15 min; early threshold: schedule end - 15 min
+    # Use datetime arithmetic to avoid invalid strings near midnight (e.g. "24:05:00")
+    late_threshold = _time_threshold(schedule.get("start", "09:00"), 15)
+    early_threshold = _time_threshold(schedule.get("end", "18:00"), -15)
 
     is_late = check_in > late_threshold
     is_early = bool(check_out) and check_out < early_threshold

@@ -35,7 +35,6 @@ FACES_DIR = os.path.join(DATA_DIR, "faces")
 EMPLOYEES_FILE = os.path.join(DATA_DIR, "employees.json")
 ATTENDANCE_FILE = os.path.join(DATA_DIR, "attendance.json")
 CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
-LOGS_FILE = os.path.join(DATA_DIR, "logs.json")
 USERS_FILE = os.path.join(DATA_DIR, "users.json")
 ORGS_FILE = os.path.join(DATA_DIR, "orgs.json")
 DEPTS_FILE = os.path.join(DATA_DIR, "depts.json")
@@ -535,18 +534,25 @@ def is_reg_token_expired(org):
 
 
 def append_log(entry):
-    logs = []
-    if os.path.exists(LOGS_FILE):
-        with open(LOGS_FILE) as f:
-            try:
-                logs = json.load(f)
-            except Exception:
-                logs = []
-    logs.append(entry)
-    if len(logs) > 10000:
-        logs = logs[-10000:]
-    with open(LOGS_FILE, "w", encoding="utf-8") as f:
-        json.dump(logs, f, ensure_ascii=False, indent=2)
+    """Insert a LogEntry row and enforce the 10,000-row cap via ordered DELETE (D-03)."""
+    log = LogEntry(
+        ts=entry.get("ts"),
+        event=entry.get("event"),
+        emp_id=entry.get("emp_id"),
+        name=entry.get("name"),
+        confidence_raw=entry.get("confidence_raw"),
+        confidence_pct=entry.get("confidence_pct"),
+    )
+    db.session.add(log)
+    db.session.commit()
+    count = LogEntry.query.count()
+    if count > 10000:
+        excess = count - 10000
+        oldest_ids = db.session.execute(
+            db.select(LogEntry.id).order_by(LogEntry.id.asc()).limit(excess)
+        ).scalars().all()
+        LogEntry.query.filter(LogEntry.id.in_(oldest_ids)).delete(synchronize_session=False)
+        db.session.commit()
 
 # ─── CV helpers ───────────────────────────────────────────────────────────────
 

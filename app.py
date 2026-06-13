@@ -9,7 +9,13 @@ import cv2
 import bcrypt
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "medkontrol-secret-2026-xK9mP3qR7v")
+_secret_key = os.environ.get("SECRET_KEY")
+if not _secret_key:
+    raise RuntimeError(
+        "SECRET_KEY environment variable must be set to a long random string. "
+        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+    )
+app.secret_key = _secret_key
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 FACES_DIR = os.path.join(DATA_DIR, "faces")

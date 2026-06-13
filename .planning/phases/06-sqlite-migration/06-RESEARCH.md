@@ -241,6 +241,8 @@ class AttendanceRecord(db.Model):
     date: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
     check_in_time: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
     check_out_time: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
+    # event_type records the last attendance transition (D-01): "check_in" or "check_out"
+    event_type: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
 
 class LogEntry(db.Model):
     __tablename__ = "log_entry"
@@ -328,13 +330,14 @@ if today not in attendance:
 attendance[today][emp_id] = {"check_in": now, "check_out": None}
 save_attendance(attendance)
 
-# AFTER
+# AFTER (event_type recorded per D-01)
 rec = AttendanceRecord.query.filter_by(emp_id=emp_id, date=today).first()
 if rec is None:
-    rec = AttendanceRecord(emp_id=emp_id, date=today, check_in_time=now)
+    rec = AttendanceRecord(emp_id=emp_id, date=today, check_in_time=now, event_type="check_in")
     db.session.add(rec)
 elif rec.check_out_time is None:
     rec.check_out_time = now
+    rec.event_type = "check_out"
 db.session.commit()
 ```
 
@@ -807,22 +810,22 @@ def seed_users(tmp_data, users_dict):
 | A3 | `db.create_all()` in `with app.app_context()` at startup is idempotent for existing tables | Pattern 2 | Confirmed in Flask-SQLAlchemy docs: "create_all does not update tables if they are already in the database" [CITED: flask-sqlalchemy.palletsprojects.com/en/3.1.x/quickstart/] |
 | A4 | `SQLALCHEMY_DATABASE_URI` relative sqlite path resolves relative to Flask instance path | Pitfall 8 | Confirmed in Flask-SQLAlchemy config docs [CITED: flask-sqlalchemy.palletsprojects.com/en/3.1.x/config/] |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does `require_role()` need an app context check when called from CLI tools?**
    - What we know: `require_role()` currently calls `load_users()` (file read); post-migration it calls `User.query.get()` which needs app context
    - What's unclear: `require_role()` is only invoked inside request handlers (where app context exists); CLI tools don't use it
-   - Recommendation: No change needed — app context is always present during a Flask request
+   - RESOLVED: No app context check needed. `require_role()` is only ever invoked inside Flask request handlers, where the app context is always present. Plan 06-03 Task 1 replaces `load_users()` with `User.query.get(user_id)` in the decorator with no added context guard, and the existing test_auth/test_rbac suites (run green in Plan 06-03) confirm the decorator works under request context. CLI tools (`migrate_to_sqlite.py`) do not call `require_role()` and manage their own `with app.app_context():` block (Plan 06-04 Task 3).
 
 2. **Does `compute_timesheet_grid()` need rewriting?**
    - What we know: It takes dicts (`attendance`, `overrides`, `schedule`) as parameters, not ORM objects
    - What's unclear: Whether to rewrite the pure functions or build adapter layers
-   - Recommendation: Keep pure functions unchanged; build dict adapters in the routes that call them. This is the minimum change needed to pass all tests.
+   - RESOLVED: No rewrite. The pure functions `compute_timesheet_grid()` and `compute_symbol()` keep their dict interface unchanged (Pitfall 5). Plan 06-04 Task 1 builds dict adapters in the calling routes — querying `AttendanceRecord` rows and reshaping them into `{date: {emp_id: {check_in, check_out}}}`, and `TimesheetOverride` rows into `{emp_id: {date: symbol}}` — before passing them to the unchanged pure functions. This is the minimum change that keeps all timesheet tests green.
 
 3. **Where should models.py models be imported from in test fixtures?**
    - What we know: `conftest.py` imports `app as _app`; models are in a new `models.py`
    - What's unclear: Whether circular import issues arise if `app.py` imports from `models.py` and tests import both
-   - Recommendation: `from models import db, User, ...` in conftest — no circular import because `models.py` does not import `app`
+   - RESOLVED: Import directly from `models` in test fixtures (`from models import db, User, ...`), exactly as `conftest.py` is rewritten in Plan 06-02 Task 2. No circular import arises because `models.py` never imports `app` (enforced by Plan 06-01 Task 2 acceptance criterion "`models.py` does NOT contain `import app`"). `app.py` imports from `models.py` (one direction only), and `conftest.py` imports both independently.
 
 ## Environment Availability
 

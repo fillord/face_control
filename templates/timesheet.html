@@ -175,20 +175,24 @@ tbody tr:last-child td { border-bottom: none; }
         </tr>
       </thead>
       <tbody>
-        {% for emp_id, emp_name, symbols, totals in grid_rows %}
+        {% for emp_id, emp_name, cells, totals in grid_rows %}
         <tr>
           <td class="emp-name" scope="row">{{ emp_name }}</td>
-          {% for i in range(days|length) %}
-          {% set sym = symbols[i] %}
-          {% set d = days[i] %}
+          {% for cell in cells %}
+          {% set sym = cell.sym %}
+          {% set auto = cell.auto %}
+          {% set date_iso = cell.date %}
           {% if sym is none %}
-          <td class="sym-cell" style="background:transparent;color:#BDBDBD;" title="Нет данных (будущий день)" data-emp="{{ emp_id }}" data-date="{{ d.isoformat() }}"></td>
+          <td class="sym-cell" style="background:transparent;color:#BDBDBD;" title="Нет данных (будущий день)"
+              data-emp="{{ emp_id }}" data-date="{{ date_iso }}"
+              data-auto="{{ auto if auto is not none else '' }}"></td>
           {% else %}
           <td class="sym-cell{% if sym == 'ОУ' %} sym-ou{% endif %}{% if can_edit and sym != 'В' %} editable{% endif %}"
               style="background:{{ sym_bg.get(sym, 'transparent') }};color:{{ sym_fg.get(sym, '#1a2340') }};"
               title="{{ sym_titles.get(sym, sym) }}"
               data-emp="{{ emp_id }}"
-              data-date="{{ d.isoformat() }}"
+              data-date="{{ date_iso }}"
+              data-auto="{{ auto if auto is not none else '' }}"
               {% if can_edit and sym != 'В' %}tabindex="0" onclick="openOverrideDropdown(this)"{% endif %}>{{ sym }}</td>
           {% endif %}
           {% endfor %}
@@ -217,13 +221,15 @@ tbody tr:last-child td { border-bottom: none; }
   </div>
 </div>
 
-<!-- Override dropdown -->
+{% if can_edit %}
+<!-- Override dropdown (only rendered for editors: dept_admin / org_admin / superadmin) -->
 <div id="override-dropdown" class="hidden">
   <button onclick="applyOverride('Б')">Б — Больничный</button>
   <button onclick="applyOverride('К')">К — Командировка</button>
   <button onclick="applyOverride('П')">П — Прогул</button>
   <button class="restore" onclick="applyOverride('auto')">Восстановить автоматически</button>
 </div>
+{% endif %}
 
 <!-- Error toast -->
 <div id="error-toast"></div>
@@ -256,12 +262,42 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
+// ─── Symbol color/title maps (mirrors Jinja2 sym_bg/sym_fg/sym_titles) ────────
+var SYM_BG = {
+  'Я': '#E8F5E9', 'О': '#FFF3E0', 'У': '#FFF8E1', 'ОУ': '#FFF3E0',
+  'В': '#F3F4F6', 'НН': '#FAFAFA', 'П': '#FFEBEE', 'Б': '#E3F2FD', 'К': '#F3E5F5'
+};
+var SYM_FG = {
+  'Я': '#1B5E20', 'О': '#BF360C', 'У': '#F57F17', 'ОУ': '#BF360C',
+  'В': '#9E9E9E', 'НН': '#90A4AE', 'П': '#C62828', 'Б': '#1565C0', 'К': '#6A1B9A'
+};
+var SYM_TITLES = {
+  'Я': 'Я — явка', 'О': 'О — опоздание', 'У': 'У — ранний уход',
+  'ОУ': 'ОУ — опоздание и ранний уход', 'В': 'В — выходной или праздник',
+  'НН': 'НН — неявка по невыясненной причине', 'П': 'П — прогул',
+  'Б': 'Б — больничный', 'К': 'К — командировка'
+};
+
+function updateCell(cell, sym) {
+  if (!sym) return;
+  cell.textContent = sym;
+  cell.style.background = SYM_BG[sym] || 'transparent';
+  cell.style.color = SYM_FG[sym] || '#1a2340';
+  cell.title = SYM_TITLES[sym] || sym;
+  if (sym === 'ОУ') {
+    cell.classList.add('sym-ou');
+  } else {
+    cell.classList.remove('sym-ou');
+  }
+}
+
 async function applyOverride(symbol) {
   var dropdown = document.getElementById('override-dropdown');
   dropdown.classList.add('hidden');
   if (!_activeCell) return;
-  var empId = _activeCell.dataset.emp;
-  var dateStr = _activeCell.dataset.date;
+  var cell = _activeCell;
+  var empId = cell.dataset.emp;
+  var dateStr = cell.dataset.date;
   _activeCell = null;
 
   var method = symbol === 'auto' ? 'DELETE' : 'POST';
@@ -276,8 +312,14 @@ async function applyOverride(symbol) {
       body: body
     });
     if (resp.ok) {
-      // Reload page to reflect updated symbol
-      window.location.reload();
+      if (symbol === 'auto') {
+        // Restore: repaint from data-auto (the auto-derived symbol)
+        var autoSym = cell.dataset.auto || '';
+        updateCell(cell, autoSym || cell.textContent);
+      } else {
+        // Update data-auto only if not already set (preserve original auto value)
+        updateCell(cell, symbol);
+      }
     } else {
       var msg = resp.status === 403
         ? 'Нет прав для изменения этой ячейки.'

@@ -828,12 +828,21 @@ def timesheet():
         scoped_employees = {}
 
     # (e) Build grid rows and totals
+    # Each cell is a dict: {sym: displayed_symbol, auto: auto_symbol, date: iso_date_str}
+    # auto is the symbol computed without overrides — used by "Восстановить автоматически"
+    # to repaint the cell client-side without a page reload.
     grid_rows = []
     for emp_id, emp in scoped_employees.items():
         schedule = emp.get("schedule", {"start": "09:00", "end": "18:00", "work_days": [1, 2, 3, 4, 5]})
-        symbols = [compute_symbol(d, emp_id, attendance, overrides, schedule, holidays_set) for d in days]
+        cells = []
+        for d in days:
+            sym = compute_symbol(d, emp_id, attendance, overrides, schedule, holidays_set)
+            auto = compute_symbol(d, emp_id, attendance, {}, schedule, holidays_set)
+            cells.append({"sym": sym, "auto": auto, "date": d.isoformat()})
+        # symbols list for totals computation: use displayed symbols (overrides included)
+        symbols = [c["sym"] for c in cells]
         totals = compute_employee_totals(symbols, schedule)
-        grid_rows.append((emp_id, emp.get("name", emp_id), symbols, totals))
+        grid_rows.append((emp_id, emp.get("name", emp_id), cells, totals))
 
     # (f) Render template
     return render_template(

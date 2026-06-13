@@ -7,6 +7,8 @@ from flask import Flask, request, jsonify, render_template, session, redirect, u
 import numpy as np
 import cv2
 import bcrypt
+from models import db, Employee, User, Organization, Department
+from models import AttendanceRecord, EmployeeSchedule, LogEntry, TimesheetOverride, AppSetting
 
 app = Flask(__name__)
 _secret_key = os.environ.get("SECRET_KEY")
@@ -16,6 +18,17 @@ if not _secret_key:
         "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
     )
 app.secret_key = _secret_key
+
+# ─── SQLAlchemy Config ────────────────────────────────────────────────────────
+# D-16: DATABASE_URL env var configures path; default uses abspath(__file__) to
+# avoid the Flask instance-path trap (Pitfall 8 — relative paths resolve to
+# Flask's instance folder, not the project root).
+_db_url = os.environ.get("DATABASE_URL") or (
+    "sqlite:///" + os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "app.db")
+)
+app.config["SQLALCHEMY_DATABASE_URI"] = _db_url
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+db.init_app(app)
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 FACES_DIR = os.path.join(DATA_DIR, "faces")
@@ -46,10 +59,12 @@ def save_config(data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 def init_config():
-    cfg = load_config()
-    if "password_hash" not in cfg:
+    """Bootstrap AppSetting rows if the password_hash key is absent (D-05)."""
+    if not AppSetting.query.get("password_hash"):
         pw_hash = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode()
-        save_config({"username": "admin", "password_hash": pw_hash})
+        db.session.add(AppSetting(key="username", value="admin"))
+        db.session.add(AppSetting(key="password_hash", value=pw_hash))
+        db.session.commit()
 
 # ─── Auth: Users ──────────────────────────────────────────────────────────────
 
@@ -78,24 +93,27 @@ def save_users(data):
         raise
 
 def init_users():
-    if os.path.exists(USERS_FILE):
+    """Bootstrap the superadmin User row via ORM if the user table is empty (MIG-03).
+
+    Reads the legacy password hash from AppSetting key 'password_hash' so the
+    existing bcrypt hash is preserved verbatim (MIG-03 — not re-hashed).
+    """
+    if User.query.count() > 0:
         return
-    cfg = load_config()
-    existing_hash = cfg.get("password_hash")
+    setting = AppSetting.query.get("password_hash")
+    existing_hash = setting.value if setting else None
     if not existing_hash:
         existing_hash = bcrypt.hashpw(b"superadmin123", bcrypt.gensalt()).decode()
-    user_id = str(uuid.uuid4())
-    save_users({
-        user_id: {
-            "id": user_id,
-            "username": "superadmin",
-            "password_hash": existing_hash,
-            "role": "superadmin",
-            "active": True,
-            "org_id": None,
-            "dept_id": None,
-        }
-    })
+    db.session.add(User(
+        id=str(uuid.uuid4()),
+        username="superadmin",
+        password_hash=existing_hash,
+        role="superadmin",
+        active=True,
+        org_id=None,
+        dept_id=None,
+    ))
+    db.session.commit()
 
 # ─── Auth: RBAC ───────────────────────────────────────────────────────────────
 
@@ -1868,9 +1886,13 @@ def get_stats():
     })
 
 # ─── Startup ──────────────────────────────────────────────────────────────────
+# db.create_all() is idempotent — safe to call on every startup (D-16, Pitfall 2).
+# Must run BEFORE init_config/init_users so tables exist (T-06-06).
 
-init_config()
-init_users()
+with app.app_context():
+    db.create_all()
+    init_config()
+    init_users()
 
 if __name__ == "__main__":
     train_recognizer()

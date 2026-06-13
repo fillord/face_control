@@ -854,6 +854,60 @@ def timesheet():
     )
 
 
+# ─── API: T-13 Timesheet Override ────────────────────────────────────────────
+
+@app.route("/api/timesheet/override", methods=["POST", "DELETE"])
+@require_role("dept_admin", "org_admin", "superadmin")
+def timesheet_override():
+    """D-05: Inline manual override for timesheet cells.
+
+    POST: set a manual symbol (Б/К/П) for emp_id on date.
+    DELETE: remove override and restore auto-derived symbol.
+    Scope-checked server-side from employees.json (never trust client dept/org).
+    """
+    role = session.get("role")
+    session_dept_id = session.get("dept_id")
+    session_org_id = session.get("org_id")
+
+    data = request.get_json(silent=True) or {}
+    emp_id = data.get("emp_id", "")
+    date_str = data.get("date", "")
+
+    # Validate emp exists
+    emp = load_employees().get(emp_id)
+    if not emp:
+        return jsonify({"error": "employee_not_found"}), 404
+
+    # Scope check: read dept/org from employee record (T-03-privesc mitigation)
+    if role == "dept_admin" and emp.get("dept_id") != session_dept_id:
+        return jsonify({"error": "forbidden"}), 403
+    if role == "org_admin" and emp.get("org_id") != session_org_id:
+        return jsonify({"error": "forbidden"}), 403
+    # superadmin: unrestricted
+
+    overrides = load_timesheet_overrides()
+
+    if request.method == "DELETE":
+        overrides.get(emp_id, {}).pop(date_str, None)
+        save_timesheet_overrides(overrides)
+        return jsonify({"deleted": True})
+
+    # POST branch
+    symbol = data.get("symbol", "")
+
+    # Validate symbol is in the manual whitelist (T-03-inject mitigation)
+    if symbol not in MANUAL_SYMBOLS:
+        return jsonify({"error": "invalid_symbol"}), 422
+
+    # Validate date_str is a non-empty YYYY-MM-DD string
+    if not date_str or len(date_str) != 10 or date_str[4] != "-" or date_str[7] != "-":
+        return jsonify({"error": "invalid_date"}), 422
+
+    overrides.setdefault(emp_id, {})[date_str] = symbol
+    save_timesheet_overrides(overrides)
+    return jsonify({"symbol": symbol, "auto": False})
+
+
 # ─── API: Users ───────────────────────────────────────────────────────────────
 
 @app.route("/api/users", methods=["GET"])

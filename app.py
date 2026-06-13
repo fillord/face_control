@@ -1,4 +1,4 @@
-import os, json, base64, time, shutil, uuid, tempfile, sys, secrets
+import os, json, base64, time, shutil, uuid, sys, secrets
 import calendar
 from datetime import datetime, date, timedelta
 from functools import wraps
@@ -31,8 +31,6 @@ db.init_app(app)
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 FACES_DIR = os.path.join(DATA_DIR, "faces")
-ATTENDANCE_FILE = os.path.join(DATA_DIR, "attendance.json")
-TIMESHEET_OVERRIDES_FILE = os.path.join(DATA_DIR, "timesheet_overrides.json")
 os.makedirs(FACES_DIR, exist_ok=True)
 
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
@@ -188,18 +186,6 @@ def load_users():
     }
 
 
-# ─── Data helpers ─────────────────────────────────────────────────────────────
-
-def load_attendance():
-    if os.path.exists(ATTENDANCE_FILE):
-        with open(ATTENDANCE_FILE) as f:
-            return json.load(f)
-    return {}
-
-def save_attendance(data):
-    with open(ATTENDANCE_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
 # ─── T-13 Timesheet ───────────────────────────────────────────────────────────
 
 # Add next year's dates before January 1 of that year
@@ -228,31 +214,6 @@ KZ_HOLIDAYS = {
 }
 
 MANUAL_SYMBOLS = {"Б", "К", "П"}
-
-
-def load_timesheet_overrides():
-    if os.path.exists(TIMESHEET_OVERRIDES_FILE):
-        try:
-            with open(TIMESHEET_OVERRIDES_FILE) as f:
-                return json.load(f)
-        except (json.JSONDecodeError, OSError) as e:
-            print(f"WARNING: load_timesheet_overrides failed ({e}), returning empty dict", file=sys.stderr, flush=True)
-            return {}
-    return {}
-
-
-def save_timesheet_overrides(data):
-    tmp_fd, tmp_path = tempfile.mkstemp(dir=DATA_DIR, prefix="overrides_", suffix=".tmp")
-    try:
-        with os.fdopen(tmp_fd, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, ensure_ascii=False, indent=2)
-        os.replace(tmp_path, TIMESHEET_OVERRIDES_FILE)
-    except Exception:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        raise
 
 
 def get_holidays_set(year):
@@ -806,10 +767,29 @@ def org_admin_page():
             sum_year, sum_month_num = map(int, summary_month.split("-"))
             if not (1 <= sum_month_num <= 12 and 2000 <= sum_year <= 2100):
                 raise ValueError("out of range")
+            import calendar as _cal
+            from datetime import date as _date, timedelta as _td
+            _start = f"{sum_year:04d}-{sum_month_num:02d}-01"
+            _, _nd = _cal.monthrange(sum_year, sum_month_num)
+            _end = f"{sum_year:04d}-{sum_month_num:02d}-{_nd:02d}"
             # Load data for summary computation
             employees = {e.id: _emp_to_dict(e) for e in Employee.query.all()}
-            attendance = load_attendance()
-            overrides = load_timesheet_overrides()
+            # Build attendance dict adapter from ORM
+            _att_recs = AttendanceRecord.query.filter(
+                AttendanceRecord.date >= _start,
+                AttendanceRecord.date <= _end,
+            ).all()
+            attendance = {}
+            for r in _att_recs:
+                attendance.setdefault(r.date, {})[r.emp_id] = {
+                    "check_in": r.check_in_time,
+                    "check_out": r.check_out_time,
+                }
+            # Build overrides dict adapter from ORM
+            _ov_recs = TimesheetOverride.query.all()
+            overrides = {}
+            for r in _ov_recs:
+                overrides.setdefault(r.emp_id, {})[r.date] = r.symbol
             rows = compute_dept_summary(
                 sum_year, sum_month_num, caller_org_id, employees, attendance, overrides
             )
@@ -949,10 +929,27 @@ def timesheet():
     _, num_days = calendar.monthrange(year, month_num)
     days = [date(year, month_num, 1) + timedelta(days=i) for i in range(num_days)]
 
-    # (d) Load data
-    attendance = load_attendance()
+    # (d) Load data via ORM
     employees = {e.id: _emp_to_dict(e) for e in Employee.query.all()}
-    overrides = load_timesheet_overrides()
+    # Build attendance dict adapter: {date: {emp_id: {check_in, check_out}}}
+    start_str = f"{year:04d}-{month_num:02d}-01"
+    _, _num_days_ts = calendar.monthrange(year, month_num)
+    end_str = f"{year:04d}-{month_num:02d}-{_num_days_ts:02d}"
+    _att_recs = AttendanceRecord.query.filter(
+        AttendanceRecord.date >= start_str,
+        AttendanceRecord.date <= end_str,
+    ).all()
+    attendance = {}
+    for r in _att_recs:
+        attendance.setdefault(r.date, {})[r.emp_id] = {
+            "check_in": r.check_in_time,
+            "check_out": r.check_out_time,
+        }
+    # Build overrides dict adapter: {emp_id: {date: symbol}}
+    _ov_recs = TimesheetOverride.query.all()
+    overrides = {}
+    for r in _ov_recs:
+        overrides.setdefault(r.emp_id, {})[r.date] = r.symbol
     holidays_set = get_holidays_set(year)
     missing_holiday_year = is_holiday_year_missing(year)
 
@@ -1029,11 +1026,15 @@ def timesheet_override():
         return jsonify({"error": "forbidden"}), 403
     # superadmin: unrestricted
 
-    overrides = load_timesheet_overrides()
-
     if request.method == "DELETE":
-        overrides.get(emp_id, {}).pop(date_str, None)
-        save_timesheet_overrides(overrides)
+        try:
+            existing = db.session.get(TimesheetOverride, (emp_id, date_str))
+            if existing:
+                db.session.delete(existing)
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
+            return jsonify({"error": "Internal server error"}), 500
         return jsonify({"deleted": True})
 
     # POST branch
@@ -1049,8 +1050,26 @@ def timesheet_override():
     except (ValueError, TypeError):
         return jsonify({"error": "invalid_date"}), 422
 
-    overrides.setdefault(emp_id, {})[date_str] = symbol
-    save_timesheet_overrides(overrides)
+    try:
+        updated_by = session.get("user_id")
+        updated_at = datetime.now().isoformat()
+        existing = db.session.get(TimesheetOverride, (emp_id, date_str))
+        if existing:
+            existing.symbol = symbol
+            existing.updated_by = updated_by
+            existing.updated_at = updated_at
+        else:
+            db.session.add(TimesheetOverride(
+                emp_id=emp_id,
+                date=date_str,
+                symbol=symbol,
+                updated_by=updated_by,
+                updated_at=updated_at,
+            ))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Internal server error"}), 500
     return jsonify({"symbol": symbol, "auto": False})
 
 
@@ -1633,12 +1652,11 @@ def reset_employee_face(emp_id):
 @require_role("superadmin")
 def superadmin_stats():
     """DASH-01: System-wide stats for superadmin dashboard."""
-    attendance = load_attendance()
     today = date.today().isoformat()
-    today_records = attendance.get(today, {})
-    checkins_today = sum(
-        1 for rec in today_records.values() if rec.get("check_in")
-    )
+    checkins_today = AttendanceRecord.query.filter(
+        AttendanceRecord.date == today,
+        AttendanceRecord.check_in_time != None,  # noqa: E711
+    ).count()
     return jsonify({
         "orgs": Organization.query.count(),
         "employees": Employee.query.count(),
@@ -1654,12 +1672,10 @@ def dept_attendance_today():
     dept_id = session.get("dept_id")
     org_id = session.get("org_id")
 
-    attendance = load_attendance()
     today = date.today().isoformat()
     today_weekday = date.today().weekday() + 1  # ISO 1=Mon, 7=Sun
-    today_records = attendance.get(today, {})
 
-    # Filter employees by scope
+    # Build attendance dict adapter for today only
     if role == "dept_admin":
         emps = Employee.query.filter_by(dept_id=dept_id).all()
     elif role == "org_admin":
@@ -1667,6 +1683,15 @@ def dept_attendance_today():
     else:  # superadmin — all employees
         emps = Employee.query.all()
     scoped = {e.id: _emp_to_dict(e) for e in emps}
+
+    # Query today's attendance records for scoped employees only
+    scoped_ids = list(scoped.keys())
+    _att_recs = AttendanceRecord.query.filter(
+        AttendanceRecord.date == today,
+        AttendanceRecord.emp_id.in_(scoped_ids),
+    ).all() if scoped_ids else []
+    today_records = {r.emp_id: {"check_in": r.check_in_time, "check_out": r.check_out_time}
+                     for r in _att_recs}
 
     result = []
     present = absent = late = 0
@@ -1812,26 +1837,37 @@ def recognize():
             dept_name = dept.name
 
     today = date.today().isoformat()
-    attendance = load_attendance()
-    if today not in attendance:
-        attendance[today] = {}
-
     emp_id = emp.id
     emp_dict = _emp_to_dict(emp)
     now_dt = datetime.now()
     now = now_dt.strftime("%H:%M:%S")
     is_late = now > "09:00:00"
 
-    if emp_id not in attendance[today]:
-        attendance[today][emp_id] = {"check_in": now, "check_out": None}
-        event = "check_in"
-    elif attendance[today][emp_id]["check_out"] is None:
-        attendance[today][emp_id]["check_out"] = now
-        event = "check_out"
-    else:
-        event = "already_done"
+    # ORM-backed attendance state machine (D-01, T-06-14)
+    rec = AttendanceRecord.query.filter_by(emp_id=emp_id, date=today).first()
+    try:
+        if rec is None:
+            rec = AttendanceRecord(
+                emp_id=emp_id,
+                date=today,
+                check_in_time=now,
+                check_out_time=None,
+                event_type="check_in",
+            )
+            db.session.add(rec)
+            event = "check_in"
+        elif rec.check_out_time is None:
+            rec.check_out_time = now
+            rec.event_type = "check_out"
+            event = "check_out"
+        else:
+            event = "already_done"
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Internal server error"}), 500
 
-    save_attendance(attendance)
+    record_dict = {"check_in": rec.check_in_time, "check_out": rec.check_out_time}
     append_log({"ts": now_dt.isoformat(), "emp_id": emp_id, "name": emp.name,
                 "event": event, "confidence_raw": float(confidence), "confidence_pct": conf_pct})
 
@@ -1839,7 +1875,7 @@ def recognize():
         "status": "ok",
         "employee": emp_dict,
         "event": event,
-        "record": attendance[today].get(emp_id),
+        "record": record_dict,
         "confidence": float(confidence),
         "confidence_pct": conf_pct,
         "is_late": is_late and event == "check_in",
@@ -1853,19 +1889,24 @@ def recognize():
 def kiosk_log():
     """Public endpoint for kiosk attendance log — no auth, today only, optional org filter."""
     org_id = request.args.get("org_id")
-    attendance = load_attendance()
     today = date.today().isoformat()
-    day_data = attendance.get(today, {})
-    result = []
     if org_id:
         all_emps = Employee.query.filter_by(org_id=org_id).all()
     else:
         all_emps = Employee.query.all()
-    for emp in all_emps:
-        rec = day_data.get(emp.id, {})
-        if rec.get("check_in"):
+    emp_ids = [e.id for e in all_emps]
+    emp_by_id = {e.id: e for e in all_emps}
+    _att_recs = AttendanceRecord.query.filter(
+        AttendanceRecord.date == today,
+        AttendanceRecord.emp_id.in_(emp_ids),
+        AttendanceRecord.check_in_time != None,  # noqa: E711
+    ).all() if emp_ids else []
+    result = []
+    for r in _att_recs:
+        emp = emp_by_id.get(r.emp_id)
+        if emp:
             result.append({"name": emp.name, "role": emp.role,
-                           "check_in": rec.get("check_in"), "check_out": rec.get("check_out")})
+                           "check_in": r.check_in_time, "check_out": r.check_out_time})
     return jsonify(result)
 
 # ─── API: Attendance ──────────────────────────────────────────────────────────
@@ -1874,9 +1915,11 @@ def kiosk_log():
 @require_role("superadmin", "org_admin", "dept_admin")
 def get_attendance():
     day = request.args.get("date", date.today().isoformat())
-    attendance = load_attendance()
     employees = {e.id: _emp_to_dict(e) for e in Employee.query.all()}
-    day_data = attendance.get(day, {})
+    # Build attendance dict for this day from ORM
+    _att_recs = AttendanceRecord.query.filter_by(date=day).all()
+    day_data = {r.emp_id: {"check_in": r.check_in_time, "check_out": r.check_out_time}
+                for r in _att_recs}
     result = []
     for emp_id, emp in employees.items():
         rec = day_data.get(emp_id, {})
@@ -1904,22 +1947,36 @@ def get_attendance():
 @app.route("/api/attendance/dates", methods=["GET"])
 @require_role("superadmin", "org_admin", "dept_admin")
 def get_dates():
-    attendance = load_attendance()
-    return jsonify(sorted(attendance.keys(), reverse=True))
+    dates = db.session.execute(
+        db.select(AttendanceRecord.date).distinct().order_by(AttendanceRecord.date.desc())
+    ).scalars().all()
+    return jsonify(list(dates))
 
 @app.route("/api/stats", methods=["GET"])
 @require_role("superadmin", "org_admin", "dept_admin")
 def get_stats():
     from_date = request.args.get("from")
     to_date = request.args.get("to")
-    attendance = load_attendance()
     employees = {e.id: _emp_to_dict(e) for e in Employee.query.all()}
 
-    dates = sorted(attendance.keys())
+    # Query attendance records from ORM with optional date filters
+    q = AttendanceRecord.query
     if from_date:
-        dates = [d for d in dates if d >= from_date]
+        q = q.filter(AttendanceRecord.date >= from_date)
     if to_date:
-        dates = [d for d in dates if d <= to_date]
+        q = q.filter(AttendanceRecord.date <= to_date)
+    all_recs = q.all()
+
+    # Build attendance dict adapter for stats computation
+    attendance = {}
+    for r in all_recs:
+        if r.check_in_time:
+            attendance.setdefault(r.date, {})[r.emp_id] = {
+                "check_in": r.check_in_time,
+                "check_out": r.check_out_time,
+            }
+
+    dates = sorted(attendance.keys())
 
     emp_stats = {
         eid: {"name": e["name"], "role": e["role"], "days": 0, "minutes": 0, "late_days": 0}

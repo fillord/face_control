@@ -210,13 +210,13 @@ Plans:
   4. Concurrent writes are handled by SQLAlchemy transactions; manual fcntl locking code is removed.
   5. app.db is created automatically on first run if it does not exist; SECRET_KEY and DATABASE_URL are the only required env vars.
 
-**Plans:** 4 plans
+**Plans:** 1/4 plans executed
 
 Plans:
 
 **Wave 0** *(schema foundation + test scaffold)*
 
-- [ ] 06-01-PLAN.md — flask-sqlalchemy install + models.py (9 ORM models, label non-autoincrement) + test_sqlite_migration.py scaffold
+- [x] 06-01-PLAN.md — flask-sqlalchemy install + models.py (9 ORM models, label non-autoincrement) + test_sqlite_migration.py scaffold
 
 **Wave 1** *(blocked on Wave 0)*
 

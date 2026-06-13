@@ -152,9 +152,11 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. RBAC Foundation | 5/5 | Complete   | 2026-06-11 |
-| 2. Org/Dept Data Model | 4/5 | In Progress|  |
+| 2. Org/Dept Data Model | 4/5 | In Progress (02-05 superseded by Phase 5) | - |
 | 3. T-13 Timesheet Grid | 4/4 | Complete   | 2026-06-13 |
 | 4. Export & Employee Cabinet | 0/TBD | Not started | - |
+| 5. Token Kiosk, Reg & Russian UI | 5/5 | Complete | 2026-06-13 |
+| 6. SQLite Migration | 4/4 | Complete | 2026-06-13 |
 
 ### Phase 5: Token-based Kiosk, Registration & Russian UI
 

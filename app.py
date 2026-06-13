@@ -1024,8 +1024,10 @@ def timesheet_override():
     if symbol not in MANUAL_SYMBOLS:
         return jsonify({"error": "invalid_symbol"}), 422
 
-    # Validate date_str is a non-empty YYYY-MM-DD string
-    if not date_str or len(date_str) != 10 or date_str[4] != "-" or date_str[7] != "-":
+    # Validate date_str is a real YYYY-MM-DD calendar date (rejects "2025-13-01", "aaaa-bb-cc", etc.)
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
         return jsonify({"error": "invalid_date"}), 422
 
     overrides.setdefault(emp_id, {})[date_str] = symbol

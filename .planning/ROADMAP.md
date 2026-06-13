@@ -196,3 +196,36 @@ Plans:
 **Wave 5** *(blocked on Wave 4)*
 
 - [x] 05-05-PLAN.md — org_admin kiosk-settings panel: change kiosk/reg PINs (bcrypt), regenerate reg_token, set/clear expiry, edit display name, live URLs; own-org scope
+
+### Phase 6: SQLite Migration
+
+**Goal:** Replace all JSON file stores with SQLite + Flask-SQLAlchemy. All 7 data files (employees.json, users.json, orgs.json, depts.json, attendance.json, logs.json, timesheet_overrides.json) become tables in data/app.db. Existing data migrated via migrate_to_sqlite.py. No API shape changes, no frontend changes. App passes all existing tests after migration.
+**Requirements**: DB-01, DB-02, DB-03, DB-04, DB-05
+**Depends on:** Phase 3
+**Success Criteria** (what must be TRUE):
+
+  1. All load_*/save_* functions replaced with SQLAlchemy ORM calls; no JSON file I/O remains in app.py except the migration script.
+  2. migrate_to_sqlite.py reads existing JSON files and inserts all records into app.db with zero data loss; script is idempotent.
+  3. All existing pytest tests pass against the SQLite backend without modification to test code.
+  4. Concurrent writes are handled by SQLAlchemy transactions; manual fcntl locking code is removed.
+  5. app.db is created automatically on first run if it does not exist; SECRET_KEY and DATABASE_URL are the only required env vars.
+
+**Plans:** 4 plans
+
+Plans:
+
+**Wave 0** *(schema foundation + test scaffold)*
+
+- [ ] 06-01-PLAN.md — flask-sqlalchemy install + models.py (9 ORM models, label non-autoincrement) + test_sqlite_migration.py scaffold
+
+**Wave 1** *(blocked on Wave 0)*
+
+- [ ] 06-02-PLAN.md — wire SQLAlchemy into app.py (config, startup create_all, ORM bootstrap) + rewrite conftest.py for in-memory SQLite
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 06-03-PLAN.md — ORM rewrite of require_role + user/employee/org/dept/config routes + append_log; remove flat-entity helpers and fcntl
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 06-04-PLAN.md — ORM rewrite of attendance/recognition/timesheet routes + migrate_to_sqlite.py + .gitignore + real-data migration smoke [checkpoint]

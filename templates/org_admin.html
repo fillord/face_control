@@ -70,6 +70,7 @@ tr:last-child td { border-bottom: none; }
   <span class="tab" id="tabEmployees" onclick="switchTab('employees')">Сотрудники</span>
   <span class="tab" id="tabSettings" onclick="switchTab('settings')">Настройки киоска</span>
   <span class="tab{% if summary_month %} active{% endif %}" id="tabSummary" onclick="switchTab('summary')">Сводка</span>
+  <span class="tab" id="tabUsers" onclick="switchTab('users')">Пользователи</span>
   <a class="tab" href="/admin">Отчёты</a>
   <a class="tab" href="/timesheet">Табель Т-13</a>
   <a class="tab" href="/register">Регистрация</a>
@@ -259,6 +260,58 @@ tr:last-child td { border-bottom: none; }
   </div>
 </div>
 
+<div id="panelUsers" class="page hidden">
+  <div class="toolbar">
+    <button class="btn-primary" onclick="toggleUserForm()">+ Добавить пользователя</button>
+  </div>
+  <div id="createUserPanel" class="card hidden" style="max-width:480px;margin-bottom:20px;">
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">Новый пользователь</h3>
+    <div class="form-group">
+      <label>Логин</label>
+      <input type="text" id="newUserLogin" placeholder="username" style="width:100%;">
+    </div>
+    <div class="form-group">
+      <label>Пароль (мин. 8 символов)</label>
+      <input type="password" id="newUserPassword" placeholder="••••••••" style="width:100%;">
+    </div>
+    <div class="form-group">
+      <label>Роль</label>
+      <select id="newUserRole" style="width:100%;" onchange="onRoleChange()">
+        <option value="dept_admin">Администратор отдела</option>
+        <option value="viewer">Наблюдатель</option>
+        <option value="employee">Сотрудник</option>
+      </select>
+    </div>
+    <div class="form-group" id="deptSelectGroup">
+      <label>Отдел</label>
+      <select id="newUserDept" style="width:100%;">
+        <option value="">— выберите отдел —</option>
+      </select>
+    </div>
+    <div id="userFormError" class="error-msg hidden"></div>
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button class="btn-primary" onclick="saveNewUser()" style="flex:1;">Создать</button>
+      <button onclick="toggleUserForm()" style="flex:1;padding:9px 16px;background:#fff;border:1px solid #cfd8dc;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;color:#546e7a;">Отмена</button>
+    </div>
+  </div>
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Логин</th>
+          <th>Роль</th>
+          <th>Отдел</th>
+          <th>Статус</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody id="usersTableBody">
+        <tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Загрузка...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <div id="panelEmployees" class="page hidden">
   <div class="table-card">
     <table>
@@ -291,14 +344,14 @@ async function init() {
 
 // ─── Tab switching ─────────────────────────────────────────────────────────────
 function switchTab(tab) {
-  document.getElementById('tabDepts').classList.toggle('active', tab === 'depts');
-  document.getElementById('tabEmployees').classList.toggle('active', tab === 'employees');
-  document.getElementById('tabSettings').classList.toggle('active', tab === 'settings');
-  document.getElementById('tabSummary').classList.toggle('active', tab === 'summary');
-  document.getElementById('panelDepts').classList.toggle('hidden', tab !== 'depts');
-  document.getElementById('panelEmployees').classList.toggle('hidden', tab !== 'employees');
-  document.getElementById('panelSettings').classList.toggle('hidden', tab !== 'settings');
-  document.getElementById('panelSummary').classList.toggle('hidden', tab !== 'summary');
+  const tabs = ['depts', 'employees', 'settings', 'summary', 'users'];
+  for (const t of tabs) {
+    const btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+    const panel = document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1));
+    if (btn) btn.classList.toggle('active', t === tab);
+    if (panel) panel.classList.toggle('hidden', t !== tab);
+  }
+  if (tab === 'users') loadOrgUsers();
 }
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
@@ -607,6 +660,80 @@ async function saveDisplayName() {
   const name = document.getElementById('displayName').value.trim();
   const result = await patchSettings({kiosk_display_name: name}, 'displayNameError');
   if (result) alert('Название киоска обновлено.');
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+const ROLE_LABEL = {dept_admin: 'Адм. отдела', viewer: 'Наблюдатель', employee: 'Сотрудник', org_admin: 'Адм. организации'};
+
+async function loadOrgUsers() {
+  try {
+    const resp = await fetch('/api/users');
+    if (!resp.ok) { document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#c62828;padding:28px;">Ошибка загрузки.</td></tr>'; return; }
+    const users = await resp.json();
+    const tbody = document.getElementById('usersTableBody');
+    if (!users.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Пользователи не найдены.</td></tr>'; return; }
+    tbody.innerHTML = users.map(u => {
+      const dept = allDepts.find(d => d.id === u.dept_id);
+      const deptName = dept ? escapeHtml(dept.name) : '<span style="color:#bdbdbd;">—</span>';
+      const statusBadge = u.active ? '<span style="color:#2e7d32;font-weight:600;">Активен</span>' : '<span style="color:#c62828;">Отключён</span>';
+      const toggleBtn = u.active
+        ? `<button onclick="toggleUser('${u.id}', false)" style="padding:4px 10px;font-size:12px;border:1px solid #ef9a9a;border-radius:6px;background:#fff;color:#c62828;cursor:pointer;">Отключить</button>`
+        : `<button onclick="toggleUser('${u.id}', true)" style="padding:4px 10px;font-size:12px;border:1px solid #a5d6a7;border-radius:6px;background:#fff;color:#2e7d32;cursor:pointer;">Включить</button>`;
+      return `<tr><td>${escapeHtml(u.username)}</td><td>${ROLE_LABEL[u.role] || u.role}</td><td>${deptName}</td><td>${statusBadge}</td><td>${toggleBtn}</td></tr>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#c62828;padding:28px;">Ошибка загрузки.</td></tr>';
+  }
+}
+
+function toggleUserForm() {
+  const panel = document.getElementById('createUserPanel');
+  panel.classList.toggle('hidden');
+  if (!panel.classList.contains('hidden')) {
+    document.getElementById('newUserLogin').value = '';
+    document.getElementById('newUserPassword').value = '';
+    document.getElementById('newUserRole').value = 'dept_admin';
+    document.getElementById('userFormError').classList.add('hidden');
+    populateDeptSelect();
+    onRoleChange();
+  }
+}
+
+function onRoleChange() {
+  const role = document.getElementById('newUserRole').value;
+  document.getElementById('deptSelectGroup').style.display = (role === 'dept_admin') ? '' : 'none';
+}
+
+function populateDeptSelect() {
+  const sel = document.getElementById('newUserDept');
+  sel.innerHTML = '<option value="">— выберите отдел —</option>' +
+    allDepts.map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('');
+}
+
+async function saveNewUser() {
+  const login = document.getElementById('newUserLogin').value.trim();
+  const password = document.getElementById('newUserPassword').value;
+  const role = document.getElementById('newUserRole').value;
+  const dept_id = role === 'dept_admin' ? document.getElementById('newUserDept').value : null;
+  const errEl = document.getElementById('userFormError');
+  if (!login || !password) { errEl.textContent = 'Заполните все поля.'; errEl.classList.remove('hidden'); return; }
+  if (role === 'dept_admin' && !dept_id) { errEl.textContent = 'Выберите отдел для администратора отдела.'; errEl.classList.remove('hidden'); return; }
+  errEl.classList.add('hidden');
+  try {
+    const resp = await fetch('/api/users', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username: login, password, role, dept_id: dept_id || null}),
+    });
+    const data = await resp.json();
+    if (resp.ok) { toggleUserForm(); await loadOrgUsers(); }
+    else { errEl.textContent = data.error || 'Ошибка при создании.'; errEl.classList.remove('hidden'); }
+  } catch (e) { errEl.textContent = 'Ошибка при создании.'; errEl.classList.remove('hidden'); }
+}
+
+async function toggleUser(userId, active) {
+  await fetch(`/api/users/${userId}`, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({active})});
+  await loadOrgUsers();
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

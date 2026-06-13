@@ -334,6 +334,69 @@ def compute_timesheet_grid(year, month_num, scoped_employees, attendance, overri
     return days, grid_rows
 
 
+def compute_dept_summary(year, month_num, org_id, employees, attendance, overrides):
+    """DASH-04: Per-department attendance summary for a given month within an org.
+
+    For each dept in the org:
+      - employee_count: number of employees in the dept
+      - work_days: total scheduled work days across all employees in the dept
+        (per-employee: count days where isoweekday() in work_days AND not holiday)
+      - days_with_ya: count across the dept's employees of days with symbol Я
+      - attendance_rate: round(days_with_ya / work_days * 100, 1), or 0.0 if work_days == 0
+
+    Returns a list of dicts sorted by dept_name:
+      {dept_id, dept_name, employee_count, work_days, days_with_ya, attendance_rate}
+
+    Scope: org_id is always from session — never from client input (T-03-summary-scope).
+    Denominator is work days (Pitfall 5), not calendar days.
+    """
+    _, num_days = calendar.monthrange(year, month_num)
+    days = [date(year, month_num, 1) + timedelta(days=i) for i in range(num_days)]
+    holidays_set = get_holidays_set(year)
+
+    # Collect all depts referenced by employees in this org
+    dept_ids_in_org = set()
+    for emp in employees.values():
+        if emp.get("org_id") == org_id and emp.get("dept_id"):
+            dept_ids_in_org.add(emp["dept_id"])
+
+    summary_rows = []
+    for dept_id in sorted(dept_ids_in_org):
+        dept_employees = {
+            eid: e for eid, e in employees.items()
+            if e.get("org_id") == org_id and e.get("dept_id") == dept_id
+        }
+        if not dept_employees:
+            continue
+
+        total_work_days = 0
+        total_ya = 0
+        dept_name = dept_id  # fallback if dept name not available here
+
+        for emp_id, emp in dept_employees.items():
+            schedule = emp.get("schedule", {"start": "09:00", "end": "18:00", "work_days": [1, 2, 3, 4, 5]})
+            work_days_list = schedule.get("work_days", [1, 2, 3, 4, 5])
+            for d in days:
+                if d.isoweekday() in work_days_list and d.isoformat() not in holidays_set:
+                    total_work_days += 1
+                    sym = compute_symbol(d, emp_id, attendance, overrides, schedule, holidays_set)
+                    if sym == "Я":
+                        total_ya += 1
+
+        attendance_rate = round(total_ya / total_work_days * 100, 1) if total_work_days > 0 else 0.0
+
+        summary_rows.append({
+            "dept_id": dept_id,
+            "dept_name": dept_name,
+            "employee_count": len(dept_employees),
+            "work_days": total_work_days,
+            "days_with_ya": total_ya,
+            "attendance_rate": attendance_rate,
+        })
+
+    return summary_rows
+
+
 # ─── Org tokens / PIN helpers ─────────────────────────────────────────────────
 
 def find_org_by_token(orgs, field, value):
@@ -687,6 +750,34 @@ def org_admin_page():
     reg_token = org.get("reg_token", "") if org else ""
     reg_token_expires = org.get("reg_token_expires") if org else None
     kiosk_display_name = org.get("kiosk_display_name", "") if org else ""
+
+    # DASH-04: optional ?summary_month=YYYY-MM — compute per-dept summary when present
+    # Scope is always session["org_id"] — never from client (T-03-summary-scope)
+    summary_month = request.args.get("summary_month", "")
+    summary_rows = []
+    if summary_month:
+        try:
+            sum_year, sum_month_num = map(int, summary_month.split("-"))
+            if not (1 <= sum_month_num <= 12 and 2000 <= sum_year <= 2100):
+                raise ValueError("out of range")
+            # Load data for summary computation
+            employees = load_employees()
+            attendance = load_attendance()
+            overrides = load_timesheet_overrides()
+            depts = load_depts()
+            rows = compute_dept_summary(
+                sum_year, sum_month_num, caller_org_id, employees, attendance, overrides
+            )
+            # Enrich dept_name from depts dict
+            for row in rows:
+                dept = depts.get(row["dept_id"])
+                if dept:
+                    row["dept_name"] = dept.get("name", row["dept_id"])
+            summary_rows = rows
+        except (ValueError, AttributeError, TypeError):
+            summary_month = ""
+            summary_rows = []
+
     return render_template(
         "org_admin.html",
         username=username,
@@ -697,6 +788,8 @@ def org_admin_page():
         reg_token=reg_token,
         reg_token_expires=reg_token_expires or "",
         kiosk_display_name=kiosk_display_name,
+        summary_month=summary_month,
+        summary_rows=summary_rows,
     )
 
 

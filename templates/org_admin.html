@@ -66,10 +66,12 @@ tr:last-child td { border-bottom: none; }
 </header>
 
 <div class="nav-tabs">
-  <span class="tab active" id="tabDepts" onclick="switchTab('depts')">Отделы</span>
+  <span class="tab{% if not summary_month %} active{% endif %}" id="tabDepts" onclick="switchTab('depts')">Отделы</span>
   <span class="tab" id="tabEmployees" onclick="switchTab('employees')">Сотрудники</span>
   <span class="tab" id="tabSettings" onclick="switchTab('settings')">Настройки киоска</span>
+  <span class="tab{% if summary_month %} active{% endif %}" id="tabSummary" onclick="switchTab('summary')">Сводка</span>
   <a class="tab" href="/admin">Отчёты</a>
+  <a class="tab" href="/timesheet">Табель Т-13</a>
   <a class="tab" href="/register">Регистрация</a>
 </div>
 
@@ -214,6 +216,49 @@ tr:last-child td { border-bottom: none; }
   </div>
 </div>
 
+<div id="panelSummary" class="page{% if not summary_month %} hidden{% endif %}">
+  <h2 style="font-size:18px;font-weight:600;margin-bottom:20px;">Сводка по отделам</h2>
+  <form method="GET" action="/org_admin" class="toolbar" style="margin-bottom:16px;">
+    <input type="month" name="summary_month" value="{{ summary_month }}"
+      style="padding:8px 12px;border:1px solid #cfd8dc;border-radius:8px;font-size:13px;color:#1a2340;outline:none;font-family:inherit;background:#fff;">
+    <button type="submit" class="btn-primary">Показать табель</button>
+  </form>
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Отдел</th>
+          <th scope="col">Сотрудников</th>
+          <th scope="col">Рабочих дней</th>
+          <th scope="col">Явка, %</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if summary_rows %}
+          {% for row in summary_rows %}
+          <tr>
+            <td>{{ row.dept_name }}</td>
+            <td style="text-align:center;">{{ row.employee_count }}</td>
+            <td style="text-align:center;">{{ row.work_days }}</td>
+            <td style="text-align:center;font-weight:600;color:{% if row.attendance_rate >= 80 %}#1565C0{% else %}#E65100{% endif %};">
+              {{ row.attendance_rate }}%
+            </td>
+          </tr>
+          {% endfor %}
+        {% elif summary_month %}
+          <tr>
+            <td colspan="4" style="text-align:center;color:#90a4ae;padding:28px;">Нет данных за выбранный месяц.</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="4" style="text-align:center;color:#90a4ae;padding:28px;">Выберите месяц и нажмите «Показать табель».</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <div id="panelEmployees" class="page hidden">
   <div class="table-card">
     <table>
@@ -249,9 +294,11 @@ function switchTab(tab) {
   document.getElementById('tabDepts').classList.toggle('active', tab === 'depts');
   document.getElementById('tabEmployees').classList.toggle('active', tab === 'employees');
   document.getElementById('tabSettings').classList.toggle('active', tab === 'settings');
+  document.getElementById('tabSummary').classList.toggle('active', tab === 'summary');
   document.getElementById('panelDepts').classList.toggle('hidden', tab !== 'depts');
   document.getElementById('panelEmployees').classList.toggle('hidden', tab !== 'employees');
   document.getElementById('panelSettings').classList.toggle('hidden', tab !== 'settings');
+  document.getElementById('panelSummary').classList.toggle('hidden', tab !== 'summary');
 }
 
 // ─── Stats ────────────────────────────────────────────────────────────────────

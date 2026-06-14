@@ -37,15 +37,13 @@ Two capabilities delivered together:
 ### Arrival/Departure Time Display (EMP-02)
 
 - **D-11:** Exact check-in and check-out times appear as a **tooltip on hover** over each day cell in the employee cabinet's T-13 grid. Tooltip text: `"Приход: HH:MM / Уход: HH:MM"` (or `"Приход: HH:MM / Уход: —"` if no check-out recorded). No separate table for times.
-- **D-12:** Tooltip is implemented with `title` attribute on the `<td>` for simplicity, or a CSS tooltip (`:hover::after` pseudo-element) for visual consistency with the rest of the UI. Claude picks the approach that fits the existing CSS patterns in `timesheet.html`.
-
 ### Claude's Discretion
 
 - Exact `openpyxl` cell styling (column widths, font sizes, header row heights, cell borders) — Claude follows standard T-13 form proportions and uses openpyxl's `MergedCell`, `Alignment`, and `Font` APIs.
 - CSV column order — Claude matches the xlsx column order (employee name, then day 1…31, then totals).
 - Flask `send_file` vs `make_response` for streaming the export file — Claude picks the pattern that works cleanly with Flask 3.x and BytesIO.
 - Whether to link `User` to `Employee` via a FK column `emp_id` on `User` (may already exist from Phase 1/2) or via username match — Claude reads `models.py` and uses the existing relationship.
-- CSS tooltip implementation detail — Claude reuses the CSS variable/style patterns from `timesheet.html`.
+- Tooltip implementation: `title` attribute on `<td>` vs CSS tooltip (`:hover::after`) — Claude picks the approach that fits existing CSS patterns in `timesheet.html`. [informational]
 
 </decisions>
 

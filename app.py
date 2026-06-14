@@ -11,6 +11,8 @@ import bcrypt
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment
 from openpyxl.utils import get_column_letter
+from sqlalchemy import text
+from sqlalchemy import exc as sa_exc
 from models import db, Employee, User, Organization, Department
 from models import AttendanceRecord, EmployeeSchedule, LogEntry, TimesheetOverride, AppSetting
 
@@ -88,7 +90,7 @@ def init_users():
 ROLE_HIERARCHY = ['superadmin', 'org_admin', 'dept_admin', 'viewer', 'employee']
 
 # Roles that are permitted to log in via the admin login page (AUTH-ROLE-01)
-ALLOWED_LOGIN_ROLES = ("superadmin", "org_admin", "dept_admin")
+ALLOWED_LOGIN_ROLES = ("superadmin", "org_admin", "dept_admin", "employee")
 
 def require_role(*allowed_roles):
     def decorator(f):
@@ -576,6 +578,8 @@ def login_page():
                     return redirect(url_for("org_admin_page"))
                 elif role == "dept_admin":
                     return redirect(url_for("dept_admin_page"))
+                elif role == "employee":
+                    return redirect(url_for("employee_page"))
                 else:
                     return redirect(url_for("dashboard_page"))
         else:
@@ -2231,6 +2235,14 @@ def get_stats():
 
 with app.app_context():
     db.create_all()
+    # Idempotent column migration: add emp_id to existing user tables (D-10).
+    # create_all() does NOT alter existing tables (Pitfall 4); this guard handles upgrades.
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(text("ALTER TABLE user ADD COLUMN emp_id TEXT"))
+            conn.commit()
+    except sa_exc.OperationalError:
+        pass  # Column already exists — safe to ignore
     init_config()
     init_users()
 

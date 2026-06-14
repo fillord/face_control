@@ -91,6 +91,7 @@ def seed_users(tmp_data, users_dict):
                     active=u.get("active", True),
                     org_id=u.get("org_id"),
                     dept_id=u.get("dept_id"),
+                    emp_id=u.get("emp_id"),
                 ))
         db.session.commit()
 

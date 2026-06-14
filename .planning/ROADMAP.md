@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: RBAC Foundation** - Secure login, 5-role system, scope filter, and protected existing API routes (completed 2026-06-11)
 - [ ] **Phase 2: Org/Dept Data Model** - Org+dept structure, migration of existing employees, dashboards, and work schedules
 - [x] **Phase 3: T-13 Timesheet Grid** - Symbol engine, grid view, auto-derivation from check-in data, monthly totals (completed 2026-06-13)
-- [ ] **Phase 4: Export & Employee Cabinet** - Excel/CSV export and employee self-service timesheet view
+- [x] **Phase 4: Export & Employee Cabinet** - Excel/CSV export and employee self-service timesheet view (completed 2026-06-14)
 
 ## Phase Details
 
@@ -155,7 +155,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 04-03-PLAN.md — Employee cabinet slice: User.emp_id + employee login, /employee rewrite, employee.html (stats cards, month clamp, read-only grid, time tooltips)
+- [x] 04-03-PLAN.md — Employee cabinet slice: User.emp_id + employee login, /employee rewrite, employee.html (stats cards, month clamp, read-only grid, time tooltips)
 
 **UI hint**: yes
 
@@ -169,7 +169,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. RBAC Foundation | 5/5 | Complete   | 2026-06-11 |
 | 2. Org/Dept Data Model | 4/5 | In Progress (02-05 superseded by Phase 5) | - |
 | 3. T-13 Timesheet Grid | 4/4 | Complete   | 2026-06-13 |
-| 4. Export & Employee Cabinet | 2/3 | In Progress|  |
+| 4. Export & Employee Cabinet | 3/3 | Complete   | 2026-06-14 |
 | 5. Token Kiosk, Reg & Russian UI | 5/5 | Complete | 2026-06-13 |
 | 6. SQLite Migration | 4/4 | Complete | 2026-06-13 |
 
@@ -190,7 +190,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 - Verify: curl http://127.0.0.1:5051/login → 200; curl http://127.0.0.1:5051/kiosk/<org_token> → 200
 
 **Depends on:** Phase 2
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 

@@ -28,7 +28,6 @@ from tests.conftest import (
 
 # ─── EXP-01: Export XLSX — dept admin happy path ─────────────────────────────
 
-@pytest.mark.xfail(reason="implemented in 04-02/04-03", strict=False)
 def test_export_xlsx_dept_admin(client, tmp_data):
     """EXP-01: dept_admin exports their department's T-13 grid as xlsx.
 
@@ -78,7 +77,6 @@ def test_export_xlsx_dept_admin(client, tmp_data):
 
 # ─── EXP-02: Export CSV — UTF-8 BOM and semicolon delimiter ──────────────────
 
-@pytest.mark.xfail(reason="implemented in 04-02/04-03", strict=False)
 def test_export_csv_bom_encoding(client, tmp_data):
     """EXP-02: dept_admin exports their department's T-13 grid as CSV with UTF-8 BOM.
 
@@ -126,7 +124,6 @@ def test_export_csv_bom_encoding(client, tmp_data):
 
 # ─── EXP-03: Export scope enforcement ────────────────────────────────────────
 
-@pytest.mark.xfail(reason="implemented in 04-02/04-03", strict=False)
 def test_export_scope_enforcement(client, tmp_data):
     """EXP-03: dept_admin from dept-A cannot export dept-B employee data.
 

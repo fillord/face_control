@@ -147,7 +147,7 @@ Plans:
 
 **Wave 1** *(test scaffold)*
 
-- [ ] 04-01-PLAN.md — Failing/xfail pytest scaffold (EXP-01..03, EMP-01..03) + seed_attendance conftest helper
+- [x] 04-01-PLAN.md — Failing/xfail pytest scaffold (EXP-01..03, EMP-01..03) + seed_attendance conftest helper
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -169,7 +169,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. RBAC Foundation | 5/5 | Complete   | 2026-06-11 |
 | 2. Org/Dept Data Model | 4/5 | In Progress (02-05 superseded by Phase 5) | - |
 | 3. T-13 Timesheet Grid | 4/4 | Complete   | 2026-06-13 |
-| 4. Export & Employee Cabinet | 0/3 | Planned | - |
+| 4. Export & Employee Cabinet | 1/3 | In Progress|  |
 | 5. Token Kiosk, Reg & Russian UI | 5/5 | Complete | 2026-06-13 |
 | 6. SQLite Migration | 4/4 | Complete | 2026-06-13 |
 
@@ -190,7 +190,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 - Verify: curl http://127.0.0.1:5051/login → 200; curl http://127.0.0.1:5051/kiosk/<org_token> → 200
 
 **Depends on:** Phase 2
-**Plans:** 4/4 plans complete
+**Plans:** 1/3 plans executed
 
 Plans:
 

@@ -719,17 +719,20 @@ grep -n "seed_attendance\|AttendanceRecord" /var/www/sites/face-almgp33/tests/co
 
 ## Open Questions
 
-1. **Does `seed_attendance()` helper exist in `tests/conftest.py`?**
+1. **Does `seed_attendance()` helper exist in `tests/conftest.py`?** (RESOLVED)
+   - Resolution: It did not exist; 04-01 Task 1 adds the `seed_attendance()` ORM helper to `tests/conftest.py`.
    - What we know: `seed_users`, `seed_employees`, `seed_depts`, `seed_orgs` are confirmed present
    - What's unclear: Whether `AttendanceRecord` seeding is needed for export/cabinet tests
    - Recommendation: Check `grep -n "seed_attendance\|AttendanceRecord" tests/conftest.py` before writing test plan; if missing, add `seed_attendance()` helper to Wave 0
 
-2. **Russian month names for XLSX Row 2 (e.g., "Июнь 2026")**
+2. **Russian month names for XLSX Row 2 (e.g., "Июнь 2026")** (RESOLVED)
+   - Resolution: Use the hard-coded `MONTHS_RU` dict (no locale dependency); 04-02 Task 1 adds it at module level and uses it for the XLSX Row 2 header.
    - What we know: Python's `datetime.strftime('%B')` returns English month names; locale-dependent
    - What's unclear: Whether locale is set to Russian on the server
    - Recommendation: Use a hard-coded Russian month names dict (same pattern as KZ_HOLIDAYS hard-coding) rather than relying on locale: `MONTHS_RU = {1: "Январь", 2: "Февраль", ..., 6: "Июнь", ...}`
 
-3. **User account creation UI for employee role**
+3. **User account creation UI for employee role** (RESOLVED)
+   - Resolution: 04-03 Task 4 adds an optional `emp_id` param to `create_user` (applied only when role == "employee") and exposes an emp_id field in the admin create-user form, so an employee account links to an Employee record at creation. The broader question of which roles see the USERS tab (currently superadmin-only) is recorded as a deferred follow-up RBAC task in 04-03 — out of Phase 4 scope per CONTEXT.md.
    - What we know: `create_user` API at line 1102 accepts `role="employee"` (role not excluded). `ROLE_HIERARCHY` includes `'employee'`. The UI for creating employee accounts may or may not expose this role.
    - What's unclear: Whether `dept_admin` can create employee-role users via the existing admin UI (this is needed for the employee cabinet to be usable end-to-end)
    - Recommendation: Phase 4 should add `emp_id` param to the `create_user` API call for employee-role creation; this is the minimal link between User and Employee records.

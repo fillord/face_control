@@ -142,11 +142,15 @@ tr.row-early-leave { background: #f0f8ff; }
     </div>
     <div class="form-group">
       <label>Роль</label>
-      <select id="newRole" style="width:100%;">
+      <select id="newRole" style="width:100%;" onchange="toggleEmpIdField()">
         {% for role_key, role_label in creatable_roles %}
         <option value="{{ role_key }}">{{ role_label }}</option>
         {% endfor %}
       </select>
+    </div>
+    <div id="empIdGroup" class="form-group" style="display:none;">
+      <label>ID сотрудника</label>
+      <input type="text" id="newEmpId" placeholder="emp_id" style="width:100%;">
     </div>
     <div style="display:flex;gap:10px;margin-top:8px;">
       <button class="btn-export" onclick="createUser()" style="flex:1;">Создать пользователя</button>
@@ -234,9 +238,18 @@ function switchTab(tab) {
   if (tab === "users") loadUsers();
 }
 
+function toggleEmpIdField() {
+  const role = document.getElementById("newRole").value;
+  const empIdGroup = document.getElementById("empIdGroup");
+  if (empIdGroup) {
+    empIdGroup.style.display = role === "employee" ? "flex" : "none";
+  }
+}
+
 function toggleCreateForm() {
   const panel = document.getElementById("createUserPanel");
   panel.classList.toggle("hidden");
+  toggleEmpIdField();
 }
 
 async function loadUsers() {
@@ -272,16 +285,18 @@ async function createUser() {
   const username = document.getElementById("newUsername").value.trim();
   const password = document.getElementById("newPassword").value;
   const role = document.getElementById("newRole").value;
+  const empId = document.getElementById("newEmpId").value.trim();
   if (!username || !password || !role) return;
   const resp = await fetch("/api/users", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({username, password, role})
+    body: JSON.stringify({username, password, role, emp_id: empId})
   });
   const data = await resp.json();
   if (resp.ok) {
     document.getElementById("newUsername").value = "";
     document.getElementById("newPassword").value = "";
+    document.getElementById("newEmpId").value = "";
     document.getElementById("createUserPanel").classList.add("hidden");
     loadUsers();
   } else {

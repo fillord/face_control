@@ -1433,6 +1433,8 @@ def create_user():
     else:
         new_org_id = caller_org_id  # org_admin/dept_admin may never cross org boundary
     new_dept_id = data.get("dept_id") or (caller_dept_id if creator_role == "dept_admin" else None)
+    # emp_id only applies to employee-role accounts; force None for all other roles (T-04-EMP-LINK)
+    new_emp_id = (data.get("emp_id") or None) if target_role == "employee" else None
     user_id = str(uuid.uuid4())
     try:
         db.session.add(User(
@@ -1443,12 +1445,13 @@ def create_user():
             active=True,
             org_id=new_org_id,
             dept_id=new_dept_id,
+            emp_id=new_emp_id,
         ))
         db.session.commit()
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
-    print(f"USER_CREATED: username={username!r} role={target_role!r} org_id={new_org_id!r} dept_id={new_dept_id!r}", flush=True)
+    print(f"USER_CREATED: username={username!r} role={target_role!r} org_id={new_org_id!r} dept_id={new_dept_id!r} emp_id={new_emp_id!r}", flush=True)
     return jsonify({"id": user_id, "status": "created"})
 
 @app.route("/api/users/<user_id>", methods=["PATCH"])

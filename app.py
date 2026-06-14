@@ -1,11 +1,16 @@
 import os, json, base64, time, shutil, uuid, sys, secrets
+import re, csv, io
 import calendar
 from datetime import datetime, date, timedelta
 from functools import wraps
-from flask import Flask, request, jsonify, render_template, session, redirect, url_for
+from io import BytesIO
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for, send_file
 import numpy as np
 import cv2
 import bcrypt
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment
+from openpyxl.utils import get_column_letter
 from models import db, Employee, User, Organization, Department
 from models import AttendanceRecord, EmployeeSchedule, LogEntry, TimesheetOverride, AppSetting
 
@@ -36,6 +41,12 @@ os.makedirs(FACES_DIR, exist_ok=True)
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
 recognizer = cv2.face.LBPHFaceRecognizer_create()
 recognizer_trained = False
+
+MONTHS_RU = {
+    1: "Январь", 2: "Февраль", 3: "Март", 4: "Апрель",
+    5: "Май", 6: "Июнь", 7: "Июль", 8: "Август",
+    9: "Сентябрь", 10: "Октябрь", 11: "Ноябрь", 12: "Декабрь",
+}
 
 # ─── Config / Auth ────────────────────────────────────────────────────────────
 
@@ -992,6 +1003,205 @@ def timesheet():
         holidays_set=holidays_set,
         missing_holiday_year=missing_holiday_year,
         can_edit=(role in ("dept_admin", "org_admin", "superadmin")),
+    )
+
+
+# ─── Export: T-13 XLSX / CSV ──────────────────────────────────────────────────
+
+def _resolve_export_scope():
+    """Shared scope/data resolution for export routes (mirrors /timesheet logic).
+
+    Returns (dept_id, dept_name, org_name, year, month_num, month_str, days,
+             scoped_employees, attendance, overrides, holidays_set) or raises a
+    Flask response tuple (status_code, response) that the caller should return.
+    """
+    role = session.get("role")
+    session_dept_id = session.get("dept_id")
+    session_org_id = session.get("org_id")
+
+    # (a) Resolve month param (T-04-VAL)
+    month_str = request.args.get("month", datetime.now().strftime("%Y-%m"))
+    try:
+        year, month_num = map(int, month_str.split("-"))
+        if not (1 <= month_num <= 12 and 2000 <= year <= 2099):
+            raise ValueError("out of range")
+    except (ValueError, AttributeError):
+        year, month_num = datetime.now().year, datetime.now().month
+        month_str = f"{year:04d}-{month_num:02d}"
+
+    # (b) Resolve dept scope (T-04-IDOR — copy verbatim from /timesheet)
+    dept_id_param = request.args.get("dept_id", "")
+
+    if role == "dept_admin":
+        dept_id = session_dept_id  # always fixed from session; param ignored
+    elif role == "org_admin":
+        if dept_id_param:
+            dept_obj = Department.query.get(dept_id_param)
+            if not dept_obj or dept_obj.org_id != session_org_id:
+                return None, (render_template("403.html"), 403)
+            dept_id = dept_id_param
+        else:
+            first_dept = Department.query.filter_by(org_id=session_org_id).first()
+            dept_id = first_dept.id if first_dept else None
+    else:  # superadmin
+        dept_id = dept_id_param or None
+
+    # Guard: no dept selected
+    if not dept_id:
+        return None, (render_template("403.html"), 403)
+
+    # Resolve dept/org names for header rows
+    dept_obj = Department.query.get(dept_id)
+    dept_name = dept_obj.name if dept_obj else dept_id
+    org_obj = Organization.query.get(dept_obj.org_id) if dept_obj else None
+    org_name = org_obj.name if org_obj else ""
+
+    # (c) Build days list
+    _, num_days = calendar.monthrange(year, month_num)
+    days = [date(year, month_num, 1) + timedelta(days=i) for i in range(num_days)]
+
+    # (d) Load data via ORM (mirrors /timesheet lines 933-953)
+    employees = {e.id: _emp_to_dict(e) for e in Employee.query.all()}
+    start_str = f"{year:04d}-{month_num:02d}-01"
+    end_str = f"{year:04d}-{month_num:02d}-{num_days:02d}"
+    _att_recs = AttendanceRecord.query.filter(
+        AttendanceRecord.date >= start_str,
+        AttendanceRecord.date <= end_str,
+    ).all()
+    attendance = {}
+    for r in _att_recs:
+        attendance.setdefault(r.date, {})[r.emp_id] = {
+            "check_in": r.check_in_time,
+            "check_out": r.check_out_time,
+        }
+    _ov_recs = TimesheetOverride.query.all()
+    overrides = {}
+    for r in _ov_recs:
+        overrides.setdefault(r.emp_id, {})[r.date] = r.symbol
+    holidays_set = get_holidays_set(year)
+
+    # Filter to dept scope (Pitfall 3)
+    scoped_employees = {eid: e for eid, e in employees.items() if e.get("dept_id") == dept_id}
+
+    ctx = (dept_id, dept_name, org_name, year, month_num, month_str, days,
+           scoped_employees, attendance, overrides, holidays_set)
+    return ctx, None
+
+
+def _build_export_grid(days, scoped_employees, attendance, overrides, holidays_set):
+    """Build grid rows as (emp_id, name, symbols, totals) for export routes."""
+    grid_rows = []
+    for emp_id, emp in scoped_employees.items():
+        schedule = emp.get("schedule", {"start": "09:00", "end": "18:00", "work_days": [1, 2, 3, 4, 5]})
+        symbols = [compute_symbol(d, emp_id, attendance, overrides, schedule, holidays_set) for d in days]
+        totals = compute_employee_totals(symbols, schedule)
+        grid_rows.append((emp_id, emp.get("name", emp_id), symbols, totals))
+    return grid_rows
+
+
+@app.route("/timesheet/export/xlsx")
+@require_role("dept_admin", "org_admin", "superadmin")
+def export_timesheet_xlsx():
+    """EXP-01: Download the T-13 grid as an openpyxl .xlsx file."""
+    ctx, err = _resolve_export_scope()
+    if err is not None:
+        return err
+    dept_id, dept_name, org_name, year, month_num, month_str, days, scoped_employees, attendance, overrides, holidays_set = ctx
+
+    grid_rows = _build_export_grid(days, scoped_employees, attendance, overrides, holidays_set)
+
+    wb = Workbook()
+    ws = wb.active
+
+    num_cols = 1 + len(days) + 5  # name + day columns + 5 total columns
+
+    # Row 1: merged title
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=num_cols)
+    title_cell = ws.cell(row=1, column=1, value="ТАБЕЛЬ УЧЁТА РАБОЧЕГО ВРЕМЕНИ (Форма Т-13)")
+    title_cell.font = Font(bold=True)
+    title_cell.alignment = Alignment(horizontal="center")
+
+    # Row 2: merged subtitle
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=num_cols)
+    sub_cell = ws.cell(row=2, column=1, value=f"{org_name} — {dept_name} — {MONTHS_RU[month_num]} {year}")
+    sub_cell.alignment = Alignment(horizontal="center")
+
+    # Row 3: headers
+    headers = ["Сотрудник"] + [d.day for d in days] + ["Я", "Ч", "П/НН", "О", "Б/К"]
+    for col_idx, header in enumerate(headers, start=1):
+        cell = ws.cell(row=3, column=col_idx, value=header)
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal="center")
+
+    # Rows 4+: employee data
+    for row_idx, (emp_id, name, symbols, totals) in enumerate(grid_rows, start=4):
+        ws.cell(row=row_idx, column=1, value=name)
+        for col_offset, sym in enumerate(symbols, start=2):
+            ws.cell(row=row_idx, column=col_offset, value=sym if sym else "")
+        # 5 totals columns
+        base_col = 2 + len(days)
+        ws.cell(row=row_idx, column=base_col, value=totals["days_worked"])
+        ws.cell(row=row_idx, column=base_col + 1, value=totals["hours_worked"])
+        ws.cell(row=row_idx, column=base_col + 2, value=totals["absences"])
+        ws.cell(row=row_idx, column=base_col + 3, value=totals["late"])
+        ws.cell(row=row_idx, column=base_col + 4, value=totals["vac_sick"])
+
+    # Column widths
+    ws.column_dimensions[get_column_letter(1)].width = 24
+    for col_idx in range(2, 2 + len(days)):
+        ws.column_dimensions[get_column_letter(col_idx)].width = 4
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)  # Pitfall 2: must seek before send_file
+
+    safe_dept = re.sub(r"[^A-Za-zА-Яа-яЁё0-9]", "_", dept_name)
+    return send_file(
+        buf,
+        download_name=f"T13_{safe_dept}_{month_str}.xlsx",
+        as_attachment=True,
+    )
+
+
+@app.route("/timesheet/export/csv")
+@require_role("dept_admin", "org_admin", "superadmin")
+def export_timesheet_csv():
+    """EXP-02: Download the T-13 grid as UTF-8 BOM semicolon-delimited CSV."""
+    ctx, err = _resolve_export_scope()
+    if err is not None:
+        return err
+    dept_id, dept_name, org_name, year, month_num, month_str, days, scoped_employees, attendance, overrides, holidays_set = ctx
+
+    grid_rows = _build_export_grid(days, scoped_employees, attendance, overrides, holidays_set)
+
+    str_buf = io.StringIO()
+    writer = csv.writer(str_buf, delimiter=";")
+
+    # Title row
+    writer.writerow([f"ТАБЕЛЬ Т-13 — {dept_name} — {month_str}"])
+    # Header row
+    headers = ["Сотрудник"] + [str(d.day) for d in days] + ["Я", "Ч", "П/НН", "О", "Б/К"]
+    writer.writerow(headers)
+    # Employee rows
+    for emp_id, name, symbols, totals in grid_rows:
+        row = [name] + [sym if sym else "" for sym in symbols] + [
+            totals["days_worked"],
+            totals["hours_worked"],
+            totals["absences"],
+            totals["late"],
+            totals["vac_sick"],
+        ]
+        writer.writerow(row)
+
+    content = str_buf.getvalue().encode("utf-8-sig")  # BOM via codec (Pitfall: do NOT hand-write BOM)
+    byte_buf = BytesIO(content)
+
+    safe_dept = re.sub(r"[^A-Za-zА-Яа-яЁё0-9]", "_", dept_name)
+    return send_file(
+        byte_buf,
+        download_name=f"T13_{safe_dept}_{month_str}.csv",
+        as_attachment=True,
+        mimetype="text/csv",
     )
 
 

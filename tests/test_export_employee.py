@@ -193,7 +193,6 @@ def test_export_scope_enforcement(client, tmp_data):
 
 # ─── EMP-01: Employee cabinet renders ────────────────────────────────────────
 
-@pytest.mark.xfail(reason="implemented in 04-02/04-03", strict=False)
 def test_employee_cabinet_renders(client, tmp_data):
     """EMP-01: Employee user can view their own T-13 cabinet at /employee.
 
@@ -252,7 +251,6 @@ def test_employee_cabinet_renders(client, tmp_data):
 
 # ─── EMP-02: Employee cabinet shows arrival/departure tooltips ────────────────
 
-@pytest.mark.xfail(reason="implemented in 04-02/04-03", strict=False)
 def test_employee_tooltip_times(client, tmp_data):
     """EMP-02: Employee cabinet shows check-in/check-out times as tooltip text.
 
@@ -324,7 +322,6 @@ def test_employee_tooltip_times(client, tmp_data):
 
 # ─── EMP-03: Employee cabinet stat labels ────────────────────────────────────
 
-@pytest.mark.xfail(reason="implemented in 04-02/04-03", strict=False)
 def test_employee_stats_counts(client, tmp_data):
     """EMP-03: Employee cabinet renders all three stat card labels.
 

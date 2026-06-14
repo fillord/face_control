@@ -239,3 +239,49 @@ def seed_employees(tmp_data, employees_dict):
                         work_days_json=json.dumps(sched.get("work_days", [1, 2, 3, 4, 5])),
                     ))
         db.session.commit()
+
+
+def seed_attendance(tmp_data, records_list):
+    """Insert AttendanceRecord rows via ORM into the active app context.
+
+    tmp_data accepted but ignored — kept for test_*.py call-site compatibility (Pitfall 6).
+    records_list is a list of dicts with keys: id (optional int), emp_id, date,
+    check_in_time, check_out_time, optional org_id, optional event_type.
+    When id is provided and that row already exists, the record is skipped (dedupe guard).
+
+    Example::
+
+        seed_attendance(tmp_data, [
+            {
+                "id": 1,
+                "emp_id": "emp-1",
+                "date": "2026-06-02",
+                "check_in_time": "09:05:00",
+                "check_out_time": "18:00:00",
+            }
+        ])
+    """
+    import app as _app
+    from models import db, AttendanceRecord
+    with _app.app.app_context():
+        for rec in records_list:
+            if "id" in rec and rec["id"] is not None:
+                if AttendanceRecord.query.get(rec["id"]):
+                    continue
+                db.session.add(AttendanceRecord(
+                    id=rec["id"],
+                    emp_id=rec["emp_id"],
+                    date=rec["date"],
+                    check_in_time=rec.get("check_in_time"),
+                    check_out_time=rec.get("check_out_time"),
+                    event_type=rec.get("event_type"),
+                ))
+            else:
+                db.session.add(AttendanceRecord(
+                    emp_id=rec["emp_id"],
+                    date=rec["date"],
+                    check_in_time=rec.get("check_in_time"),
+                    check_out_time=rec.get("check_out_time"),
+                    event_type=rec.get("event_type"),
+                ))
+        db.session.commit()

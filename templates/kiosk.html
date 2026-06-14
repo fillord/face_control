@@ -91,21 +91,22 @@ canvas#overlay { position: absolute; inset: 0; width: 100%; height: 100%; transf
 .nav-links { padding: 16px 24px; border-top: 1px solid #1e2a4a; display: flex; gap: 8px; }
 .nav-link { flex: 1; padding: 10px; text-align: center; border-radius: 8px; font-size: 13px; font-weight: 500; text-decoration: none; border: 1px solid #1e2a4a; color: #7986cb; transition: all 0.2s; }
 .nav-link:hover { background: #1a2240; color: #c5cae9; }
-/* PIN screen overlay — touchscreen button pad */
-#pinScreen { position: fixed; inset: 0; background: rgba(6,11,24,0.96); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; z-index: 100; }
-#pinScreen.hidden { display: none; }
-#pinTitle { font-size: 18px; font-weight: 600; color: #e8eaf6; }
-#pinDisplay { display: flex; gap: 14px; margin-bottom: 4px; }
-#pinDisplay span { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #5c6bc0; display: inline-block; transition: background 0.1s; }
-#pinDisplay span.filled { background: #5c6bc0; }
-.pin-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.pin-grid button { width: 72px; height: 72px; border-radius: 12px; border: 1px solid #1e2a4a; background: #0d1429; color: #e8eaf6; font-size: 26px; font-weight: 600; cursor: pointer; transition: background 0.12s, transform 0.08s; touch-action: manipulation; }
-.pin-grid button:hover { background: #1a2240; }
-.pin-grid button:active { background: #1565C0; transform: scale(0.96); }
-.pin-grid button.pin-back { font-size: 20px; color: #7986cb; }
-.pin-grid button.pin-ok { background: #1565C0; color: #fff; }
-.pin-grid button.pin-ok:hover { background: #0d47a1; }
-#pinError { color: #EF5350; font-size: 13px; min-height: 20px; }
+/* Device setup screen */
+#deviceSetupScreen { position: fixed; inset: 0; background: rgba(6,11,24,0.97); display: flex; align-items: center; justify-content: center; z-index: 200; }
+#deviceSetupScreen.hidden { display: none; }
+#setupCard { background: #0d1429; border: 1px solid #1e2a4a; border-radius: 20px; padding: 32px 28px; display: flex; flex-direction: column; align-items: center; gap: 18px; width: 340px; }
+.setup-icon { font-size: 36px; }
+#setupTitle { font-size: 16px; font-weight: 600; color: #e8eaf6; text-align: center; }
+#setupSub { font-size: 13px; color: #7986cb; text-align: center; line-height: 1.5; }
+#setupNoPin { font-size: 13px; color: #FF8A65; text-align: center; padding: 10px; background: rgba(191,54,12,0.12); border-radius: 8px; border: 1px solid rgba(191,54,12,0.3); }
+.setup-field { width: 100%; }
+.setup-field label { display: block; font-size: 12px; color: #5c6bc0; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+.setup-field input { width: 100%; padding: 12px 14px; font-size: 15px; border: 1.5px solid #1e2a4a; border-radius: 10px; background: #0a0f1e; color: #e8eaf6; outline: none; font-family: inherit; }
+.setup-field input:focus { border-color: #3949ab; }
+#setupError { color: #EF5350; font-size: 13px; min-height: 18px; text-align: center; width: 100%; }
+#setupSubmitBtn { width: 100%; padding: 13px; background: #1565C0; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; }
+#setupSubmitBtn:hover { background: #0d47a1; }
+#setupSubmitBtn:active { background: #0a3880; }
 </style>
 </head>
 <body>
@@ -120,35 +121,31 @@ canvas#overlay { position: absolute; inset: 0; width: 100%; height: 100%; transf
   <div class="clock" id="clock">--:--:--</div>
 </header>
 
-{% if has_pin %}
-<!-- PIN screen — touchscreen button pad only, keyboard-free -->
-<div id="pinScreen">
-  <div id="pinTitle">Введите PIN для доступа</div>
-  <div id="pinDisplay">
-    <span id="pinDot0"></span>
-    <span id="pinDot1"></span>
-    <span id="pinDot2"></span>
-    <span id="pinDot3"></span>
+{% if org_token and not device_authorized %}
+<div id="deviceSetupScreen">
+  <div id="setupCard">
+    <div class="setup-icon">🖥</div>
+    <div id="setupTitle">Регистрация устройства</div>
+    {% if not has_kiosk_pin %}
+    <div id="setupNoPin">PIN киоска не настроен.<br>Обратитесь к администратору.</div>
+    {% else %}
+    <div id="setupSub">Введите название устройства и PIN киоска.</div>
+    <div class="setup-field">
+      <label>Название устройства</label>
+      <input type="text" id="deviceNameInput" placeholder="Напр. Главный вход" maxlength="60" autocomplete="off">
+    </div>
+    <div class="setup-field">
+      <label>PIN киоска (4 цифры)</label>
+      <input type="password" id="pinInput" placeholder="••••" maxlength="4" inputmode="numeric" pattern="\d{4}" autocomplete="off">
+    </div>
+    <div id="setupError"></div>
+    <button id="setupSubmitBtn" onclick="submitDeviceRegistration()">Зарегистрировать устройство</button>
+    {% endif %}
   </div>
-  <div class="pin-grid">
-    <button type="button" onclick="pinPress('1')">1</button>
-    <button type="button" onclick="pinPress('2')">2</button>
-    <button type="button" onclick="pinPress('3')">3</button>
-    <button type="button" onclick="pinPress('4')">4</button>
-    <button type="button" onclick="pinPress('5')">5</button>
-    <button type="button" onclick="pinPress('6')">6</button>
-    <button type="button" onclick="pinPress('7')">7</button>
-    <button type="button" onclick="pinPress('8')">8</button>
-    <button type="button" onclick="pinPress('9')">9</button>
-    <button type="button" class="pin-back" onclick="pinPress('back')">⌫</button>
-    <button type="button" onclick="pinPress('0')">0</button>
-    <button type="button" class="pin-ok" onclick="pinPress('ok')">OK</button>
-  </div>
-  <div id="pinError"></div>
 </div>
 {% endif %}
 
-<div class="main">
+<div class="main" id="mainKiosk" {% if org_token and not device_authorized %}style="display:none"{% endif %}>
   <div class="camera-section">
 
     <!-- Camera view (shown when employees exist) -->
@@ -260,8 +257,9 @@ let scanning = false;
 let cooldownUntil = 0;
 const COOLDOWN_MS = 4000;
 const hasEmployees = {{ 'true' if has_employees else 'false' }};
-const ORG_ID = {{ ('"' + org_id + '"') if org_id else 'null' }};
-const ORG_TOKEN = {{ ('"' + org_token + '"') if org_token else 'null' }};
+const ORG_ID = {{ org_id|default(none)|tojson }};
+const ORG_TOKEN = {{ org_token|default(none)|tojson }};
+const DEVICE_AUTHORIZED = {{ 'true' if (not org_token or device_authorized) else 'false' }};
 
 function updateClock() {
   const now = new Date();
@@ -271,16 +269,18 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
+let _camStream = null;
+
 async function startCamera() {
-  if (!hasEmployees) return;
+  if (!hasEmployees || _camStream) return;
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { width:640, height:480, facingMode:"user" } });
-    document.getElementById("video").srcObject = stream;
+    _camStream = await navigator.mediaDevices.getUserMedia({ video: { width:640, height:480, facingMode:"user" } });
+    document.getElementById("video").srcObject = _camStream;
   } catch(e) {
     setStatus("error", "Камера недоступна: " + e.message);
   }
 }
-startCamera();
+if (DEVICE_AUTHORIZED) startCamera();
 
 function setStatus(type, text) {
   const chip = document.getElementById("statusChip");
@@ -457,78 +457,61 @@ async function loadLog() {
 }
 
 loadLog();
-if (hasEmployees) setInterval(recognize, 1500);
+if (DEVICE_AUTHORIZED && hasEmployees) setInterval(recognize, 1500);
 
-// ─── PIN pad — touchscreen button pad ───────────────────────────────────────
+// ─── Device registration ──────────────────────────────────────────────────────
 
-const PIN_KEY = 'kiosk_pin_unlocked_' + (ORG_TOKEN || 'root');
-let pinDigits = [];
+async function submitDeviceRegistration() {
+  const pinInput = document.getElementById('pinInput');
+  const nameInput = document.getElementById('deviceNameInput');
+  const errEl = document.getElementById('setupError');
+  const btn = document.getElementById('setupSubmitBtn');
 
-function isPinUnlocked() {
-  return localStorage.getItem(PIN_KEY) === '1';
-}
+  const pin = (pinInput ? pinInput.value.trim() : '');
+  const device_name = (nameInput ? nameInput.value.trim() : '') || 'Киоск';
 
-function unlockPin() {
-  localStorage.setItem(PIN_KEY, '1');
-  const screen = document.getElementById("pinScreen");
-  if (screen) screen.classList.add("hidden");
-}
-
-function updatePinDisplay() {
-  for (let i = 0; i < 4; i++) {
-    const dot = document.getElementById("pinDot" + i);
-    if (dot) dot.className = i < pinDigits.length ? "filled" : "";
+  if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+    if (errEl) errEl.textContent = 'Введите PIN-код: 4 цифры';
+    if (pinInput) pinInput.focus();
+    return;
   }
-}
+  if (errEl) errEl.textContent = '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Проверка...'; }
 
-async function submitPin() {
-  const pin = pinDigits.join('');
   try {
-    const resp = await fetch(`/api/kiosk/${ORG_TOKEN}/verify_pin`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pin })
+    const resp = await fetch(`/api/kiosk/${ORG_TOKEN}/register_device`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin, device_name })
     });
     const data = await resp.json();
-    if (data.verified) {
-      unlockPin();
-      document.getElementById("pinError").textContent = "";
+    if (resp.ok && data.status === 'registered') {
+      document.getElementById('deviceSetupScreen').classList.add('hidden');
+      document.getElementById('mainKiosk').style.display = '';
+      startCamera();
+      if (hasEmployees) setInterval(recognize, 1500);
     } else {
-      document.getElementById("pinError").textContent = "Неверный PIN-код. Попробуйте снова.";
-      pinDigits = [];
-      updatePinDisplay();
+      const msg = data.error === 'wrong_pin' ? 'Неверный PIN-код'
+                : data.error === 'no_pin_set' ? 'PIN не настроен — обратитесь к администратору'
+                : 'Ошибка регистрации';
+      if (errEl) errEl.textContent = msg;
+      if (pinInput) { pinInput.value = ''; pinInput.focus(); }
+      if (btn) { btn.disabled = false; btn.textContent = 'Зарегистрировать устройство'; }
     }
   } catch(e) {
-    document.getElementById("pinError").textContent = "Ошибка соединения. Повторите попытку.";
-    pinDigits = [];
-    updatePinDisplay();
+    if (errEl) errEl.textContent = 'Ошибка соединения';
+    if (btn) { btn.disabled = false; btn.textContent = 'Зарегистрировать устройство'; }
   }
 }
 
-function pinPress(val) {
-  if (val === 'back') {
-    pinDigits.pop();
-    updatePinDisplay();
-  } else if (val === 'ok') {
-    if (pinDigits.length === 4) submitPin();
-  } else {
-    if (pinDigits.length < 4) {
-      pinDigits.push(val);
-      updatePinDisplay();
-      // Auto-submit when 4th digit entered
-      if (pinDigits.length === 4) submitPin();
-    }
-  }
-}
-
-// Show or hide PIN screen on load
-(function initPin() {
-  const screen = document.getElementById("pinScreen");
-  if (!screen) return; // no has_pin
-  if (isPinUnlocked()) {
-    screen.classList.add("hidden");
-  }
+(function initSetupForm() {
+  const pinInput = document.getElementById('pinInput');
+  if (!pinInput) return;
+  pinInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') submitDeviceRegistration();
+  });
 })();
+
 </script>
 </body>
 </html>

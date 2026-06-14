@@ -744,9 +744,99 @@ def admin_page():
 @app.route("/employee")
 @require_role("employee")
 def employee_page():
+    """EMP-01/02/03: Employee self-service cabinet — own T-13 row for current/previous month."""
     user = User.query.get(session.get("user_id"))
     username = user.username if user else ""
-    return render_template("dashboard.html", username=username)
+
+    # Resolve emp_id from session user only (T-04-EMP-IDOR: never accept from URL)
+    emp_id = user.emp_id if user else None
+    if not emp_id:
+        return render_template(
+            "employee.html",
+            username=username,
+            emp=None,
+            error="Ваш аккаунт не привязан к записи сотрудника. Обратитесь к администратору.",
+        )
+    emp_obj = Employee.query.get(emp_id)
+    if not emp_obj:
+        return render_template("403.html"), 403
+
+    # Month clamp (D-08, Pitfall 6): server computes both bounds; client param is untrusted
+    now = datetime.now()
+    current_month = now.strftime("%Y-%m")
+    prev_month = (now.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
+    month_str = request.args.get("month", current_month)
+    if month_str < prev_month or month_str > current_month:
+        month_str = current_month
+    year, month_num = map(int, month_str.split("-"))
+
+    # Build days list
+    _, num_days = calendar.monthrange(year, month_num)
+    days = [date(year, month_num, 1) + timedelta(days=i) for i in range(num_days)]
+
+    # Load attendance records for this employee for the selected month
+    start_str = f"{year:04d}-{month_num:02d}-01"
+    end_str = f"{year:04d}-{month_num:02d}-{num_days:02d}"
+    att_recs = AttendanceRecord.query.filter(
+        AttendanceRecord.emp_id == emp_id,
+        AttendanceRecord.date >= start_str,
+        AttendanceRecord.date <= end_str,
+    ).all()
+
+    # Build both the attendance dict (for compute_symbol) and times_by_date (for tooltips)
+    attendance = {}
+    times_by_date = {}
+    for r in att_recs:
+        attendance.setdefault(r.date, {})[r.emp_id] = {
+            "check_in": r.check_in_time,
+            "check_out": r.check_out_time,
+        }
+        times_by_date[r.date] = {
+            "check_in": r.check_in_time,
+            "check_out": r.check_out_time,
+        }
+
+    # Load overrides for this employee
+    ov_recs = TimesheetOverride.query.filter_by(emp_id=emp_id).all()
+    overrides = {emp_id: {r.date: r.symbol for r in ov_recs}}
+
+    holidays_set = get_holidays_set(year)
+
+    # Build single-row grid (same inline per-cell loop as /timesheet)
+    emp_dict = _emp_to_dict(emp_obj)
+    schedule = emp_dict.get("schedule", {"start": "09:00", "end": "18:00", "work_days": [1, 2, 3, 4, 5]})
+    cells = []
+    for d in days:
+        sym = compute_symbol(d, emp_id, attendance, overrides, schedule, holidays_set)
+        auto = compute_symbol(d, emp_id, attendance, {}, schedule, holidays_set)
+        cells.append({"sym": sym, "auto": auto, "date": d.isoformat()})
+
+    symbols = [c["sym"] for c in cells]
+    totals = compute_employee_totals(symbols, schedule)
+    grid_row = (emp_id, emp_obj.name, cells, totals)
+
+    # Stats (EMP-03): early_count from У/ОУ symbols (not returned by compute_employee_totals)
+    early_count = sum(1 for s in symbols if s in ("У", "ОУ"))
+    stats = {
+        "late": totals["late"],
+        "absences": totals["absences"],
+        "early": early_count,
+    }
+
+    return render_template(
+        "employee.html",
+        username=username,
+        emp_name=emp_obj.name,
+        grid_row=grid_row,
+        stats=stats,
+        times_by_date=times_by_date,
+        days=days,
+        month_str=month_str,
+        current_month=current_month,
+        prev_month=prev_month,
+        holidays_set=holidays_set,
+        error=None,
+    )
 
 # ─── Page routes: Role Dashboards ─────────────────────────────────────────────
 

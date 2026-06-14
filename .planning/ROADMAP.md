@@ -151,7 +151,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 04-02-PLAN.md — Export slice: openpyxl install + /timesheet/export/xlsx & /export/csv routes (T-13 layout, UTF-8 BOM, role-scoped) + Скачать buttons [checkpoint]
+- [x] 04-02-PLAN.md — Export slice: openpyxl install + /timesheet/export/xlsx & /export/csv routes (T-13 layout, UTF-8 BOM, role-scoped) + Скачать buttons [checkpoint]
 
 **Wave 3** *(blocked on Wave 2)*
 
@@ -169,7 +169,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. RBAC Foundation | 5/5 | Complete   | 2026-06-11 |
 | 2. Org/Dept Data Model | 4/5 | In Progress (02-05 superseded by Phase 5) | - |
 | 3. T-13 Timesheet Grid | 4/4 | Complete   | 2026-06-13 |
-| 4. Export & Employee Cabinet | 1/3 | In Progress|  |
+| 4. Export & Employee Cabinet | 2/3 | In Progress|  |
 | 5. Token Kiosk, Reg & Russian UI | 5/5 | Complete | 2026-06-13 |
 | 6. SQLite Migration | 4/4 | Complete | 2026-06-13 |
 
@@ -190,7 +190,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 - Verify: curl http://127.0.0.1:5051/login → 200; curl http://127.0.0.1:5051/kiosk/<org_token> → 200
 
 **Depends on:** Phase 2
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 

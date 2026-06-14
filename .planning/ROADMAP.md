@@ -141,7 +141,22 @@ Plans:
   4. An employee can view their own T-13 grid for the current and previous months (read-only) and see exact arrival and departure times for each day.
   5. Employee summary view shows their late arrival count, absence count, and early departure count for the current month.
 
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+
+**Wave 1** *(test scaffold)*
+
+- [ ] 04-01-PLAN.md — Failing/xfail pytest scaffold (EXP-01..03, EMP-01..03) + seed_attendance conftest helper
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 04-02-PLAN.md — Export slice: openpyxl install + /timesheet/export/xlsx & /export/csv routes (T-13 layout, UTF-8 BOM, role-scoped) + Скачать buttons [checkpoint]
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 04-03-PLAN.md — Employee cabinet slice: User.emp_id + employee login, /employee rewrite, employee.html (stats cards, month clamp, read-only grid, time tooltips)
+
 **UI hint**: yes
 
 ## Progress
@@ -154,7 +169,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. RBAC Foundation | 5/5 | Complete   | 2026-06-11 |
 | 2. Org/Dept Data Model | 4/5 | In Progress (02-05 superseded by Phase 5) | - |
 | 3. T-13 Timesheet Grid | 4/4 | Complete   | 2026-06-13 |
-| 4. Export & Employee Cabinet | 0/TBD | Not started | - |
+| 4. Export & Employee Cabinet | 0/3 | Planned | - |
 | 5. Token Kiosk, Reg & Russian UI | 5/5 | Complete | 2026-06-13 |
 | 6. SQLite Migration | 4/4 | Complete | 2026-06-13 |
 

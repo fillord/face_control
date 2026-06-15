@@ -188,7 +188,7 @@ tr.row-early-leave { background: #f0f8ff; }
 <script>
 const RCOLORS = ["#1565C0","#1B5E20","#4A148C","#BF360C","#006064","#37474F"];
 function rColorFor(name) { let h=0; for(let c of name) h=(h*31+c.charCodeAt(0))%RCOLORS.length; return RCOLORS[h]; }
-function rInitials(name) { return name.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase(); }
+function rInitials(name) { return (name || '').split(' ').filter(w => w.length > 0).slice(0, 2).map(w => w[0]).join('').toUpperCase(); }
 function rEscapeHtml(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 
 const rToday = new Date().toISOString().split("T")[0];

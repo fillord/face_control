@@ -41,6 +41,9 @@ tr:last-child td { border-bottom: none; }
 .btn-edit:hover { background: #f4f6fb; }
 .btn-delete { padding: 6px 12px; background: #fff; border: 1px solid #ef9a9a; border-radius: 6px; font-size: 12px; color: #c62828; cursor: pointer; }
 .btn-delete:hover { background: #ffebee; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: #1a2340; }
+.sort-arrow { margin-left: 4px; font-size: 10px; color: #1565C0; }
 .card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; padding: 24px; max-width: 480px; margin-bottom: 20px; }
 .form-group { margin-bottom: 16px; }
 .form-group label { font-size: 13px; font-weight: 600; color: #546e7a; display: block; margin-bottom: 6px; }
@@ -285,8 +288,8 @@ tr:last-child td { border-bottom: none; }
     <table>
       <thead>
         <tr>
-          <th>Логин</th>
-          <th>Роль</th>
+          <th class="sortable" id="user-th-username" onclick="sortUsers('username')">Логин<span class="sort-arrow"></span></th>
+          <th class="sortable" id="user-th-role" onclick="sortUsers('role')">Роль<span class="sort-arrow"></span></th>
           <th>Отдел</th>
           <th>Статус</th>
           <th>Действия</th>
@@ -304,14 +307,15 @@ tr:last-child td { border-bottom: none; }
     <table>
       <thead>
         <tr>
-          <th>Имя</th>
-          <th>Отдел</th>
+          <th class="sortable" id="emp-th-name" onclick="sortEmployees('name')">Имя<span class="sort-arrow"></span></th>
+          <th class="sortable" id="emp-th-dept" onclick="sortEmployees('dept')">Отдел<span class="sort-arrow"></span></th>
           <th>График</th>
+          <th class="sortable" id="emp-th-date" onclick="sortEmployees('date')">Дата добавл.<span class="sort-arrow"></span></th>
           <th>Статус</th>
         </tr>
       </thead>
       <tbody id="employeesTableBody">
-        <tr><td colspan="4" style="text-align:center;color:#90a4ae;padding:28px;">Загрузка...</td></tr>
+        <tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Загрузка...</td></tr>
       </tbody>
     </table>
   </div>
@@ -322,6 +326,10 @@ tr:last-child td { border-bottom: none; }
 let allDepts = [];
 let allEmployees = [];
 const ORG_ID = "{{ org_id }}";
+let empSortKey = null;
+let empSortAsc = true;
+let userSortKey = null;
+let userSortAsc = true;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
@@ -493,14 +501,14 @@ async function loadEmployees() {
   } catch (e) {
     allEmployees = [];
     document.getElementById('employeesTableBody').innerHTML =
-      '<tr><td colspan="4" style="text-align:center;color:#c62828;padding:28px;">Ошибка при сохранении. Попробуйте ещё раз.</td></tr>';
+      '<tr><td colspan="5" style="text-align:center;color:#c62828;padding:28px;">Ошибка при сохранении. Попробуйте ещё раз.</td></tr>';
   }
 }
 
 function renderEmployees() {
   const tbody = document.getElementById('employeesTableBody');
   if (!allEmployees.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#90a4ae;padding:28px;">Сотрудники не найдены.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Сотрудники не найдены.</td></tr>';
     return;
   }
   tbody.innerHTML = allEmployees.map(emp => {
@@ -527,6 +535,7 @@ function renderEmployees() {
         </select>
       </td>
       <td style="color:#546e7a;font-variant-numeric:tabular-nums;">${schedule}</td>
+      <td style="color:#78909c;font-size:12px;">${emp.registered_at ? emp.registered_at.slice(0,10) : '—'}</td>
       <td>${faceStatus}${resetBtn}</td>
     </tr>`;
   }).join('');
@@ -683,7 +692,7 @@ async function loadOrgUsers() {
       const toggleBtn = u.active
         ? `<button onclick="toggleUser('${u.id}', false)" style="padding:4px 10px;font-size:12px;border:1px solid #ef9a9a;border-radius:6px;background:#fff;color:#c62828;cursor:pointer;">Отключить</button>`
         : `<button onclick="toggleUser('${u.id}', true)" style="padding:4px 10px;font-size:12px;border:1px solid #a5d6a7;border-radius:6px;background:#fff;color:#2e7d32;cursor:pointer;">Включить</button>`;
-      return `<tr><td>${escapeHtml(u.username)}</td><td>${ROLE_LABEL[u.role] || u.role}</td><td>${deptName}</td><td>${statusBadge}</td><td>${toggleBtn}</td></tr>`;
+      return `<tr data-username="${escapeHtml(u.username)}" data-role="${u.role}"><td>${escapeHtml(u.username)}</td><td>${ROLE_LABEL[u.role] || u.role}</td><td>${deptName}</td><td>${statusBadge}</td><td>${toggleBtn}</td></tr>`;
     }).join('');
   } catch (e) {
     document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#c62828;padding:28px;">Ошибка загрузки.</td></tr>';
@@ -738,6 +747,78 @@ async function saveNewUser() {
 async function toggleUser(userId, active) {
   await fetch(`/api/users/${userId}`, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({active})});
   await loadOrgUsers();
+}
+
+// ─── Sortable tables ──────────────────────────────────────────────────────────
+function sortEmployees(key) {
+  if (empSortKey === key) {
+    empSortAsc = !empSortAsc;
+  } else {
+    empSortKey = key;
+    empSortAsc = true;
+  }
+  allEmployees.sort((a, b) => {
+    let av, bv;
+    if (key === 'name') { av = (a.name || '').toLowerCase(); bv = (b.name || '').toLowerCase(); }
+    else if (key === 'dept') {
+      const da = allDepts.find(d => d.id === a.dept_id);
+      const db = allDepts.find(d => d.id === b.dept_id);
+      av = da ? da.name.toLowerCase() : '';
+      bv = db ? db.name.toLowerCase() : '';
+    }
+    else if (key === 'date') { av = a.registered_at || ''; bv = b.registered_at || ''; }
+    if (av < bv) return empSortAsc ? -1 : 1;
+    if (av > bv) return empSortAsc ? 1 : -1;
+    return 0;
+  });
+  renderEmployees();
+  // Update sort arrows
+  ['emp-th-name', 'emp-th-dept', 'emp-th-date'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const arrow = el.querySelector('.sort-arrow');
+    if (arrow) arrow.textContent = '';
+  });
+  const activeId = key === 'name' ? 'emp-th-name' : key === 'dept' ? 'emp-th-dept' : 'emp-th-date';
+  const active = document.getElementById(activeId);
+  if (active) {
+    const arrow = active.querySelector('.sort-arrow');
+    if (arrow) arrow.textContent = empSortAsc ? ' ▲' : ' ▼';
+  }
+}
+
+function sortUsers(key) {
+  const tbody = document.getElementById('usersTableBody');
+  if (!tbody) return;
+  const rows = Array.from(tbody.querySelectorAll('tr[data-username]'));
+  if (!rows.length) return;
+  if (userSortKey === key) {
+    userSortAsc = !userSortAsc;
+  } else {
+    userSortKey = key;
+    userSortAsc = true;
+  }
+  rows.sort((a, b) => {
+    const av = (a.dataset[key] || '').toLowerCase();
+    const bv = (b.dataset[key] || '').toLowerCase();
+    if (av < bv) return userSortAsc ? -1 : 1;
+    if (av > bv) return userSortAsc ? 1 : -1;
+    return 0;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+  // Update sort arrows
+  ['user-th-username', 'user-th-role'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const arrow = el.querySelector('.sort-arrow');
+    if (arrow) arrow.textContent = '';
+  });
+  const activeId = key === 'username' ? 'user-th-username' : 'user-th-role';
+  const active = document.getElementById(activeId);
+  if (active) {
+    const arrow = active.querySelector('.sort-arrow');
+    if (arrow) arrow.textContent = userSortAsc ? ' ▲' : ' ▼';
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

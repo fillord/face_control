@@ -33,23 +33,12 @@ input[type=text]:focus, input[type=password]:focus { border-color: #1565C0; box-
   <div class="logo"><div class="logo-icon">🏥</div> МедКонтроль — Аккаунт</div>
   <div class="header-right">
     <span class="user-badge">{{ username }}</span>
-    <a href="/" class="btn-logout" style="border-color:#cfd8dc;color:#546e7a;">← Киоск</a>
     <a href="/logout" class="btn-logout">Выйти</a>
   </div>
 </header>
 
 <div class="page">
   <div id="msg"></div>
-
-  <div class="card">
-    <h2>Имя профиля</h2>
-    <p class="sub">Отображаемое имя в системе</p>
-    <div class="form-group">
-      <label>Отображаемое имя</label>
-      <input type="text" id="displayNameInput" value="{{ display_name }}" maxlength="128" placeholder="Ваше имя" autocomplete="name">
-    </div>
-    <button class="btn" onclick="saveName()">Сохранить имя</button>
-  </div>
 
   <div class="card">
     <h2>Смена пароля</h2>
@@ -77,21 +66,6 @@ function showMsg(text, isError) {
   el.textContent = isError ? ('⚠ ' + text) : text;
   el.style.display = 'block';
   setTimeout(function() { el.style.display = 'none'; }, 5000);
-}
-
-async function saveName() {
-  var displayName = document.getElementById('displayNameInput').value;
-  var res = await fetch('/api/me', {
-    method: 'PATCH',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({display_name: displayName})
-  });
-  var json = await res.json();
-  if (!res.ok) {
-    showMsg(json.error || 'Ошибка сохранения', true);
-  } else {
-    showMsg('Сохранено', false);
-  }
 }
 
 async function savePassword() {

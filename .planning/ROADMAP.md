@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 2: Org/Dept Data Model** - Org+dept structure, migration of existing employees, dashboards, and work schedules
 - [x] **Phase 3: T-13 Timesheet Grid** - Symbol engine, grid view, auto-derivation from check-in data, monthly totals (completed 2026-06-13)
 - [x] **Phase 4: Export & Employee Cabinet** - Excel/CSV export and employee self-service timesheet view (completed 2026-06-14)
-- [ ] **Phase 7: Org Admin UX Improvements** - Fix dept employee counter bug; add sortable tables; org_admin employee editing; Reports/Timesheet rendered inline; Kiosk Settings visual redesign
+- [x] **Phase 7: Org Admin UX Improvements** - Fix dept employee counter bug; add sortable tables; org_admin employee editing; Reports/Timesheet rendered inline; Kiosk Settings visual redesign (completed 2026-06-15)
 
 ## Phase Details
 
@@ -173,7 +173,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 4. Export & Employee Cabinet | 3/3 | Complete   | 2026-06-14 |
 | 5. Token Kiosk, Reg & Russian UI | 5/5 | Complete | 2026-06-13 |
 | 6. SQLite Migration | 4/4 | Complete | 2026-06-13 |
-| 7. Org Admin UX Improvements | 4/5 | In Progress|  |
+| 7. Org Admin UX Improvements | 5/5 | Complete   | 2026-06-15 |
 
 ### Phase 5: Token-based Kiosk, Registration & Russian UI
 
@@ -286,4 +286,4 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 07-05-PLAN.md — Kiosk Settings visual redesign (icon-headed cards, modern spacing)
+- [x] 07-05-PLAN.md — Kiosk Settings visual redesign (icon-headed cards, modern spacing)

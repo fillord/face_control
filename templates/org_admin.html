@@ -41,6 +41,9 @@ tr:last-child td { border-bottom: none; }
 .btn-edit:hover { background: #f4f6fb; }
 .btn-delete { padding: 6px 12px; background: #fff; border: 1px solid #ef9a9a; border-radius: 6px; font-size: 12px; color: #c62828; cursor: pointer; }
 .btn-delete:hover { background: #ffebee; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: #1a2340; }
+.sort-arrow { margin-left: 4px; font-size: 10px; color: #1565C0; }
 .card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; padding: 24px; max-width: 480px; margin-bottom: 20px; }
 .form-group { margin-bottom: 16px; }
 .form-group label { font-size: 13px; font-weight: 600; color: #546e7a; display: block; margin-bottom: 6px; }
@@ -322,6 +325,10 @@ tr:last-child td { border-bottom: none; }
 let allDepts = [];
 let allEmployees = [];
 const ORG_ID = "{{ org_id }}";
+let empSortKey = null;
+let empSortAsc = true;
+let userSortKey = null;
+let userSortAsc = true;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
@@ -738,6 +745,78 @@ async function saveNewUser() {
 async function toggleUser(userId, active) {
   await fetch(`/api/users/${userId}`, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({active})});
   await loadOrgUsers();
+}
+
+// ─── Sortable tables ──────────────────────────────────────────────────────────
+function sortEmployees(key) {
+  if (empSortKey === key) {
+    empSortAsc = !empSortAsc;
+  } else {
+    empSortKey = key;
+    empSortAsc = true;
+  }
+  allEmployees.sort((a, b) => {
+    let av, bv;
+    if (key === 'name') { av = (a.name || '').toLowerCase(); bv = (b.name || '').toLowerCase(); }
+    else if (key === 'dept') {
+      const da = allDepts.find(d => d.id === a.dept_id);
+      const db = allDepts.find(d => d.id === b.dept_id);
+      av = da ? da.name.toLowerCase() : '';
+      bv = db ? db.name.toLowerCase() : '';
+    }
+    else if (key === 'date') { av = a.registered_at || ''; bv = b.registered_at || ''; }
+    if (av < bv) return empSortAsc ? -1 : 1;
+    if (av > bv) return empSortAsc ? 1 : -1;
+    return 0;
+  });
+  renderEmployees();
+  // Update sort arrows
+  ['emp-th-name', 'emp-th-dept', 'emp-th-date'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const arrow = el.querySelector('.sort-arrow');
+    if (arrow) arrow.textContent = '';
+  });
+  const activeId = key === 'name' ? 'emp-th-name' : key === 'dept' ? 'emp-th-dept' : 'emp-th-date';
+  const active = document.getElementById(activeId);
+  if (active) {
+    const arrow = active.querySelector('.sort-arrow');
+    if (arrow) arrow.textContent = empSortAsc ? ' ▲' : ' ▼';
+  }
+}
+
+function sortUsers(key) {
+  const tbody = document.getElementById('usersTableBody');
+  if (!tbody) return;
+  const rows = Array.from(tbody.querySelectorAll('tr[data-username]'));
+  if (!rows.length) return;
+  if (userSortKey === key) {
+    userSortAsc = !userSortAsc;
+  } else {
+    userSortKey = key;
+    userSortAsc = true;
+  }
+  rows.sort((a, b) => {
+    const av = (a.dataset[key] || '').toLowerCase();
+    const bv = (b.dataset[key] || '').toLowerCase();
+    if (av < bv) return userSortAsc ? -1 : 1;
+    if (av > bv) return userSortAsc ? 1 : -1;
+    return 0;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+  // Update sort arrows
+  ['user-th-username', 'user-th-role'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const arrow = el.querySelector('.sort-arrow');
+    if (arrow) arrow.textContent = '';
+  });
+  const activeId = key === 'username' ? 'user-th-username' : 'user-th-role';
+  const active = document.getElementById(activeId);
+  if (active) {
+    const arrow = active.querySelector('.sort-arrow');
+    if (arrow) arrow.textContent = userSortAsc ? ' ▲' : ' ▼';
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

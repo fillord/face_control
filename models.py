@@ -56,6 +56,7 @@ class Employee(db.Model):
     registered_at: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     org_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
     dept_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    iin: Mapped[Optional[str]] = mapped_column(String(12), nullable=True)
 
 
 # ─── EmployeeSchedule ─────────────────────────────────────────────────────────
@@ -152,6 +153,20 @@ class TimesheetOverride(db.Model):
     symbol: Mapped[str] = mapped_column(String(4), nullable=False)
     updated_by: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
     updated_at: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+
+
+# ─── KioskDevice ─────────────────────────────────────────────────────────────
+
+class KioskDevice(db.Model):
+    """Registered kiosk devices — raw token never stored; only SHA-256 hash kept."""
+    __tablename__ = "kiosk_device"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    org_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    device_token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    device_name: Mapped[str] = mapped_column(String(120), nullable=False, default="Киоск")
+    created_at: Mapped[str] = mapped_column(String(32), nullable=False)
+    last_seen_at: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
 
 
 # ─── AppSetting ───────────────────────────────────────────────────────────────

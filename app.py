@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify, render_template, session, redirect, u
 import numpy as np
 import cv2
 import bcrypt
+import openpyxl
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment
 from openpyxl.utils import get_column_letter
@@ -132,6 +133,7 @@ def _emp_to_dict(e):
         "registered_at": e.registered_at,
         "org_id": e.org_id,
         "dept_id": e.dept_id,
+        "iin": e.iin or "",
         "schedule": schedule,
     }
 
@@ -1559,12 +1561,44 @@ def update_user(user_id):
     data = request.get_json(silent=True) or {}
     if "active" in data:
         target.active = bool(data["active"])
+    if "password" in data:
+        pw = data["password"]
+        if len(pw) < 8:
+            return jsonify({"error": "Пароль должен содержать не менее 8 символов"}), 400
+        target.password_hash = bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
+    if "dept_id" in data:
+        target.dept_id = data["dept_id"] or None
     try:
         db.session.commit()
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
     return jsonify({"status": "updated", "active": target.active})
+
+
+@app.route("/api/users/<user_id>", methods=["DELETE"])
+@require_role("superadmin", "org_admin")
+def delete_user(user_id):
+    target = User.query.get(user_id)
+    if not target:
+        return jsonify({"error": "Пользователь не найден"}), 404
+    caller_role = session.get("role")
+    caller_id = session.get("user_id")
+    if str(caller_id) == str(user_id):
+        return jsonify({"error": "Нельзя удалить собственный аккаунт"}), 403
+    if (caller_role not in ROLE_HIERARCHY or
+            target.role not in ROLE_HIERARCHY or
+            ROLE_HIERARCHY.index(caller_role) >= ROLE_HIERARCHY.index(target.role)):
+        return jsonify({"error": "forbidden"}), 403
+    if caller_role == "org_admin" and target.org_id != session.get("org_id"):
+        return jsonify({"error": "forbidden"}), 403
+    try:
+        db.session.delete(target)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Internal server error"}), 500
+    return jsonify({"status": "deleted"})
 
 
 # ─── Page routes: Org admin inline partials ───────────────────────────────────
@@ -2230,8 +2264,8 @@ def update_employee_assignment(emp_id):
 
     data = request.json or {}
 
-    # Whitelist: dept_id/org_id for superadmin; dept_id/name/role for org_admin
-    allowed_keys = {"dept_id", "org_id", "name", "role"} if caller_role == "superadmin" else {"dept_id", "name", "role"}
+    # Whitelist: dept_id/org_id for superadmin; dept_id/name/role/iin for org_admin
+    allowed_keys = {"dept_id", "org_id", "name", "role", "iin"} if caller_role == "superadmin" else {"dept_id", "name", "role", "iin"}
     update_data = {k: v for k, v in data.items() if k in allowed_keys}
 
     if "dept_id" in update_data:
@@ -2253,6 +2287,8 @@ def update_employee_assignment(emp_id):
         emp.name = name
     if "role" in update_data:
         emp.role = update_data["role"]
+    if "iin" in update_data:
+        emp.iin = (update_data["iin"] or "").strip() or None
 
     try:
         db.session.commit()
@@ -2376,6 +2412,123 @@ def reset_employee_face(emp_id):
         return jsonify({"error": "Internal server error"}), 500
     train_recognizer()
     return jsonify({"status": "reset", "face_count": 0})
+
+
+@app.route("/api/employees/import_xlsx", methods=["POST"])
+@require_role("superadmin", "org_admin")
+def import_employees_xlsx():
+    """Import employees from uploaded Excel file (medical staff report format).
+
+    Expected format: header row at row 6, data from row 7.
+    Columns: Фамилия(4), Имя(5), Отчество(6), ИИН(7), Отделение(9).
+    Matches employees by IIN; creates if not found, updates name/dept otherwise.
+    """
+    if "file" not in request.files:
+        return jsonify({"error": "Файл не передан"}), 400
+    f = request.files["file"]
+    if not f.filename.lower().endswith((".xlsx", ".xls")):
+        return jsonify({"error": "Поддерживаются только файлы .xlsx"}), 400
+
+    caller_role = session.get("role")
+    caller_org_id = session.get("org_id")
+
+    try:
+        wb = openpyxl.load_workbook(f, data_only=True)
+        ws = wb.active
+    except Exception:
+        return jsonify({"error": "Не удалось прочитать файл Excel"}), 400
+
+    # Determine next label for new employees
+    max_label_row = db.session.execute(
+        db.select(db.func.max(Employee.label))
+    ).scalar()
+    next_label = (max_label_row or 0) + 1
+
+    created = updated = skipped = 0
+    errors = []
+
+    # Collect all depts for name→id matching
+    dept_by_name = {d.name.lower(): d for d in Department.query.all()}
+
+    # Find data rows: skip until we hit the header row (contains "ИИН"), then read data
+    data_start = None
+    for i, row in enumerate(ws.iter_rows(values_only=True), start=1):
+        if row and any(isinstance(c, str) and "ИИН" in c for c in row):
+            data_start = i + 1
+            break
+
+    if data_start is None:
+        return jsonify({"error": "Не найдена строка заголовка с полем ИИН"}), 400
+
+    for row in ws.iter_rows(min_row=data_start, values_only=True):
+        if not any(row):
+            continue
+        try:
+            last_name = str(row[4] or "").strip()
+            first_name = str(row[5] or "").strip()
+            middle_name = str(row[6] or "").strip()
+            iin = str(row[7] or "").strip()
+            dept_name_raw = str(row[9] or "").strip()
+        except IndexError:
+            skipped += 1
+            continue
+
+        if not last_name and not first_name:
+            skipped += 1
+            continue
+
+        full_name = " ".join(p for p in [last_name, first_name, middle_name] if p)
+        if not full_name:
+            skipped += 1
+            continue
+
+        # Resolve dept
+        dept_id = None
+        if dept_name_raw:
+            dept_obj = dept_by_name.get(dept_name_raw.lower())
+            if dept_obj:
+                if caller_role == "org_admin" and dept_obj.org_id != caller_org_id:
+                    dept_id = None
+                else:
+                    dept_id = dept_obj.id
+
+        # Try to find existing employee by IIN
+        existing = None
+        if iin:
+            existing = Employee.query.filter_by(iin=iin).first()
+
+        if existing:
+            existing.name = full_name
+            if dept_id:
+                existing.dept_id = dept_id
+            if iin:
+                existing.iin = iin
+            updated += 1
+        else:
+            emp_id = str(uuid.uuid4())
+            new_emp = Employee(
+                id=emp_id,
+                name=full_name,
+                role="employee",
+                label=next_label,
+                face_count=0,
+                registered_at=None,
+                org_id=caller_org_id,
+                dept_id=dept_id,
+                iin=iin or None,
+            )
+            db.session.add(new_emp)
+            next_label += 1
+            created += 1
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Ошибка при сохранении: {e}"}), 500
+
+    return jsonify({"created": created, "updated": updated, "skipped": skipped, "errors": errors})
+
 
 # ─── API: Dashboards ──────────────────────────────────────────────────────────
 

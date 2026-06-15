@@ -1,0 +1,468 @@
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+.logo { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
+.logo-icon { width: 34px; height: 34px; background: #1565C0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.user-badge { font-size: 13px; color: #546e7a; }
+.btn-logout { padding: 7px 14px; background: #fff; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; color: #546e7a; cursor: pointer; text-decoration: none; transition: all 0.15s; }
+.btn-logout:hover { background: #ffebee; color: #c62828; border-color: #ef9a9a; }
+.nav-tabs { display: flex; gap: 4px; padding: 0 24px; background: #fff; border-bottom: 1px solid #e2e6f0; }
+.tab { padding: 12px 20px; font-size: 14px; font-weight: 500; color: #78909c; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; text-decoration: none; }
+.tab.active { color: #1565C0; border-bottom-color: #1565C0; }
+.tab:hover:not(.active) { color: #1a2340; }
+.page { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.toolbar label { font-size: 13px; font-weight: 500; color: #546e7a; white-space: nowrap; }
+input[type=date], select, input[type=text] { padding: 9px 12px; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 13px; color: #1a2340; background: #fff; outline: none; }
+input[type=date]:focus, select:focus, input[type=text]:focus { border-color: #1565C0; }
+.search-input { min-width: 180px; }
+.btn-export { padding: 9px 16px; background: #1565C0; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; margin-left: auto; white-space: nowrap; }
+.btn-export:hover { background: #0d47a1; }
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.stat-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 12px; padding: 16px 18px; }
+.stat-label { font-size: 11px; color: #78909c; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-val { font-size: 26px; font-weight: 600; }
+.stat-val.blue { color: #1565C0; } .stat-val.green { color: #2E7D32; }
+.stat-val.orange { color: #E65100; } .stat-val.gray { color: #546e7a; }
+.table-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; overflow: hidden; }
+table { width: 100%; border-collapse: collapse; }
+thead { background: #f8fafd; }
+th { padding: 11px 14px; text-align: left; font-size: 11px; font-weight: 600; color: #546e7a; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e6f0; white-space: nowrap; }
+td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid #f0f3f8; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr.row-late { background: #fffbf0; }
+tr.row-early-leave { background: #f0f8ff; }
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 14px; font-size: 11px; font-weight: 500; }
+.badge-present { background: #E8F5E9; color: #1B5E20; }
+.badge-partial { background: #FFF3E0; color: #E65100; }
+.badge-absent { background: #FAFAFA; color: #90A4AE; border: 1px solid #e0e0e0; }
+.badge-late { background: #FFF3E0; color: #BF360C; border: 1px solid #FFCC80; }
+.badge-early { background: #E3F2FD; color: #0D47A1; border: 1px solid #90CAF9; }
+.emp-cell { display: flex; align-items: center; gap: 9px; }
+.emp-av { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+.time-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.chart-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; padding: 20px; margin-bottom: 20px; }
+.chart-title { font-size: 14px; font-weight: 600; color: #1a2340; margin-bottom: 16px; }
+.monthly-table { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; overflow: hidden; margin-top: 20px; }
+.monthly-table table td, .monthly-table table th { padding: 10px 14px; }
+.hidden { display: none; }
+@media (max-width:700px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .toolbar { gap: 8px; }
+  .btn-export { margin-left: 0; width: 100%; justify-content: center; display: flex; }
+  th:nth-child(2), td:nth-child(2) { display: none; }
+}
+</style>
+
+<div class="nav-tabs" id="reportsNavTabs">
+  <span class="tab active" id="rTabJournal" onclick="rSwitchTab('journal')">Журнал посещаемости</span>
+  <span class="tab" id="rTabStats" onclick="rSwitchTab('stats')">Статистика за месяц</span>
+  {% if session.role == 'superadmin' %}
+  <span class="tab" id="rTabUsers" onclick="rSwitchTab('users')">Пользователи</span>
+  {% endif %}
+</div>
+
+<!-- ═══ TAB: JOURNAL ═══ -->
+<div id="panelJournal" class="page">
+  <div class="toolbar">
+    <label>Дата:</label>
+    <input type="date" id="rDatePicker">
+    <label>Быстрый выбор:</label>
+    <select id="rDateSelect"><option value="">— выбрать —</option></select>
+    <input type="text" class="search-input" id="rSearchInput" placeholder="🔍 Поиск по имени..." oninput="rFilterTable()">
+    <button class="btn-export" onclick="rExportCSV()">⬇ Экспорт CSV</button>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Всего сотрудников</div><div class="stat-val blue" id="rSTotal">—</div></div>
+    <div class="stat-card"><div class="stat-label">Пришли</div><div class="stat-val green" id="rSPresent">—</div></div>
+    <div class="stat-card"><div class="stat-label">Ушли</div><div class="stat-val gray" id="rSLeft">—</div></div>
+    <div class="stat-card"><div class="stat-label">Не явились</div><div class="stat-val orange" id="rSAbsent">—</div></div>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Сотрудник</th>
+          <th>Должность</th>
+          <th>Приход</th>
+          <th>Уход</th>
+          <th>Отработано</th>
+          <th>Статус</th>
+          <th>Индикатор</th>
+        </tr>
+      </thead>
+      <tbody id="rTableBody">
+        <tr><td colspan="7" style="text-align:center;color:#90a4ae;padding:28px;">Загрузка...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ TAB: USERS ═══ -->
+{% if session.role == 'superadmin' %}
+<div id="rPanelUsers" class="page hidden">
+  <div class="toolbar">
+    <button class="btn-export" onclick="rToggleCreateForm()">+ Создать пользователя</button>
+  </div>
+
+  <div id="rCreateUserPanel" class="card hidden" style="max-width:480px;margin-bottom:20px;">
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">Новый пользователь</h3>
+    <div class="form-group">
+      <label>Логин</label>
+      <input type="text" id="rNewUsername" placeholder="username" style="width:100%;">
+    </div>
+    <div class="form-group">
+      <label>Пароль</label>
+      <input type="password" id="rNewPassword" placeholder="••••••••" style="width:100%;">
+    </div>
+    <div class="form-group">
+      <label>Роль</label>
+      <select id="rNewRole" style="width:100%;" onchange="rToggleEmpIdField()">
+        {% for role_key, role_label in creatable_roles %}
+        <option value="{{ role_key }}">{{ role_label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div id="rEmpIdGroup" class="form-group" style="display:none;">
+      <label>ID сотрудника</label>
+      <input type="text" id="rNewEmpId" placeholder="emp_id" style="width:100%;">
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button class="btn-export" onclick="rCreateUser()" style="flex:1;">Создать пользователя</button>
+      <button onclick="rToggleCreateForm()" style="flex:1;padding:9px 16px;background:#fff;border:1px solid #cfd8dc;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;color:#546e7a;">Отмена</button>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Логин</th>
+          <th>Роль</th>
+          <th>Статус</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody id="rUsersTableBody">
+        <tr><td colspan="4" style="text-align:center;color:#90a4ae;padding:28px;">Загрузка...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══ TAB: STATS ═══ -->
+<div id="rPanelStats" class="page hidden">
+  <div class="toolbar">
+    <label>Месяц:</label>
+    <input type="month" id="rMonthPicker" style="padding:9px 12px;border:1px solid #cfd8dc;border-radius:8px;font-size:13px;">
+    <button class="btn-export" style="margin-left:0;" onclick="rLoadStats()">Загрузить</button>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">Явка по дням</div>
+    <canvas id="rAttendanceChart" height="80"></canvas>
+  </div>
+
+  <div class="monthly-table">
+    <table>
+      <thead>
+        <tr>
+          <th>Сотрудник</th>
+          <th>Должность</th>
+          <th>Рабочих дней</th>
+          <th>Отработано часов</th>
+          <th>Опозданий</th>
+        </tr>
+      </thead>
+      <tbody id="rStatsBody">
+        <tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Выберите месяц</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const RCOLORS = ["#1565C0","#1B5E20","#4A148C","#BF360C","#006064","#37474F"];
+function rColorFor(name) { let h=0; for(let c of name) h=(h*31+c.charCodeAt(0))%RCOLORS.length; return RCOLORS[h]; }
+function rInitials(name) { return name.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase(); }
+function rEscapeHtml(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+
+const rToday = new Date().toISOString().split("T")[0];
+document.getElementById("rDatePicker").value = rToday;
+document.getElementById("rMonthPicker").value = rToday.slice(0, 7);
+
+const R_ROLE_NAMES = {
+  superadmin: "Суперадмин",
+  org_admin: "Администратор организации",
+  dept_admin: "Администратор отдела",
+  viewer: "Наблюдатель",
+  employee: "Сотрудник"
+};
+
+function rSwitchTab(tab) {
+  document.getElementById("panelJournal").classList.toggle("hidden", tab !== "journal");
+  document.getElementById("rPanelStats").classList.toggle("hidden", tab !== "stats");
+  const panelUsers = document.getElementById("rPanelUsers");
+  if (panelUsers) panelUsers.classList.toggle("hidden", tab !== "users");
+  document.getElementById("rTabJournal").classList.toggle("active", tab === "journal");
+  document.getElementById("rTabStats").classList.toggle("active", tab === "stats");
+  const tabUsers = document.getElementById("rTabUsers");
+  if (tabUsers) tabUsers.classList.toggle("active", tab === "users");
+  if (tab === "stats") rLoadStats();
+  if (tab === "users") rLoadUsers();
+}
+
+function rToggleEmpIdField() {
+  const role = document.getElementById("rNewRole").value;
+  const empIdGroup = document.getElementById("rEmpIdGroup");
+  if (empIdGroup) {
+    empIdGroup.style.display = role === "employee" ? "flex" : "none";
+  }
+}
+
+function rToggleCreateForm() {
+  const panel = document.getElementById("rCreateUserPanel");
+  panel.classList.toggle("hidden");
+  rToggleEmpIdField();
+}
+
+async function rLoadUsers() {
+  const resp = await fetch("/api/users");
+  if (!resp.ok) return;
+  const users = await resp.json();
+  const tbody = document.getElementById("rUsersTableBody");
+  if (!users.length) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:28px;">
+      <div style="font-size:15px;font-weight:600;color:#1a2340;margin-bottom:8px;">Пользователей пока нет</div>
+      <div style="font-size:13px;color:#90a4ae;">Нажмите «Создать пользователя», чтобы добавить первого пользователя.</div>
+    </td></tr>`;
+    return;
+  }
+  tbody.innerHTML = users.map(u => {
+    const roleName = R_ROLE_NAMES[u.role] || u.role;
+    const statusBadge = u.active
+      ? '<span class="badge badge-present">Активен</span>'
+      : '<span class="badge badge-absent">Деактивирован</span>';
+    const actionBtn = u.active
+      ? `<button onclick="rDeactivateUser('${u.id}', '${u.username}')" style="padding:5px 12px;background:#fff;border:1px solid #EF9A9A;border-radius:6px;font-size:12px;font-weight:500;color:#B71C1C;cursor:pointer;">Деактивировать</button>`
+      : `<button onclick="rReactivateUser('${u.id}')" class="btn-export" style="padding:5px 12px;font-size:12px;">Активировать</button>`;
+    return `<tr>
+      <td style="font-weight:500;">${rEscapeHtml(u.username)}</td>
+      <td style="color:#546e7a;">${rEscapeHtml(roleName)}</td>
+      <td>${statusBadge}</td>
+      <td>${actionBtn}</td>
+    </tr>`;
+  }).join("");
+}
+
+async function rCreateUser() {
+  const username = document.getElementById("rNewUsername").value.trim();
+  const password = document.getElementById("rNewPassword").value;
+  const role = document.getElementById("rNewRole").value;
+  const empId = document.getElementById("rNewEmpId").value.trim();
+  if (!username || !password || !role) return;
+  const resp = await fetch("/api/users", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({username, password, role, emp_id: empId})
+  });
+  const data = await resp.json();
+  if (resp.ok) {
+    document.getElementById("rNewUsername").value = "";
+    document.getElementById("rNewPassword").value = "";
+    document.getElementById("rNewEmpId").value = "";
+    document.getElementById("rCreateUserPanel").classList.add("hidden");
+    rLoadUsers();
+  } else {
+    alert(data.error || "Ошибка при создании пользователя");
+  }
+}
+
+async function rDeactivateUser(id, username) {
+  if (!window.confirm("Деактивировать пользователя " + username + "? Они не смогут войти до повторной активации.")) return;
+  const resp = await fetch("/api/users/" + id, {
+    method: "PATCH",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({active: false})
+  });
+  if (resp.ok) rLoadUsers();
+}
+
+async function rReactivateUser(id) {
+  const resp = await fetch("/api/users/" + id, {
+    method: "PATCH",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({active: true})
+  });
+  if (resp.ok) rLoadUsers();
+}
+
+async function rLoadDates() {
+  const resp = await fetch("/api/attendance/dates");
+  const dates = await resp.json();
+  const sel = document.getElementById("rDateSelect");
+  dates.forEach(d => {
+    const opt = document.createElement("option");
+    opt.value = d;
+    opt.textContent = new Date(d + "T00:00:00").toLocaleDateString("ru-RU", { weekday:"short", day:"numeric", month:"short" });
+    sel.appendChild(opt);
+  });
+}
+
+document.getElementById("rDateSelect").addEventListener("change", function() {
+  if (this.value) { document.getElementById("rDatePicker").value = this.value; rLoadData(this.value); }
+});
+document.getElementById("rDatePicker").addEventListener("change", function() {
+  rLoadData(this.value);
+});
+
+let rCurrentData = [];
+
+async function rLoadData(dateStr) {
+  const resp = await fetch("/api/attendance?date=" + dateStr);
+  const rows = await resp.json();
+  rCurrentData = rows;
+
+  let present = 0, left = 0, absent = 0;
+  rows.forEach(r => {
+    if (r.check_in) present++;
+    if (r.check_out) left++;
+    if (!r.check_in) absent++;
+  });
+  document.getElementById("rSTotal").textContent = rows.length;
+  document.getElementById("rSPresent").textContent = present;
+  document.getElementById("rSLeft").textContent = left;
+  document.getElementById("rSAbsent").textContent = absent;
+
+  rRenderTable(rows);
+}
+
+function rFilterTable() {
+  rRenderTable(rCurrentData);
+}
+
+function rRenderTable(rows) {
+  const q = document.getElementById("rSearchInput").value.trim().toLowerCase();
+  const filtered = q ? rows.filter(r => r.name.toLowerCase().includes(q)) : rows;
+  const tbody = document.getElementById("rTableBody");
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#90a4ae;padding:28px;">${q ? "Не найдено" : "Нет данных"}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(r => {
+    const col = rColorFor(r.name);
+    let badge, statusText;
+    if (!r.check_in)       { badge = "badge-absent";  statusText = "Не явился"; }
+    else if (!r.check_out) { badge = "badge-partial";  statusText = "На работе"; }
+    else                   { badge = "badge-present"; statusText = "Завершён"; }
+
+    const isLate       = r.check_in  && r.check_in  > "09:00:00";
+    const isEarlyLeave = r.check_out && r.check_out < "18:00:00";
+    const rowClass = isLate ? "row-late" : isEarlyLeave ? "row-early-leave" : "";
+
+    let indicators = [];
+    if (isLate)       indicators.push('<span class="badge badge-late">⚠ Опоздание</span>');
+    if (isEarlyLeave) indicators.push('<span class="badge badge-early">↩ Ранний уход</span>');
+    const indicatorHtml = indicators.join(" ") || '<span style="color:#bdbdbd;font-size:12px;">—</span>';
+
+    const checkInHtml  = r.check_in  ? `<span style="color:${isLate ? '#BF360C' : '#2E7D32'};font-weight:500;">${r.check_in}</span>`  : '<span style="color:#bdbdbd">—</span>';
+    const checkOutHtml = r.check_out ? `<span style="color:${isEarlyLeave ? '#0D47A1' : '#1565C0'};font-weight:500;">${r.check_out}</span>` : '<span style="color:#bdbdbd">—</span>';
+
+    return `<tr class="${rowClass}">
+      <td><div class="emp-cell">
+        <div class="emp-av" style="background:${col}22;color:${col};border:1.5px solid ${col}44;">${rInitials(r.name)}</div>
+        <span style="font-weight:500;">${rEscapeHtml(r.name)}</span>
+      </div></td>
+      <td style="color:#546e7a;">${rEscapeHtml(r.role)}</td>
+      <td class="time-cell">${checkInHtml}</td>
+      <td class="time-cell">${checkOutHtml}</td>
+      <td>${r.duration ? `<span style="font-weight:500;">${r.duration}</span>` : '<span style="color:#bdbdbd">—</span>'}</td>
+      <td><span class="badge ${badge}">${statusText}</span></td>
+      <td>${indicatorHtml}</td>
+    </tr>`;
+  }).join("");
+}
+
+function rExportCSV() {
+  if (!rCurrentData.length) return;
+  const dateStr = document.getElementById("rDatePicker").value;
+  const q = document.getElementById("rSearchInput").value.trim().toLowerCase();
+  const rows = q ? rCurrentData.filter(r => r.name.toLowerCase().includes(q)) : rCurrentData;
+  const header = ["ФИО","Должность","Приход","Уход","Отработано","Статус","Опоздание","Ранний уход"];
+  const lines = [header, ...rows.map(r => {
+    const status = !r.check_in ? "Не явился" : !r.check_out ? "На работе" : "Завершён";
+    const late  = r.check_in && r.check_in > "09:00:00" ? "Да" : "Нет";
+    const early = r.check_out && r.check_out < "18:00:00" ? "Да" : "Нет";
+    return [r.name, r.role, r.check_in||"", r.check_out||"", r.duration||"", status, late, early];
+  })];
+  const csv = lines.map(row => row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `посещаемость_${dateStr}.csv`;
+  a.click();
+}
+
+// ─── Stats tab ────────────────────────────────────────────────────────────────
+let rChartInst = null;
+
+async function rLoadStats() {
+  const month = document.getElementById("rMonthPicker").value;
+  if (!month) return;
+  const [y, m] = month.split("-");
+  const lastDay = new Date(+y, +m, 0).getDate();
+  const fromDate = `${month}-01`;
+  const toDate   = `${month}-${String(lastDay).padStart(2,"0")}`;
+
+  const resp = await fetch(`/api/stats?from=${fromDate}&to=${toDate}`);
+  const data = await resp.json();
+
+  const labels = data.daily_counts.map(d => new Date(d.date + "T00:00:00").toLocaleDateString("ru-RU", { day:"numeric", month:"short" }));
+  const counts = data.daily_counts.map(d => d.count);
+  if (rChartInst) rChartInst.destroy();
+  const ctx = document.getElementById("rAttendanceChart").getContext("2d");
+  rChartInst = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: "Присутствовало",
+        data: counts,
+        backgroundColor: "rgba(21,101,192,0.7)",
+        borderColor: "#1565C0",
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1, color: "#78909c" }, grid: { color: "#f0f3f8" } },
+        x: { ticks: { color: "#78909c", maxRotation: 45 }, grid: { display: false } }
+      }
+    }
+  });
+
+  const statsBody = document.getElementById("rStatsBody");
+  if (!data.employee_stats.length) {
+    statsBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:24px;">Нет данных за период</td></tr>';
+    return;
+  }
+  const sorted = [...data.employee_stats].sort((a, b) => b.hours - a.hours);
+  statsBody.innerHTML = sorted.map(e => `
+    <tr>
+      <td><span style="font-weight:500;">${rEscapeHtml(e.name)}</span></td>
+      <td style="color:#546e7a;">${rEscapeHtml(e.role)}</td>
+      <td style="font-weight:600;color:#1565C0;">${e.days}</td>
+      <td style="font-weight:600;">${e.hours_str}</td>
+      <td>${e.late_days > 0 ? `<span style="color:#BF360C;font-weight:500;">${e.late_days}</span>` : '<span style="color:#2E7D32;">0</span>'}</td>
+    </tr>`).join("");
+}
+
+rLoadDates();
+rLoadData(rToday);
+</script>

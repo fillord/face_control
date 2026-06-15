@@ -53,6 +53,17 @@ th.sortable:hover { color: #1a2340; }
 .hidden { display: none; }
 .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
 .error-msg { font-size: 13px; color: #c62828; margin-top: 8px; }
+.settings-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; padding: 20px 24px; max-width: 100%; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(26,35,64,0.04); }
+.settings-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #f0f3f8; }
+.settings-card-icon { width: 32px; height: 32px; background: #EBF1FB; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.settings-card-title { font-size: 14px; font-weight: 600; color: #1a2340; }
+.settings-url-row { display: flex; gap: 8px; align-items: center; }
+.settings-url-row input { flex: 1; }
+.settings-pin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 500px) { .settings-pin-grid { grid-template-columns: 1fr; } }
+.settings-pin-label { font-size: 13px; font-weight: 500; color: #546e7a; display: block; margin-bottom: 6px; }
+.settings-expiry-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 4px; }
+.settings-expiry-row .form-group { margin-bottom: 0; flex: 1; min-width: 180px; }
 @media (max-width: 700px) {
   .stats-grid { grid-template-columns: 1fr 1fr; }
 }
@@ -136,29 +147,35 @@ th.sortable:hover { color: #1a2340; }
 
 <div id="panelSettings" class="page hidden">
   <div style="max-width:620px;">
-    <h2 style="font-size:18px;font-weight:600;margin-bottom:14px;">Настройки киоска</h2>
+    <h2 style="font-size:18px;font-weight:600;color:#1a2340;margin-bottom:20px;">Настройки киоска</h2>
 
-    <!-- URLs + Expiry + Regen -->
-    <div class="card" style="max-width:100%;margin-bottom:12px;">
-      <h3 style="font-size:13px;font-weight:600;margin-bottom:10px;color:#546e7a;">Ссылки и регистрация</h3>
+    <!-- Card 1: URLs & Registration -->
+    <div class="settings-card">
+      <div class="settings-card-header">
+        <div class="settings-card-icon">🔗</div>
+        <span class="settings-card-title">Ссылки и регистрация</span>
+      </div>
+
       <div class="form-group">
         <label>URL киоска</label>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input type="text" id="kioskUrl" readonly style="background:#f4f6fb;flex:1;"
+        <div class="settings-url-row">
+          <input type="text" id="kioskUrl" readonly style="background:#f4f6fb;"
             value="{{ request.host_url.rstrip('/') }}/kiosk/{{ org_token }}">
           <button class="btn-secondary" onclick="copyUrl('kioskUrl')">Копировать</button>
         </div>
       </div>
+
       <div class="form-group">
         <label>URL регистрации</label>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input type="text" id="regUrl" readonly style="background:#f4f6fb;flex:1;"
+        <div class="settings-url-row">
+          <input type="text" id="regUrl" readonly style="background:#f4f6fb;"
             value="{{ request.host_url.rstrip('/') }}/register/{{ reg_token }}">
           <button class="btn-secondary" onclick="copyUrl('regUrl')">Копировать</button>
         </div>
       </div>
-      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:4px;">
-        <div class="form-group" style="margin-bottom:0;flex:1;min-width:180px;">
+
+      <div class="settings-expiry-row">
+        <div class="form-group">
           <label>Срок действия ссылки</label>
           <input type="datetime-local" id="regExpiry" value="{{ reg_token_expires[:16] if reg_token_expires else '' }}">
         </div>
@@ -168,27 +185,31 @@ th.sortable:hover { color: #1a2340; }
         </div>
       </div>
       <div id="expiryError" class="error-msg hidden"></div>
-      <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
         <div id="regenError" class="error-msg hidden" style="margin:0;flex:1;"></div>
-        <button class="btn-secondary" onclick="regenRegToken()">🔄 Сгенерировать новую ссылку</button>
+        <button class="btn-secondary" onclick="regenRegToken()">🔄 Новая ссылка</button>
       </div>
     </div>
 
-    <!-- PIN-коды -->
-    <div class="card" style="max-width:100%;margin-bottom:12px;">
-      <h3 style="font-size:13px;font-weight:600;margin-bottom:10px;color:#546e7a;">PIN-коды</h3>
-      <div style="display:flex;gap:20px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:160px;">
-          <label style="font-size:13px;font-weight:500;color:#546e7a;display:block;margin-bottom:5px;">PIN регистрации (4 цифры)</label>
-          <input type="text" id="newRegPin" maxlength="4" pattern="\d{4}" placeholder="Новый PIN" style="max-width:160px;width:100%;">
+    <!-- Card 2: PIN codes -->
+    <div class="settings-card">
+      <div class="settings-card-header">
+        <div class="settings-card-icon">🔑</div>
+        <span class="settings-card-title">PIN-коды</span>
+      </div>
+      <div class="settings-pin-grid">
+        <div>
+          <span class="settings-pin-label">PIN регистрации (4 цифры)</span>
+          <input type="text" id="newRegPin" maxlength="4" pattern="\d{4}" placeholder="Новый PIN" style="max-width:160px;width:100%;margin-bottom:8px;">
           <div id="regPinError" class="error-msg hidden"></div>
-          <button class="btn-primary" style="margin-top:7px;" onclick="saveRegPin()">Сохранить</button>
+          <button class="btn-primary" style="margin-top:4px;" onclick="saveRegPin()">Сохранить</button>
         </div>
-        <div style="flex:1;min-width:160px;">
-          <label style="font-size:13px;font-weight:500;color:#546e7a;display:block;margin-bottom:5px;">PIN киоска (4 цифры)</label>
-          <input type="text" id="newKioskPin" maxlength="4" pattern="\d{4}" placeholder="Новый PIN" style="max-width:160px;width:100%;">
+        <div>
+          <span class="settings-pin-label">PIN киоска (4 цифры)</span>
+          <input type="text" id="newKioskPin" maxlength="4" pattern="\d{4}" placeholder="Новый PIN" style="max-width:160px;width:100%;margin-bottom:8px;">
           <div id="kioskPinError" class="error-msg hidden"></div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
             <button class="btn-primary" onclick="saveKioskPin()">Сохранить</button>
             <a href="/org/devices" class="btn-secondary" style="display:inline-flex;align-items:center;gap:5px;text-decoration:none;">🖥 Устройства</a>
           </div>
@@ -196,15 +217,20 @@ th.sortable:hover { color: #1a2340; }
       </div>
     </div>
 
-    <!-- Display name -->
-    <div class="card" style="max-width:100%;margin-bottom:0;">
-      <h3 style="font-size:13px;font-weight:600;margin-bottom:10px;color:#546e7a;">Название на киоске</h3>
+    <!-- Card 3: Display name -->
+    <div class="settings-card">
+      <div class="settings-card-header">
+        <div class="settings-card-icon">🏥</div>
+        <span class="settings-card-title">Название на экране киоска</span>
+      </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <input type="text" id="displayName" value="{{ kiosk_display_name }}" placeholder="{{ org_name }}" style="flex:1;">
         <button class="btn-primary" onclick="saveDisplayName()">Сохранить</button>
       </div>
       <div id="displayNameError" class="error-msg hidden"></div>
+      <p style="font-size:12px;color:#90a4ae;margin-top:8px;">Отображается на экране киоска вместо названия организации.</p>
     </div>
+
   </div>
 </div>
 

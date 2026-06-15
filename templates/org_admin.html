@@ -942,7 +942,7 @@ function sortEmployees(key) {
     empSortAsc = true;
   }
   allEmployees.sort((a, b) => {
-    let av, bv;
+    let av = '', bv = '';
     if (key === 'name') { av = (a.name || '').toLowerCase(); bv = (b.name || '').toLowerCase(); }
     else if (key === 'dept') {
       const da = allDepts.find(d => d.id === a.dept_id);

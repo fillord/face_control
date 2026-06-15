@@ -303,6 +303,49 @@ th.sortable:hover { color: #1a2340; }
 </div>
 
 <div id="panelEmployees" class="page hidden">
+  <div id="editEmpPanel" class="card hidden" style="max-width:560px;margin-bottom:20px;">
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">Редактировать сотрудника</h3>
+    <input type="hidden" id="editEmpId">
+    <div class="form-group">
+      <label>ФИО *</label>
+      <input type="text" id="editEmpName" placeholder="Фамилия Имя Отчество">
+    </div>
+    <div class="form-group">
+      <label>Должность</label>
+      <input type="text" id="editEmpPosition" placeholder="Должность (необязательно)">
+    </div>
+    <div class="form-group">
+      <label>Отдел</label>
+      <select id="editEmpDept"></select>
+    </div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;">
+      <div class="form-group" style="flex:1;min-width:120px;">
+        <label>Начало рабочего дня</label>
+        <input type="time" id="editEmpStart" value="09:00">
+      </div>
+      <div class="form-group" style="flex:1;min-width:120px;">
+        <label>Конец рабочего дня</label>
+        <input type="time" id="editEmpEnd" value="18:00">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Рабочие дни</label>
+      <div id="editEmpDays" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+        <label style="font-weight:400;display:flex;align-items:center;gap:4px;"><input type="checkbox" value="1"> Пн</label>
+        <label style="font-weight:400;display:flex;align-items:center;gap:4px;"><input type="checkbox" value="2"> Вт</label>
+        <label style="font-weight:400;display:flex;align-items:center;gap:4px;"><input type="checkbox" value="3"> Ср</label>
+        <label style="font-weight:400;display:flex;align-items:center;gap:4px;"><input type="checkbox" value="4"> Чт</label>
+        <label style="font-weight:400;display:flex;align-items:center;gap:4px;"><input type="checkbox" value="5"> Пт</label>
+        <label style="font-weight:400;display:flex;align-items:center;gap:4px;"><input type="checkbox" value="6"> Сб</label>
+        <label style="font-weight:400;display:flex;align-items:center;gap:4px;"><input type="checkbox" value="7"> Вс</label>
+      </div>
+    </div>
+    <div id="editEmpError" class="error-msg hidden"></div>
+    <div class="form-actions">
+      <button class="btn-primary" onclick="saveEmployeeEdit()">Сохранить</button>
+      <button class="btn-secondary" onclick="cancelEmployeeEdit()">Отмена</button>
+    </div>
+  </div>
   <div class="table-card">
     <table>
       <thead>
@@ -312,10 +355,11 @@ th.sortable:hover { color: #1a2340; }
           <th>График</th>
           <th class="sortable" id="emp-th-date" onclick="sortEmployees('date')">Дата добавл.<span class="sort-arrow"></span></th>
           <th>Статус</th>
+          <th>Действия</th>
         </tr>
       </thead>
       <tbody id="employeesTableBody">
-        <tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Загрузка...</td></tr>
+        <tr><td colspan="6" style="text-align:center;color:#90a4ae;padding:28px;">Загрузка...</td></tr>
       </tbody>
     </table>
   </div>
@@ -508,7 +552,7 @@ async function loadEmployees() {
 function renderEmployees() {
   const tbody = document.getElementById('employeesTableBody');
   if (!allEmployees.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Сотрудники не найдены.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#90a4ae;padding:28px;">Сотрудники не найдены.</td></tr>';
     return;
   }
   tbody.innerHTML = allEmployees.map(emp => {
@@ -537,6 +581,9 @@ function renderEmployees() {
       <td style="color:#546e7a;font-variant-numeric:tabular-nums;">${schedule}</td>
       <td style="color:#78909c;font-size:12px;">${emp.registered_at ? emp.registered_at.slice(0,10) : '—'}</td>
       <td>${faceStatus}${resetBtn}</td>
+      <td style="display:flex;gap:6px;white-space:nowrap;">
+        <button class="btn-edit" onclick="startEditEmp('${emp.id}')">Изменить</button>
+      </td>
     </tr>`;
   }).join('');
   updateStats();
@@ -549,6 +596,92 @@ async function resetFace(empId) {
     if (resp.ok) await loadEmployees();
     else alert('Ошибка при сбросе.');
   } catch (e) { alert('Ошибка соединения.'); }
+}
+
+function startEditEmp(empId) {
+  const emp = allEmployees.find(e => e.id === empId);
+  if (!emp) return;
+  document.getElementById('editEmpId').value = empId;
+  document.getElementById('editEmpName').value = emp.name || '';
+  document.getElementById('editEmpPosition').value = emp.role || '';
+  // Populate dept select
+  const deptSel = document.getElementById('editEmpDept');
+  deptSel.innerHTML = allDepts.map(d =>
+    `<option value="${d.id}" ${d.id === emp.dept_id ? 'selected' : ''}>${escapeHtml(d.name)}</option>`
+  ).join('');
+  // Populate schedule
+  const sched = emp.schedule || {};
+  document.getElementById('editEmpStart').value = sched.start || '09:00';
+  document.getElementById('editEmpEnd').value = sched.end || '18:00';
+  const workDays = sched.work_days || [1,2,3,4,5];
+  document.getElementById('editEmpDays').querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.checked = workDays.includes(parseInt(cb.value));
+  });
+  document.getElementById('editEmpError').classList.add('hidden');
+  document.getElementById('editEmpPanel').classList.remove('hidden');
+  document.getElementById('editEmpName').focus();
+}
+
+function cancelEmployeeEdit() {
+  document.getElementById('editEmpPanel').classList.add('hidden');
+}
+
+async function saveEmployeeEdit() {
+  const empId = document.getElementById('editEmpId').value;
+  const name = document.getElementById('editEmpName').value.trim();
+  const role = document.getElementById('editEmpPosition').value.trim();
+  const dept_id = document.getElementById('editEmpDept').value;
+  const start = document.getElementById('editEmpStart').value;
+  const end = document.getElementById('editEmpEnd').value;
+  const work_days = Array.from(
+    document.getElementById('editEmpDays').querySelectorAll('input[type=checkbox]:checked')
+  ).map(cb => parseInt(cb.value));
+  const errEl = document.getElementById('editEmpError');
+  errEl.classList.add('hidden');
+
+  if (!name) {
+    errEl.textContent = 'ФИО обязательно.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  if (work_days.length === 0) {
+    errEl.textContent = 'Выберите хотя бы один рабочий день.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  try {
+    // Patch profile
+    const profileResp = await fetch(`/api/employees/${empId}`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name, role, dept_id}),
+    });
+    if (!profileResp.ok) {
+      const d = await profileResp.json();
+      errEl.textContent = d.error || 'Ошибка при сохранении.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    // Patch schedule
+    const schedResp = await fetch(`/api/employees/${empId}/schedule`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({start, end, work_days}),
+    });
+    if (!schedResp.ok) {
+      const d = await schedResp.json();
+      errEl.textContent = d.error || 'Ошибка при сохранении графика.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    cancelEmployeeEdit();
+    await loadEmployees();
+    await loadDepts();
+  } catch (e) {
+    errEl.textContent = 'Ошибка соединения.';
+    errEl.classList.remove('hidden');
+  }
 }
 
 async function reassignEmployee(empId, deptId) {

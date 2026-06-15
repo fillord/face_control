@@ -160,7 +160,7 @@ canvas#overlay { position: absolute; inset: 0; width: 100%; height: 100%; transf
       <div class="status-row">
         <div class="status-chip idle" id="statusChip">
           <div class="dot pulse"></div>
-          <span id="statusText">Ожидание сотрудника...</span>
+          <span id="statusText">Нажмите ПРОБЕЛ для сканирования</span>
         </div>
         <div class="confidence-badge" id="confidenceBadge">
           <span>🎯</span><span id="confidenceText"></span>
@@ -225,11 +225,6 @@ canvas#overlay { position: absolute; inset: 0; width: 100%; height: 100%; transf
       <div class="log-items" id="logItems"><div class="log-empty">Нет записей</div></div>
     </div>
 
-    <div class="nav-links">
-      <!-- reg_token wiring to /kiosk/<reg_token>/register happens in plan 05-05 -->
-      <a href="/login?next=/register" class="nav-link">📷 Регистрация</a>
-      <a href="/login?next=/admin" class="nav-link">📊 Отчёты</a>
-    </div>
   </div>
 </div>
 
@@ -327,7 +322,7 @@ async function recognize() {
     if (!resp.ok) {
       hideConfidence();
       if (data.error === "no_face") {
-        setStatus("idle", "Ожидание сотрудника...");
+        setStatus("idle", "Нажмите ПРОБЕЛ для сканирования");
       } else if (data.error === "unknown") {
         setStatus("error", "Лицо не распознано");
         cooldownUntil = Date.now() + 2000;
@@ -407,7 +402,7 @@ function showResult(data) {
   } else {
     badge.className = "event-badge done";
     badge.textContent = "⚠ Уход уже зарегистрирован";
-    setStatus("idle", "Ожидание сотрудника...");
+    setStatus("idle", "Нажмите ПРОБЕЛ для сканирования");
     lateWarn.classList.remove("visible");
   }
 
@@ -457,7 +452,11 @@ async function loadLog() {
 }
 
 loadLog();
-if (DEVICE_AUTHORIZED && hasEmployees) setInterval(recognize, 1500);
+if (DEVICE_AUTHORIZED && hasEmployees) {
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space' && !e.repeat) { e.preventDefault(); recognize(); }
+  });
+}
 
 // ─── Device registration ──────────────────────────────────────────────────────
 

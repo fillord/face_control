@@ -561,9 +561,7 @@ def train_recognizer():
 
 @app.route("/")
 def kiosk():
-    has_employees = Employee.query.count() > 0
-    return render_template("kiosk.html", has_employees=has_employees,
-                           org_id=None, org_name=None)
+    return redirect(url_for("login_page"))
 
 @app.route("/kiosk/<org_token>")
 def kiosk_token(org_token):

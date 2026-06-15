@@ -302,15 +302,21 @@ async function rReactivateUser(id) {
 }
 
 async function rLoadDates() {
-  const resp = await fetch("/api/attendance/dates");
-  const dates = await resp.json();
-  const sel = document.getElementById("rDateSelect");
-  dates.forEach(d => {
-    const opt = document.createElement("option");
-    opt.value = d;
-    opt.textContent = new Date(d + "T00:00:00").toLocaleDateString("ru-RU", { weekday:"short", day:"numeric", month:"short" });
-    sel.appendChild(opt);
-  });
+  try {
+    const resp = await fetch("/api/attendance/dates");
+    if (!resp.ok) return;
+    const dates = await resp.json();
+    if (!Array.isArray(dates)) return;
+    const sel = document.getElementById("rDateSelect");
+    dates.forEach(d => {
+      const opt = document.createElement("option");
+      opt.value = d;
+      opt.textContent = new Date(d + "T00:00:00").toLocaleDateString("ru-RU", { weekday:"short", day:"numeric", month:"short" });
+      sel.appendChild(opt);
+    });
+  } catch (e) {
+    console.error("rLoadDates failed", e);
+  }
 }
 
 document.getElementById("rDateSelect").addEventListener("change", function() {
@@ -323,22 +329,34 @@ document.getElementById("rDatePicker").addEventListener("change", function() {
 let rCurrentData = [];
 
 async function rLoadData(dateStr) {
-  const resp = await fetch("/api/attendance?date=" + dateStr);
-  const rows = await resp.json();
-  rCurrentData = rows;
+  try {
+    const resp = await fetch("/api/attendance?date=" + dateStr);
+    if (!resp.ok) {
+      document.getElementById("rTableBody").innerHTML =
+        '<tr><td colspan="7" style="text-align:center;color:#c62828;padding:28px;">Ошибка загрузки данных.</td></tr>';
+      return;
+    }
+    const rows = await resp.json();
+    if (!Array.isArray(rows)) return;
+    rCurrentData = rows;
 
-  let present = 0, left = 0, absent = 0;
-  rows.forEach(r => {
-    if (r.check_in) present++;
-    if (r.check_out) left++;
-    if (!r.check_in) absent++;
-  });
-  document.getElementById("rSTotal").textContent = rows.length;
-  document.getElementById("rSPresent").textContent = present;
-  document.getElementById("rSLeft").textContent = left;
-  document.getElementById("rSAbsent").textContent = absent;
+    let present = 0, left = 0, absent = 0;
+    rows.forEach(r => {
+      if (r.check_in) present++;
+      if (r.check_out) left++;
+      if (!r.check_in) absent++;
+    });
+    document.getElementById("rSTotal").textContent = rows.length;
+    document.getElementById("rSPresent").textContent = present;
+    document.getElementById("rSLeft").textContent = left;
+    document.getElementById("rSAbsent").textContent = absent;
 
-  rRenderTable(rows);
+    rRenderTable(rows);
+  } catch (e) {
+    console.error("rLoadData failed", e);
+    document.getElementById("rTableBody").innerHTML =
+      '<tr><td colspan="7" style="text-align:center;color:#c62828;padding:28px;">Ошибка соединения.</td></tr>';
+  }
 }
 
 function rFilterTable() {
@@ -418,8 +436,15 @@ async function rLoadStats() {
   const fromDate = `${month}-01`;
   const toDate   = `${month}-${String(lastDay).padStart(2,"0")}`;
 
+  try {
   const resp = await fetch(`/api/stats?from=${fromDate}&to=${toDate}`);
+  if (!resp.ok) {
+    document.getElementById("rStatsBody").innerHTML =
+      '<tr><td colspan="5" style="text-align:center;color:#c62828;padding:24px;">Ошибка загрузки статистики.</td></tr>';
+    return;
+  }
   const data = await resp.json();
+  if (!data || !data.daily_counts) return;
 
   const labels = data.daily_counts.map(d => new Date(d.date + "T00:00:00").toLocaleDateString("ru-RU", { day:"numeric", month:"short" }));
   const counts = data.daily_counts.map(d => d.count);
@@ -461,6 +486,11 @@ async function rLoadStats() {
       <td style="font-weight:600;">${e.hours_str}</td>
       <td>${e.late_days > 0 ? `<span style="color:#BF360C;font-weight:500;">${e.late_days}</span>` : '<span style="color:#2E7D32;">0</span>'}</td>
     </tr>`).join("");
+  } catch (e) {
+    console.error("rLoadStats failed", e);
+    document.getElementById("rStatsBody").innerHTML =
+      '<tr><td colspan="5" style="text-align:center;color:#c62828;padding:24px;">Ошибка загрузки статистики.</td></tr>';
+  }
 }
 
 rLoadDates();

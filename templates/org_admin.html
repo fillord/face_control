@@ -468,8 +468,8 @@ function renderDepts() {
       <td>${head}</td>
       <td style="color:#1565C0;font-weight:600;">${empCount}</td>
       <td style="display:flex;gap:8px;align-items:center;">
-        <button class="btn-edit" onclick="startEditDept('${dept.id}')">Изменить</button>
-        <button class="btn-delete" onclick="deleteDept('${dept.id}', '${escapeHtml(dept.name)}')">Удалить</button>
+        <button class="btn-edit" data-id="${escapeHtml(dept.id)}" onclick="startEditDept(this.dataset.id)">Изменить</button>
+        <button class="btn-delete" data-id="${escapeHtml(dept.id)}" data-name="${escapeHtml(dept.name)}" onclick="deleteDept(this.dataset.id, this.dataset.name)">Удалить</button>
       </td>
     </tr>`;
   }).join('');
@@ -608,12 +608,12 @@ function renderEmployees() {
       ? `<span style="color:#E65100;font-size:12px;">⏳ Ожидает регистрации лица</span>`
       : `<span style="color:#2E7D32;font-size:12px;">✓ Зарегистрирован (${faceCount} фото)</span>`;
     const resetBtn = faceCount > 0
-      ? `<button onclick="resetFace('${emp.id}')" style="margin-left:6px;padding:3px 8px;background:#fff;border:1px solid #FFCC80;border-radius:6px;font-size:11px;color:#E65100;cursor:pointer;" title="Сбросить фото">🔄</button>`
+      ? `<button data-id="${escapeHtml(emp.id)}" onclick="resetFace(this.dataset.id)" style="margin-left:6px;padding:3px 8px;background:#fff;border:1px solid #FFCC80;border-radius:6px;font-size:11px;color:#E65100;cursor:pointer;" title="Сбросить фото">🔄</button>`
       : '';
     return `<tr>
       <td style="font-weight:500;">${escapeHtml(emp.name)}</td>
       <td>
-        <select onchange="reassignEmployee('${emp.id}', this.value)" style="padding:4px 8px;border:1px solid #cfd8dc;border-radius:6px;font-size:12px;color:#1a2340;background:#fff;">
+        <select data-id="${escapeHtml(emp.id)}" onchange="reassignEmployee(this.dataset.id, this.value)" style="padding:4px 8px;border:1px solid #cfd8dc;border-radius:6px;font-size:12px;color:#1a2340;background:#fff;">
           ${deptOptions}
         </select>
       </td>
@@ -621,7 +621,7 @@ function renderEmployees() {
       <td style="color:#78909c;font-size:12px;">${emp.registered_at ? emp.registered_at.slice(0,10) : '—'}</td>
       <td>${faceStatus}${resetBtn}</td>
       <td style="display:flex;gap:6px;white-space:nowrap;">
-        <button class="btn-edit" onclick="startEditEmp('${emp.id}')">Изменить</button>
+        <button class="btn-edit" data-id="${escapeHtml(emp.id)}" onclick="startEditEmp(this.dataset.id)">Изменить</button>
       </td>
     </tr>`;
   }).join('');
@@ -862,8 +862,8 @@ async function loadOrgUsers() {
       const deptName = dept ? escapeHtml(dept.name) : '<span style="color:#bdbdbd;">—</span>';
       const statusBadge = u.active ? '<span style="color:#2e7d32;font-weight:600;">Активен</span>' : '<span style="color:#c62828;">Отключён</span>';
       const toggleBtn = u.active
-        ? `<button onclick="toggleUser('${u.id}', false)" style="padding:4px 10px;font-size:12px;border:1px solid #ef9a9a;border-radius:6px;background:#fff;color:#c62828;cursor:pointer;">Отключить</button>`
-        : `<button onclick="toggleUser('${u.id}', true)" style="padding:4px 10px;font-size:12px;border:1px solid #a5d6a7;border-radius:6px;background:#fff;color:#2e7d32;cursor:pointer;">Включить</button>`;
+        ? `<button data-id="${escapeHtml(u.id)}" data-active="false" onclick="toggleUser(this.dataset.id, this.dataset.active === 'true')" style="padding:4px 10px;font-size:12px;border:1px solid #ef9a9a;border-radius:6px;background:#fff;color:#c62828;cursor:pointer;">Отключить</button>`
+        : `<button data-id="${escapeHtml(u.id)}" data-active="true" onclick="toggleUser(this.dataset.id, this.dataset.active === 'true')" style="padding:4px 10px;font-size:12px;border:1px solid #a5d6a7;border-radius:6px;background:#fff;color:#2e7d32;cursor:pointer;">Включить</button>`;
       return `<tr data-username="${escapeHtml(u.username)}" data-role="${u.role}"><td>${escapeHtml(u.username)}</td><td>${ROLE_LABEL[u.role] || u.role}</td><td>${deptName}</td><td>${statusBadge}</td><td>${toggleBtn}</td></tr>`;
     }).join('');
   } catch (e) {

@@ -223,9 +223,9 @@ function tsSubmitForm(e) {
   var month = document.getElementById('ts-month-input').value;
   var deptSel = document.getElementById('ts-dept-select');
   var deptId = deptSel ? deptSel.value : '';
-  var url = '/org_admin/partial/timesheet?month=' + encodeURIComponent(month);
+  var url = '{{ partial_url|default("/org_admin/partial/timesheet") }}?month=' + encodeURIComponent(month);
   if (deptId) url += '&dept_id=' + encodeURIComponent(deptId);
-  var contentEl = document.getElementById('inlineTimesheetContent');
+  var contentEl = document.getElementById('{{ content_el_id|default("inlineTimesheetContent") }}');
   if (!contentEl) return;
   contentEl.innerHTML = '<p style="text-align:center;color:#90a4ae;padding:40px;">Загрузка...</p>';
   fetch(url)

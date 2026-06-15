@@ -1,4 +1,4 @@
-import os, json, base64, time, shutil, uuid, sys, secrets
+import os, json, base64, time, shutil, uuid, sys, secrets, hashlib
 import re, csv, io
 import calendar
 from datetime import datetime, date, timedelta
@@ -14,7 +14,7 @@ from openpyxl.utils import get_column_letter
 from sqlalchemy import text
 from sqlalchemy import exc as sa_exc
 from models import db, Employee, User, Organization, Department
-from models import AttendanceRecord, EmployeeSchedule, LogEntry, TimesheetOverride, AppSetting
+from models import AttendanceRecord, EmployeeSchedule, LogEntry, TimesheetOverride, AppSetting, KioskDevice
 
 app = Flask(__name__)
 _secret_key = os.environ.get("SECRET_KEY")
@@ -437,6 +437,43 @@ def is_bcrypt_hash(value):
     return bool(value and str(value).startswith("$2b$"))
 
 
+# ─── Kiosk device auth helpers ────────────────────────────────────────────────
+
+_DEVICE_SEEN_THROTTLE = 300  # seconds between last_seen_at DB writes
+
+def _device_cookie_name(org_token: str) -> str:
+    return "kd_" + org_token
+
+def _hash_device_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+def _check_device_auth(org) -> "KioskDevice | None":
+    """Return the matching KioskDevice if the request carries a valid cookie, else None."""
+    if not org or not org.org_token:
+        return None
+    raw = request.cookies.get(_device_cookie_name(org.org_token))
+    if not raw:
+        return None
+    h = _hash_device_token(raw)
+    return KioskDevice.query.filter_by(device_token_hash=h, org_id=org.id).first()
+
+def _maybe_update_last_seen(device) -> None:
+    """Write last_seen_at at most once per 5 minutes to avoid excessive writes."""
+    now = datetime.now()
+    if device.last_seen_at:
+        try:
+            last = datetime.fromisoformat(device.last_seen_at)
+            if (now - last).total_seconds() < _DEVICE_SEEN_THROTTLE:
+                return
+        except (ValueError, TypeError):
+            pass
+    device.last_seen_at = now.isoformat()
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
 def is_reg_token_expired(org):
     """Return True if org.reg_token_expires is set and in the past.
 
@@ -524,7 +561,7 @@ def train_recognizer():
 def kiosk():
     has_employees = Employee.query.count() > 0
     return render_template("kiosk.html", has_employees=has_employees,
-                           org_id=None, org_name=None, has_pin=False)
+                           org_id=None, org_name=None)
 
 @app.route("/kiosk/<org_token>")
 def kiosk_token(org_token):
@@ -533,11 +570,14 @@ def kiosk_token(org_token):
         return render_template("error_token.html", message="Организация не найдена"), 404
     org_id = org.id
     has_employees = Employee.query.filter_by(org_id=org_id).count() > 0
-    has_pin = bool(org.kiosk_pin)
     org_name = org.kiosk_display_name or org.name
+    device = _check_device_auth(org)
+    device_authorized = device is not None
+    has_kiosk_pin = bool(org.kiosk_pin)
     return render_template("kiosk.html", has_employees=has_employees,
                            org_token=org_token, org_id=org_id,
-                           org_name=org_name, has_pin=has_pin)
+                           org_name=org_name, device_authorized=device_authorized,
+                           has_kiosk_pin=has_kiosk_pin)
 
 @app.route("/login", methods=["GET", "POST"])
 def login_page():
@@ -716,6 +756,56 @@ def register_token_submit(reg_token):
     os.makedirs(os.path.join(FACES_DIR, emp_id), exist_ok=True)
     print(f"REGISTER_TOKEN: emp_id={emp_id!r} name={name!r} org_id={org_id!r} dept_id={dept_id!r}", flush=True)
     return jsonify({"id": emp_id, "status": "created"})
+
+
+@app.route("/api/register/<reg_token>/pending")
+def register_token_pending(reg_token):
+    """List employees with face_count == 0 for the token's org (new self-registration flow)."""
+    org = Organization.query.filter_by(reg_token=reg_token).first()
+    if not org:
+        return jsonify({"error": "not_found"}), 404
+    if is_reg_token_expired(_org_to_dict(org)):
+        return jsonify({"error": "link_expired"}), 410
+    dept_id = request.args.get("dept_id")
+    q = Employee.query.filter_by(org_id=org.id).filter(Employee.face_count == 0)
+    if dept_id:
+        q = q.filter_by(dept_id=dept_id)
+    emps = q.order_by(Employee.name).all()
+    return jsonify([{"id": e.id, "name": e.name, "position": e.role or ""} for e in emps])
+
+
+@app.route("/api/register/<reg_token>/capture_face", methods=["POST"])
+def register_token_capture_face(reg_token):
+    """Public face photo upload for the self-registration flow — no admin auth required."""
+    org = Organization.query.filter_by(reg_token=reg_token).first()
+    if not org:
+        return jsonify({"error": "not_found"}), 404
+    if is_reg_token_expired(_org_to_dict(org)):
+        return jsonify({"error": "link_expired"}), 410
+    data = request.json or {}
+    emp_id = data.get("emp_id")
+    image = data.get("image")
+    if not emp_id or not image:
+        return jsonify({"error": "emp_id and image required"}), 400
+    emp = Employee.query.get(emp_id)
+    if not emp or emp.org_id != org.id:
+        return jsonify({"error": "Сотрудник не найден"}), 404
+    img = decode_image(image)
+    face_roi, bbox = extract_face(img)
+    if face_roi is None:
+        return jsonify({"error": "Лицо не обнаружено. Убедитесь, что лицо хорошо видно в кадре."}), 400
+    emp_dir = os.path.join(FACES_DIR, emp_id)
+    os.makedirs(emp_dir, exist_ok=True)
+    count = emp.face_count + 1
+    cv2.imwrite(os.path.join(emp_dir, f"face_{count}.jpg"), face_roi)
+    emp.face_count = count
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Internal server error"}), 500
+    train_recognizer()
+    return jsonify({"status": "saved", "count": count, "bbox": bbox})
 
 
 ROLE_DISPLAY = {
@@ -1603,6 +1693,85 @@ def org_admin_partial_timesheet():
         holidays_set=holidays_set,
         missing_holiday_year=missing_holiday_year,
         can_edit=(role in ("dept_admin", "org_admin", "superadmin")),
+        partial_url="/org_admin/partial/timesheet",
+        content_el_id="inlineTimesheetContent",
+    )
+
+
+@app.route("/dept_admin/partial/timesheet")
+@require_role("dept_admin")
+def dept_admin_partial_timesheet():
+    """Return T-13 timesheet fragment for dept_admin, scoped to their department."""
+    user = User.query.get(session.get("user_id"))
+    username = user.username if user else ""
+    dept_id = session.get("dept_id")
+
+    month_str = request.args.get("month", datetime.now().strftime("%Y-%m"))
+    try:
+        year, month_num = map(int, month_str.split("-"))
+        if not (1 <= month_num <= 12 and 2000 <= year <= 2099):
+            raise ValueError
+    except (ValueError, AttributeError):
+        year, month_num = datetime.now().year, datetime.now().month
+        month_str = f"{year:04d}-{month_num:02d}"
+
+    dept_obj = Department.query.get(dept_id) if dept_id else None
+    dept_name = dept_obj.name if dept_obj else ""
+
+    _, num_days = calendar.monthrange(year, month_num)
+    days = [date(year, month_num, 1) + timedelta(days=i) for i in range(num_days)]
+
+    employees = {e.id: _emp_to_dict(e) for e in Employee.query.all()}
+    start_str = f"{year:04d}-{month_num:02d}-01"
+    end_str = f"{year:04d}-{month_num:02d}-{num_days:02d}"
+    _att_recs = AttendanceRecord.query.filter(
+        AttendanceRecord.date >= start_str,
+        AttendanceRecord.date <= end_str,
+    ).all()
+    attendance = {}
+    for r in _att_recs:
+        attendance.setdefault(r.date, {})[r.emp_id] = {
+            "check_in": r.check_in_time,
+            "check_out": r.check_out_time,
+        }
+    _ov_recs = TimesheetOverride.query.all()
+    overrides = {}
+    for r in _ov_recs:
+        overrides.setdefault(r.emp_id, {})[r.date] = r.symbol
+    holidays_set = get_holidays_set(year)
+    missing_holiday_year = is_holiday_year_missing(year)
+
+    scoped_employees = {eid: e for eid, e in employees.items() if e.get("dept_id") == dept_id} if dept_id else {}
+
+    grid_rows = []
+    for emp_id_key, emp in scoped_employees.items():
+        schedule = emp.get("schedule", {"start": "09:00", "end": "18:00", "work_days": [1, 2, 3, 4, 5]})
+        cells = []
+        for d in days:
+            sym = compute_symbol(d, emp_id_key, attendance, overrides, schedule, holidays_set)
+            auto = compute_symbol(d, emp_id_key, attendance, {}, schedule, holidays_set)
+            cells.append({"sym": sym, "auto": auto, "date": d.isoformat()})
+        totals = compute_employee_totals([c["sym"] for c in cells], schedule)
+        grid_rows.append((emp_id_key, emp.get("name", emp_id_key), cells, totals))
+
+    return render_template(
+        "timesheet_partial.html",
+        username=username,
+        role="dept_admin",
+        dept_id=dept_id or "",
+        dept_name=dept_name,
+        dept_options=[],
+        month_str=month_str,
+        year=year,
+        month_num=month_num,
+        month_name=MONTHS_RU.get(month_num, ""),
+        days=days,
+        grid_rows=grid_rows,
+        holidays_set=holidays_set,
+        missing_holiday_year=missing_holiday_year,
+        can_edit=True,
+        partial_url="/dept_admin/partial/timesheet",
+        content_el_id="inlineDeptTimesheetContent",
     )
 
 
@@ -1702,7 +1871,7 @@ def update_org_settings(org_id):
         return jsonify({"error": "forbidden"}), 403
     data = request.json or {}
 
-    # kiosk_pin — validate 4 digits; store as bcrypt hash
+    # kiosk_pin — 4 digits; stored as bcrypt hash; used only for device registration
     if "kiosk_pin" in data:
         pin = data["kiosk_pin"]
         if pin:
@@ -1712,7 +1881,7 @@ def update_org_settings(org_id):
         else:
             org.kiosk_pin = None
 
-    # reg_pin — same validation and bcrypt storage
+    # reg_pin — validate 4 digits; store as bcrypt hash
     if "reg_pin" in data:
         pin = data["reg_pin"]
         if pin:
@@ -1756,20 +1925,133 @@ def update_org_settings(org_id):
     return jsonify({"status": "updated", "reg_token": org.reg_token})
 
 
-@app.route("/api/kiosk/<org_token>/verify_pin", methods=["POST"])
-def verify_kiosk_pin_token(org_token):
+# ─── API: Kiosk device registration & management ──────────────────────────────
+
+@app.route("/api/kiosk/<org_token>/register_device", methods=["POST"])
+def register_kiosk_device(org_token):
+    """Validate kiosk PIN and register a new device; sets httpOnly cookie in response."""
     org = Organization.query.filter_by(org_token=org_token).first()
     if not org:
         return jsonify({"error": "not_found"}), 404
+
+    data = request.json or {}
+    pin = str(data.get("pin", ""))
+    device_name = str(data.get("device_name", "Киоск")).strip() or "Киоск"
+
     stored = org.kiosk_pin
     if not stored:
-        return jsonify({"verified": True})
-    entered = str((request.json or {}).get("pin", ""))
-    if len(entered) != 4 or not entered.isdigit():
-        return jsonify({"error": "invalid_pin"}), 400
-    if bcrypt.checkpw(entered.encode(), stored.encode()):
-        return jsonify({"verified": True})
-    return jsonify({"error": "wrong_pin", "verified": False}), 401
+        return jsonify({"error": "no_pin_set",
+                        "message": "PIN киоска не настроен — обратитесь к администратору"}), 400
+    if not bcrypt.checkpw(pin.encode(), stored.encode()):
+        return jsonify({"error": "wrong_pin"}), 401
+
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = _hash_device_token(raw_token)
+    device = KioskDevice(
+        id=str(uuid.uuid4()),
+        org_id=org.id,
+        device_token_hash=token_hash,
+        device_name=device_name,
+        created_at=datetime.now().isoformat(),
+        last_seen_at=None,
+    )
+    db.session.add(device)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Internal server error"}), 500
+
+    resp = jsonify({"status": "registered", "device_name": device_name})
+    resp.set_cookie(
+        _device_cookie_name(org_token),
+        raw_token,
+        max_age=365 * 24 * 3600,
+        httponly=True,
+        samesite="Lax",
+        secure=False,   # set True when enforcing HTTPS at Flask level
+    )
+    print(f"DEVICE_REGISTERED: org_id={org.id!r} name={device_name!r} id={device.id!r}", flush=True)
+    return resp
+
+
+@app.route("/org/devices")
+@require_role("org_admin")
+def org_devices_page():
+    """Org-admin device management page."""
+    caller_org_id = session.get("org_id")
+    org = Organization.query.get(caller_org_id)
+    if not org:
+        return redirect(url_for("org_admin_page"))
+    devices = (KioskDevice.query
+               .filter_by(org_id=caller_org_id)
+               .order_by(KioskDevice.created_at.desc())
+               .all())
+    return render_template("devices.html",
+                           org_name=org.name,
+                           org_token=org.org_token or "",
+                           devices=devices,
+                           has_kiosk_pin=bool(org.kiosk_pin))
+
+
+@app.route("/api/kiosk/<org_token>/devices", methods=["GET"])
+@require_role("org_admin", "superadmin")
+def list_kiosk_devices(org_token):
+    org = Organization.query.filter_by(org_token=org_token).first()
+    if not org:
+        return jsonify({"error": "not_found"}), 404
+    if session.get("role") == "org_admin" and session.get("org_id") != org.id:
+        return jsonify({"error": "forbidden"}), 403
+    devices = (KioskDevice.query.filter_by(org_id=org.id)
+               .order_by(KioskDevice.created_at.desc()).all())
+    return jsonify([{
+        "id": d.id, "device_name": d.device_name,
+        "created_at": d.created_at, "last_seen_at": d.last_seen_at,
+    } for d in devices])
+
+
+@app.route("/api/kiosk/<org_token>/devices/<device_id>", methods=["DELETE"])
+@require_role("org_admin", "superadmin")
+def revoke_kiosk_device(org_token, device_id):
+    org = Organization.query.filter_by(org_token=org_token).first()
+    if not org:
+        return jsonify({"error": "not_found"}), 404
+    if session.get("role") == "org_admin" and session.get("org_id") != org.id:
+        return jsonify({"error": "forbidden"}), 403
+    device = KioskDevice.query.get(device_id)
+    if not device or device.org_id != org.id:
+        return jsonify({"error": "not_found"}), 404
+    db.session.delete(device)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Internal server error"}), 500
+    return jsonify({"status": "revoked"})
+
+
+@app.route("/api/kiosk/<org_token>/devices/<device_id>", methods=["PATCH"])
+@require_role("org_admin", "superadmin")
+def rename_kiosk_device(org_token, device_id):
+    org = Organization.query.filter_by(org_token=org_token).first()
+    if not org:
+        return jsonify({"error": "not_found"}), 404
+    if session.get("role") == "org_admin" and session.get("org_id") != org.id:
+        return jsonify({"error": "forbidden"}), 403
+    device = KioskDevice.query.get(device_id)
+    if not device or device.org_id != org.id:
+        return jsonify({"error": "not_found"}), 404
+    data = request.json or {}
+    name = str(data.get("device_name", "")).strip()
+    if not name:
+        return jsonify({"error": "Название не может быть пустым"}), 400
+    device.device_name = name
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Internal server error"}), 500
+    return jsonify({"status": "renamed"})
 
 
 # ─── API: Depts ───────────────────────────────────────────────────────────────
@@ -1889,9 +2171,10 @@ def add_employee():
     caller_org_id = session.get("org_id")
     data = request.json or {}
 
-    # Scope gate: dept_admin may only create in their own dept
+    # Scope gate: dept_admin may only create in their own dept.
+    # Allow omitting dept_id (defaults to caller's dept); reject only if explicitly different.
     target_dept_id = data.get("dept_id")
-    if caller_role == "dept_admin" and target_dept_id != caller_dept_id:
+    if caller_role == "dept_admin" and target_dept_id and target_dept_id != caller_dept_id:
         return jsonify({"error": "forbidden"}), 403
 
     emp_id = str(int(time.time() * 1000))
@@ -2182,6 +2465,7 @@ def dept_attendance_today():
             "check_out": check_out,
             "status": status,
             "schedule": f"{schedule.get('start')} – {schedule.get('end')}",
+            "face_count": emp.get("face_count", 0),
         })
 
     return jsonify({
@@ -2277,6 +2561,15 @@ def recognize():
     req_org_id = data.get("org_id")
     if req_org_id and emp.org_id != req_org_id:
         return jsonify({"error": "unknown"}), 400
+
+    # Device auth: org-linked kiosks must present a valid registered device cookie
+    if req_org_id:
+        req_org = Organization.query.get(req_org_id)
+        if req_org and req_org.org_token:
+            device = _check_device_auth(req_org)
+            if not device:
+                return jsonify({"error": "device_unauthorized"}), 403
+            _maybe_update_last_seen(device)
 
     dept_name = None
     if emp.dept_id:

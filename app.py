@@ -2381,6 +2381,7 @@ def get_attendance():
             total = int(delta.total_seconds())
             duration_minutes = total // 60
             duration = f"{total//3600}ч {(total%3600)//60}мин"
+        sched = emp.get("schedule", {})
         result.append({
             "emp_id": emp_id,
             "name": emp["name"],
@@ -2388,7 +2389,9 @@ def get_attendance():
             "check_in": check_in,
             "check_out": check_out,
             "duration": duration,
-            "duration_minutes": duration_minutes
+            "duration_minutes": duration_minutes,
+            "schedule_start": (sched.get("start") or "09:00") + ":00",
+            "schedule_end": (sched.get("end") or "18:00") + ":00",
         })
     return jsonify(result)
 

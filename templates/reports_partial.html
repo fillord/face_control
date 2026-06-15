@@ -378,8 +378,8 @@ function rRenderTable(rows) {
     else if (!r.check_out) { badge = "badge-partial";  statusText = "На работе"; }
     else                   { badge = "badge-present"; statusText = "Завершён"; }
 
-    const isLate       = r.check_in  && r.check_in  > "09:00:00";
-    const isEarlyLeave = r.check_out && r.check_out < "18:00:00";
+    const isLate       = r.check_in  && r.schedule_start && r.check_in  > r.schedule_start;
+    const isEarlyLeave = r.check_out && r.schedule_end   && r.check_out < r.schedule_end;
     const rowClass = isLate ? "row-late" : isEarlyLeave ? "row-early-leave" : "";
 
     let indicators = [];
@@ -413,8 +413,8 @@ function rExportCSV() {
   const header = ["ФИО","Должность","Приход","Уход","Отработано","Статус","Опоздание","Ранний уход"];
   const lines = [header, ...rows.map(r => {
     const status = !r.check_in ? "Не явился" : !r.check_out ? "На работе" : "Завершён";
-    const late  = r.check_in && r.check_in > "09:00:00" ? "Да" : "Нет";
-    const early = r.check_out && r.check_out < "18:00:00" ? "Да" : "Нет";
+    const late  = r.check_in  && r.schedule_start && r.check_in  > r.schedule_start ? "Да" : "Нет";
+    const early = r.check_out && r.schedule_end   && r.check_out < r.schedule_end   ? "Да" : "Нет";
     return [r.name, r.role, r.check_in||"", r.check_out||"", r.duration||"", status, late, early];
   })];
   const csv = lines.map(row => row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("\r\n");

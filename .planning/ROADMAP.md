@@ -173,7 +173,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 4. Export & Employee Cabinet | 3/3 | Complete   | 2026-06-14 |
 | 5. Token Kiosk, Reg & Russian UI | 5/5 | Complete | 2026-06-13 |
 | 6. SQLite Migration | 4/4 | Complete | 2026-06-13 |
-| 7. Org Admin UX Improvements | 1/5 | In Progress|  |
+| 7. Org Admin UX Improvements | 2/5 | In Progress|  |
 
 ### Phase 5: Token-based Kiosk, Registration & Russian UI
 
@@ -274,7 +274,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 07-02-PLAN.md — Sortable Employees and Users table columns (client-side sort with toggle arrows)
+- [x] 07-02-PLAN.md — Sortable Employees and Users table columns (client-side sort with toggle arrows)
 
 **Wave 3** *(blocked on Wave 2)*
 

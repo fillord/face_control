@@ -132,12 +132,12 @@ tr:last-child td { border-bottom: none; }
 </div>
 
 <div id="panelSettings" class="page hidden">
-  <div style="max-width:560px;">
-    <h2 style="font-size:18px;font-weight:600;margin-bottom:20px;">Настройки киоска</h2>
+  <div style="max-width:620px;">
+    <h2 style="font-size:18px;font-weight:600;margin-bottom:14px;">Настройки киоска</h2>
 
-    <!-- Live URLs -->
-    <div class="card" style="max-width:100%;margin-bottom:20px;">
-      <h3 style="font-size:14px;font-weight:600;margin-bottom:14px;color:#546e7a;">Ссылки</h3>
+    <!-- URLs + Expiry + Regen -->
+    <div class="card" style="max-width:100%;margin-bottom:12px;">
+      <h3 style="font-size:13px;font-weight:600;margin-bottom:10px;color:#546e7a;">Ссылки и регистрация</h3>
       <div class="form-group">
         <label>URL киоска</label>
         <div style="display:flex;gap:8px;align-items:center;">
@@ -146,7 +146,7 @@ tr:last-child td { border-bottom: none; }
           <button class="btn-secondary" onclick="copyUrl('kioskUrl')">Копировать</button>
         </div>
       </div>
-      <div class="form-group" style="margin-bottom:0;">
+      <div class="form-group">
         <label>URL регистрации</label>
         <div style="display:flex;gap:8px;align-items:center;">
           <input type="text" id="regUrl" readonly style="background:#f4f6fb;flex:1;"
@@ -154,65 +154,53 @@ tr:last-child td { border-bottom: none; }
           <button class="btn-secondary" onclick="copyUrl('regUrl')">Копировать</button>
         </div>
       </div>
-    </div>
-
-    <!-- PIN settings -->
-    <div class="card" style="max-width:100%;margin-bottom:20px;">
-      <h3 style="font-size:14px;font-weight:600;margin-bottom:14px;color:#546e7a;">Пин-коды</h3>
-      <div class="form-group">
-        <label>PIN киоска (4 цифры)</label>
-        <input type="text" id="newKioskPin" maxlength="4" pattern="\d{4}" placeholder="Введите новый PIN" style="max-width:200px;">
-      </div>
-      <div id="kioskPinError" class="error-msg hidden"></div>
-      <div class="form-actions">
-        <button class="btn-primary" onclick="saveKioskPin()">Сохранить PIN киоска</button>
-      </div>
-
-      <div style="margin-top:20px;">
-        <div class="form-group">
-          <label>PIN регистрации (4 цифры)</label>
-          <input type="text" id="newRegPin" maxlength="4" pattern="\d{4}" placeholder="Введите новый PIN" style="max-width:200px;">
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:4px;">
+        <div class="form-group" style="margin-bottom:0;flex:1;min-width:180px;">
+          <label>Срок действия ссылки</label>
+          <input type="datetime-local" id="regExpiry" value="{{ reg_token_expires[:16] if reg_token_expires else '' }}">
         </div>
-        <div id="regPinError" class="error-msg hidden"></div>
-        <div class="form-actions">
-          <button class="btn-primary" onclick="saveRegPin()">Сохранить PIN регистрации</button>
+        <div style="display:flex;gap:6px;padding-bottom:1px;">
+          <button class="btn-primary" onclick="saveExpiry()">Сохранить</button>
+          <button class="btn-secondary" onclick="clearExpiry()">Без срока</button>
         </div>
-      </div>
-    </div>
-
-    <!-- Registration link regen -->
-    <div class="card" style="max-width:100%;margin-bottom:20px;">
-      <h3 style="font-size:14px;font-weight:600;margin-bottom:14px;color:#546e7a;">Ссылка регистрации</h3>
-      <p style="font-size:13px;color:#546e7a;margin-bottom:14px;">После смены ссылки старая перестанет работать.</p>
-      <div id="regenError" class="error-msg hidden"></div>
-      <button class="btn-primary" onclick="regenRegToken()">Сгенерировать новую ссылку регистрации</button>
-    </div>
-
-    <!-- Registration expiry -->
-    <div class="card" style="max-width:100%;margin-bottom:20px;">
-      <h3 style="font-size:14px;font-weight:600;margin-bottom:14px;color:#546e7a;">Срок действия ссылки регистрации</h3>
-      <div class="form-group">
-        <label>Срок действия ссылки</label>
-        <input type="datetime-local" id="regExpiry" value="{{ reg_token_expires[:16] if reg_token_expires else '' }}" style="max-width:240px;">
       </div>
       <div id="expiryError" class="error-msg hidden"></div>
-      <div class="form-actions">
-        <button class="btn-primary" onclick="saveExpiry()">Сохранить срок</button>
-        <button class="btn-secondary" onclick="clearExpiry()">Без срока</button>
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+        <div id="regenError" class="error-msg hidden" style="margin:0;flex:1;"></div>
+        <button class="btn-secondary" onclick="regenRegToken()">🔄 Сгенерировать новую ссылку</button>
+      </div>
+    </div>
+
+    <!-- PIN-коды -->
+    <div class="card" style="max-width:100%;margin-bottom:12px;">
+      <h3 style="font-size:13px;font-weight:600;margin-bottom:10px;color:#546e7a;">PIN-коды</h3>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:160px;">
+          <label style="font-size:13px;font-weight:500;color:#546e7a;display:block;margin-bottom:5px;">PIN регистрации (4 цифры)</label>
+          <input type="text" id="newRegPin" maxlength="4" pattern="\d{4}" placeholder="Новый PIN" style="max-width:160px;width:100%;">
+          <div id="regPinError" class="error-msg hidden"></div>
+          <button class="btn-primary" style="margin-top:7px;" onclick="saveRegPin()">Сохранить</button>
+        </div>
+        <div style="flex:1;min-width:160px;">
+          <label style="font-size:13px;font-weight:500;color:#546e7a;display:block;margin-bottom:5px;">PIN киоска (4 цифры)</label>
+          <input type="text" id="newKioskPin" maxlength="4" pattern="\d{4}" placeholder="Новый PIN" style="max-width:160px;width:100%;">
+          <div id="kioskPinError" class="error-msg hidden"></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;">
+            <button class="btn-primary" onclick="saveKioskPin()">Сохранить</button>
+            <a href="/org/devices" class="btn-secondary" style="display:inline-flex;align-items:center;gap:5px;text-decoration:none;">🖥 Устройства</a>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Display name -->
-    <div class="card" style="max-width:100%;margin-bottom:20px;">
-      <h3 style="font-size:14px;font-weight:600;margin-bottom:14px;color:#546e7a;">Название на киоске</h3>
-      <div class="form-group">
-        <label>Название на киоске</label>
-        <input type="text" id="displayName" value="{{ kiosk_display_name }}" placeholder="{{ org_name }}">
+    <div class="card" style="max-width:100%;margin-bottom:0;">
+      <h3 style="font-size:13px;font-weight:600;margin-bottom:10px;color:#546e7a;">Название на киоске</h3>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="displayName" value="{{ kiosk_display_name }}" placeholder="{{ org_name }}" style="flex:1;">
+        <button class="btn-primary" onclick="saveDisplayName()">Сохранить</button>
       </div>
       <div id="displayNameError" class="error-msg hidden"></div>
-      <div class="form-actions">
-        <button class="btn-primary" onclick="saveDisplayName()">Сохранить название</button>
-      </div>
     </div>
   </div>
 </div>
@@ -524,6 +512,13 @@ function renderEmployees() {
     const deptOptions = allDepts.map(d =>
       `<option value="${d.id}" ${d.id === emp.dept_id ? 'selected' : ''}>${escapeHtml(d.name)}</option>`
     ).join('');
+    const faceCount = emp.face_count || 0;
+    const faceStatus = faceCount === 0
+      ? `<span style="color:#E65100;font-size:12px;">⏳ Ожидает регистрации лица</span>`
+      : `<span style="color:#2E7D32;font-size:12px;">✓ Зарегистрирован (${faceCount} фото)</span>`;
+    const resetBtn = faceCount > 0
+      ? `<button onclick="resetFace('${emp.id}')" style="margin-left:6px;padding:3px 8px;background:#fff;border:1px solid #FFCC80;border-radius:6px;font-size:11px;color:#E65100;cursor:pointer;" title="Сбросить фото">🔄</button>`
+      : '';
     return `<tr>
       <td style="font-weight:500;">${escapeHtml(emp.name)}</td>
       <td>
@@ -532,12 +527,19 @@ function renderEmployees() {
         </select>
       </td>
       <td style="color:#546e7a;font-variant-numeric:tabular-nums;">${schedule}</td>
-      <td>
-        <span class="badge" style="background:#E8F5E9;color:#1B5E20;">Активен</span>
-      </td>
+      <td>${faceStatus}${resetBtn}</td>
     </tr>`;
   }).join('');
   updateStats();
+}
+
+async function resetFace(empId) {
+  if (!confirm('Удалить все фото лица и сбросить регистрацию сотрудника?')) return;
+  try {
+    const resp = await fetch(`/api/employees/${empId}/reset`, { method: 'POST' });
+    if (resp.ok) await loadEmployees();
+    else alert('Ошибка при сбросе.');
+  } catch (e) { alert('Ошибка соединения.'); }
 }
 
 async function reassignEmployee(empId, deptId) {
@@ -593,21 +595,6 @@ function copyUrl(inputId) {
 }
 
 // ─── Settings: PIN actions ────────────────────────────────────────────────────
-async function saveKioskPin() {
-  const pin = document.getElementById('newKioskPin').value.trim();
-  if (pin && (pin.length !== 4 || !/^\d{4}$/.test(pin))) {
-    const errEl = document.getElementById('kioskPinError');
-    errEl.textContent = 'PIN должен быть 4-значным числом.';
-    errEl.classList.remove('hidden');
-    return;
-  }
-  const result = await patchSettings({kiosk_pin: pin || null}, 'kioskPinError');
-  if (result) {
-    document.getElementById('newKioskPin').value = '';
-    alert('PIN киоска обновлён.');
-  }
-}
-
 async function saveRegPin() {
   const pin = document.getElementById('newRegPin').value.trim();
   if (pin && (pin.length !== 4 || !/^\d{4}$/.test(pin))) {
@@ -620,6 +607,21 @@ async function saveRegPin() {
   if (result) {
     document.getElementById('newRegPin').value = '';
     alert('PIN регистрации обновлён.');
+  }
+}
+
+async function saveKioskPin() {
+  const pin = document.getElementById('newKioskPin').value.trim();
+  if (pin && (pin.length !== 4 || !/^\d{4}$/.test(pin))) {
+    const errEl = document.getElementById('kioskPinError');
+    errEl.textContent = 'PIN должен быть 4-значным числом.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  const result = await patchSettings({kiosk_pin: pin || null}, 'kioskPinError');
+  if (result) {
+    document.getElementById('newKioskPin').value = '';
+    alert('PIN киоска обновлён.');
   }
 }
 

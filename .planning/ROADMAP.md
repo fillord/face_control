@@ -17,6 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 2: Org/Dept Data Model** - Org+dept structure, migration of existing employees, dashboards, and work schedules
 - [x] **Phase 3: T-13 Timesheet Grid** - Symbol engine, grid view, auto-derivation from check-in data, monthly totals (completed 2026-06-13)
 - [x] **Phase 4: Export & Employee Cabinet** - Excel/CSV export and employee self-service timesheet view (completed 2026-06-14)
+- [ ] **Phase 7: Org Admin UX Improvements** - Fix dept employee counter bug; add sortable tables; org_admin employee editing; Reports/Timesheet rendered inline; Kiosk Settings visual redesign
 
 ## Phase Details
 
@@ -172,6 +173,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 4. Export & Employee Cabinet | 3/3 | Complete   | 2026-06-14 |
 | 5. Token Kiosk, Reg & Russian UI | 5/5 | Complete | 2026-06-13 |
 | 6. SQLite Migration | 4/4 | Complete | 2026-06-13 |
+| 7. Org Admin UX Improvements | 0/5 | Pending | - |
 
 ### Phase 5: Token-based Kiosk, Registration & Russian UI
 
@@ -246,3 +248,42 @@ Plans:
 **Wave 3** *(blocked on Wave 2)*
 
 - [x] 06-04-PLAN.md — ORM rewrite of attendance/recognition/timesheet routes + migrate_to_sqlite.py + .gitignore + real-data migration smoke [checkpoint]
+
+### Phase 7: Org Admin UX Improvements
+
+**Goal:** Fix the department employee counter bug; add sortable columns to Employees and Users tabs; allow org_admin to edit employee profiles and work schedules inline; render Reports and Timesheet T-13 content inside the org_admin layout without page navigation; and modernize the visual design of the Kiosk Settings tab.
+**Mode:** mvp
+**Depends on:** Phase 6
+**Requirements**: ORGUX-01, ORGUX-02, ORGUX-03, ORGUX-04, ORGUX-05, ORGUX-06
+**Success Criteria** (what must be TRUE):
+
+  1. Each department row/card in the Departments tab shows the correct count of employees assigned to that department (not 0); count is derived from a live DB query at render time.
+  2. The Employees tab has sortable columns (by name, department, date added); clicking a header toggles ascending/descending and shows a sort arrow; sort is client-side with no page reload.
+  3. Org_admin can open an edit form for any employee in their org to modify name, department, position, and work schedule; changes persist to the database and are reflected immediately without full-page refresh.
+  4. The Users tab has sortable columns (by username, role); client-side sort with toggle arrow; no page reload.
+  5. Clicking "Reports" or "Timesheet T-13" in the org_admin navigation renders the relevant content inline within the org_admin page (fetched via fetch() and injected into a content panel); the browser URL does not change to /admin or /timesheet.
+  6. The Kiosk Settings tab has a modernized visual design: clear section grouping, improved spacing, modern card styling consistent with the rest of the app.
+
+**Plans**: 5 plans
+
+Plans:
+
+**Wave 1**
+
+- [ ] 07-01-PLAN.md — Fix dept employee counter race condition (sequential init() in org_admin.html)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 07-02-PLAN.md — Sortable Employees and Users table columns (client-side sort with toggle arrows)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 07-03-PLAN.md — Inline employee edit form + PATCH /api/employees/<id> expansion (name, role, scope gate)
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 07-04-PLAN.md — Inline Reports and Timesheet panels (partial routes + fetch() injection in org_admin)
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [ ] 07-05-PLAN.md — Kiosk Settings visual redesign (icon-headed cards, modern spacing)

@@ -1476,6 +1476,136 @@ def update_user(user_id):
         return jsonify({"error": "Internal server error"}), 500
     return jsonify({"status": "updated", "active": target.active})
 
+
+# ─── Page routes: Org admin inline partials ───────────────────────────────────
+
+@app.route("/org_admin/partial/reports")
+@require_role("org_admin", "superadmin")
+def org_admin_partial_reports():
+    """ORGUX-05: Return reports HTML fragment for inline injection into org_admin."""
+    user = User.query.get(session.get("user_id"))
+    username = user.username if user else ""
+    return render_template("reports_partial.html", username=username)
+
+
+@app.route("/org_admin/partial/timesheet")
+@require_role("org_admin", "superadmin")
+def org_admin_partial_timesheet():
+    """ORGUX-05: Return timesheet HTML fragment for inline injection into org_admin."""
+    user = User.query.get(session.get("user_id"))
+    username = user.username if user else ""
+    role = session.get("role")
+    session_org_id = session.get("org_id")
+
+    # Resolve month
+    month_str = request.args.get("month", datetime.now().strftime("%Y-%m"))
+    try:
+        year, month_num = map(int, month_str.split("-"))
+        if not (1 <= month_num <= 12 and 2000 <= year <= 2099):
+            raise ValueError
+    except (ValueError, AttributeError):
+        year, month_num = datetime.now().year, datetime.now().month
+        month_str = f"{year:04d}-{month_num:02d}"
+
+    # Resolve dept
+    dept_id_param = request.args.get("dept_id", "")
+    dept_options = []
+
+    if role == "org_admin":
+        if dept_id_param:
+            dept_obj = Department.query.get(dept_id_param)
+            if not dept_obj or dept_obj.org_id != session_org_id:
+                return jsonify({"error": "forbidden"}), 403
+            dept_id = dept_id_param
+        else:
+            first_dept = Department.query.filter_by(org_id=session_org_id).first()
+            dept_id = first_dept.id if first_dept else None
+        dept_options = [
+            {"id": d.id, "name": d.name}
+            for d in Department.query.filter_by(org_id=session_org_id).all()
+        ]
+    else:  # superadmin
+        dept_id = dept_id_param or None
+        for org_obj in Organization.query.all():
+            org_depts = [
+                {"id": d.id, "name": d.name, "org_name": org_obj.name}
+                for d in Department.query.filter_by(org_id=org_obj.id).all()
+            ]
+            if org_depts:
+                dept_options.append({"org_id": org_obj.id, "org_name": org_obj.name, "depts": org_depts})
+
+    # Resolve dept name
+    if dept_id:
+        dept_obj = Department.query.get(dept_id)
+        dept_name = dept_obj.name if dept_obj else ""
+    else:
+        dept_name = ""
+
+    # Build days list
+    _, num_days = calendar.monthrange(year, month_num)
+    days = [date(year, month_num, 1) + timedelta(days=i) for i in range(num_days)]
+
+    # Load data via ORM
+    employees = {e.id: _emp_to_dict(e) for e in Employee.query.all()}
+    start_str = f"{year:04d}-{month_num:02d}-01"
+    _, _nd = calendar.monthrange(year, month_num)
+    end_str = f"{year:04d}-{month_num:02d}-{_nd:02d}"
+    _att_recs = AttendanceRecord.query.filter(
+        AttendanceRecord.date >= start_str,
+        AttendanceRecord.date <= end_str,
+    ).all()
+    attendance = {}
+    for r in _att_recs:
+        attendance.setdefault(r.date, {})[r.emp_id] = {
+            "check_in": r.check_in_time,
+            "check_out": r.check_out_time,
+        }
+    _ov_recs = TimesheetOverride.query.all()
+    overrides = {}
+    for r in _ov_recs:
+        overrides.setdefault(r.emp_id, {})[r.date] = r.symbol
+    holidays_set = get_holidays_set(year)
+    missing_holiday_year = is_holiday_year_missing(year)
+
+    # Filter to dept scope
+    if dept_id:
+        scoped_employees = {eid: e for eid, e in employees.items() if e.get("dept_id") == dept_id}
+    else:
+        scoped_employees = {}
+
+    # Build grid rows
+    grid_rows = []
+    for emp_id_key, emp in scoped_employees.items():
+        schedule = emp.get("schedule", {"start": "09:00", "end": "18:00", "work_days": [1, 2, 3, 4, 5]})
+        cells = []
+        for d in days:
+            sym = compute_symbol(d, emp_id_key, attendance, overrides, schedule, holidays_set)
+            auto = compute_symbol(d, emp_id_key, attendance, {}, schedule, holidays_set)
+            cells.append({"sym": sym, "auto": auto, "date": d.isoformat()})
+        symbols = [c["sym"] for c in cells]
+        totals = compute_employee_totals(symbols, schedule)
+        grid_rows.append((emp_id_key, emp.get("name", emp_id_key), cells, totals))
+
+    month_name = MONTHS_RU.get(month_num, "")
+    return render_template(
+        "timesheet_partial.html",
+        username=username,
+        role=role,
+        dept_id=dept_id or "",
+        dept_name=dept_name,
+        dept_options=dept_options,
+        month_str=month_str,
+        year=year,
+        month_num=month_num,
+        month_name=month_name,
+        days=days,
+        grid_rows=grid_rows,
+        holidays_set=holidays_set,
+        missing_holiday_year=missing_holiday_year,
+        can_edit=(role in ("dept_admin", "org_admin", "superadmin")),
+    )
+
+
 # ─── API: Orgs ────────────────────────────────────────────────────────────────
 
 @app.route("/api/orgs", methods=["GET"])

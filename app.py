@@ -1811,10 +1811,14 @@ def update_employee_assignment(emp_id):
     if not emp:
         return jsonify({"error": "Сотрудник не найден"}), 404
 
+    # Scope gate: org_admin can only edit employees in their own org
+    if caller_role == "org_admin" and emp.org_id != caller_org_id:
+        return jsonify({"error": "forbidden"}), 403
+
     data = request.json or {}
 
-    # Whitelist: only dept_id (and org_id for superadmin); never touch label/face_count/name
-    allowed_keys = {"dept_id", "org_id"} if caller_role == "superadmin" else {"dept_id"}
+    # Whitelist: dept_id/org_id for superadmin; dept_id/name/role for org_admin
+    allowed_keys = {"dept_id", "org_id", "name", "role"} if caller_role == "superadmin" else {"dept_id", "name", "role"}
     update_data = {k: v for k, v in data.items() if k in allowed_keys}
 
     if "dept_id" in update_data:
@@ -1829,13 +1833,20 @@ def update_employee_assignment(emp_id):
         emp.dept_id = update_data["dept_id"]
     if "org_id" in update_data:
         emp.org_id = update_data["org_id"]
+    if "name" in update_data:
+        name = update_data["name"].strip()
+        if not name:
+            return jsonify({"error": "ФИО обязательно"}), 400
+        emp.name = name
+    if "role" in update_data:
+        emp.role = update_data["role"]
 
     try:
         db.session.commit()
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
-    return jsonify({"status": "updated"})
+    return jsonify({"status": "updated", "employee": _emp_to_dict(emp)})
 
 @app.route("/api/employees/<emp_id>", methods=["DELETE"])
 @require_role("superadmin", "org_admin", "dept_admin")

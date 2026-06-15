@@ -100,7 +100,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-14T02:50:59.702Z
+Last session: 2026-06-15T09:01:20.000Z
 Stopped at: Phase 04 UI-SPEC verified
 Resume file: .planning/phases/04-export-employee-cabinet/04-UI-SPEC.md
 
@@ -109,3 +109,4 @@ Resume file: .planning/phases/04-export-employee-cabinet/04-UI-SPEC.md
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 1 | Employee IIN field, Excel import, and user edit/delete CRUD | 2026-06-15 | 93c9e1f | [260615-q01](./quick/260615-q01-employee-iin-import-user-crud/) |
+| 2 | Add account settings page for all users (display name + password) | 2026-06-15 | 7c6f4a1 | [260615-jh4](./quick/260615-jh4-add-account-settings-page-for-all-users-/) |

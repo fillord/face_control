@@ -325,8 +325,8 @@ const ORG_ID = "{{ org_id }}";
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
-  await Promise.all([loadDepts(), loadEmployees()]);
-  updateStats();
+  await loadEmployees();
+  await loadDepts();
 }
 
 // ─── Tab switching ─────────────────────────────────────────────────────────────
@@ -554,9 +554,8 @@ async function reassignEmployee(empId, deptId) {
       alert(data.error || 'Ошибка при сохранении. Попробуйте ещё раз.');
       await loadEmployees();
     } else {
-      const emp = allEmployees.find(e => e.id === empId);
-      if (emp) emp.dept_id = deptId;
-      renderDepts();
+      await loadEmployees();
+      await loadDepts();
     }
   } catch (e) {
     alert('Ошибка при сохранении. Попробуйте ещё раз.');

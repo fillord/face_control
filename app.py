@@ -1060,6 +1060,44 @@ def profile_page():
                 error = "Internal server error"
     return render_template("profile.html", error=error, success=success)
 
+
+@app.route("/account")
+@require_role()
+def account_page():
+    user = User.query.get(session.get("user_id"))
+    username = user.username if user else ""
+    display_name = (user.display_name or "") if user else ""
+    return render_template("account.html", username=username, display_name=display_name)
+
+
+@app.route("/api/me", methods=["PATCH"])
+@require_role()
+def api_me():
+    user = User.query.get(session.get("user_id"))
+    if not user:
+        return jsonify({"error": "Не авторизовано"}), 401
+    data = request.get_json(silent=True) or {}
+    if "display_name" in data:
+        name = data["display_name"].strip()
+        if len(name) > 128:
+            return jsonify({"error": "Имя слишком длинное"}), 400
+        user.display_name = name or None
+    if "new_password" in data:
+        current_password = data.get("current_password", "")
+        new_password = data["new_password"]
+        if not bcrypt.checkpw(current_password.encode(), user.password_hash.encode()):
+            return jsonify({"error": "Текущий пароль введён неверно"}), 400
+        if len(new_password) < 8:
+            return jsonify({"error": "Пароль должен содержать не менее 8 символов"}), 400
+        user.password_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Internal server error"}), 500
+    return jsonify({"status": "updated", "display_name": user.display_name or ""})
+
+
 # ─── Page routes: T-13 Timesheet ──────────────────────────────────────────────
 
 @app.route("/timesheet")

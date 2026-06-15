@@ -38,6 +38,7 @@ class User(db.Model):
     org_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
     dept_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
     emp_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    display_name: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
 
 
 # ─── Employee ─────────────────────────────────────────────────────────────────

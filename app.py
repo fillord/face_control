@@ -2926,6 +2926,13 @@ with app.app_context():
             conn.commit()
     except sa_exc.OperationalError:
         pass  # Column already exists — safe to ignore
+    # Idempotent column migration: add display_name to existing user tables.
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(text("ALTER TABLE user ADD COLUMN display_name TEXT"))
+            conn.commit()
+    except sa_exc.OperationalError:
+        pass  # Column already exists — safe to ignore
     init_config()
     init_users()
 

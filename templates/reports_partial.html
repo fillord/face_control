@@ -231,10 +231,14 @@ function rToggleCreateForm() {
 }
 
 async function rLoadUsers() {
-  const resp = await fetch("/api/users");
-  if (!resp.ok) return;
-  const users = await resp.json();
   const tbody = document.getElementById("rUsersTableBody");
+  try {
+  const resp = await fetch("/api/users");
+  if (!resp.ok) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#c62828;padding:28px;">Ошибка загрузки пользователей.</td></tr>';
+    return;
+  }
+  const users = await resp.json();
   if (!users.length) {
     tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:28px;">
       <div style="font-size:15px;font-weight:600;color:#1a2340;margin-bottom:8px;">Пользователей пока нет</div>
@@ -257,6 +261,10 @@ async function rLoadUsers() {
       <td>${actionBtn}</td>
     </tr>`;
   }).join("");
+  } catch (e) {
+    console.error("rLoadUsers failed", e);
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#c62828;padding:28px;">Ошибка соединения.</td></tr>';
+  }
 }
 
 async function rCreateUser() {

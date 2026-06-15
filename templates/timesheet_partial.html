@@ -261,22 +261,25 @@ function tsOpenOverrideDropdown(cell) {
   _tsActiveCell = cell;
 }
 
-document.addEventListener('click', function(e) {
-  var dropdown = document.getElementById('ts-override-dropdown');
-  if (!dropdown) return;
-  if (!dropdown.classList.contains('hidden') && !dropdown.contains(e.target) && e.target !== _tsActiveCell) {
-    dropdown.classList.add('hidden');
-    _tsActiveCell = null;
-  }
-});
-
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
+if (!window._tsListenersRegistered) {
+  window._tsListenersRegistered = true;
+  document.addEventListener('click', function(e) {
     var dropdown = document.getElementById('ts-override-dropdown');
-    if (dropdown) dropdown.classList.add('hidden');
-    _tsActiveCell = null;
-  }
-});
+    if (!dropdown) return;
+    if (!dropdown.classList.contains('hidden') && !dropdown.contains(e.target) && e.target !== _tsActiveCell) {
+      dropdown.classList.add('hidden');
+      _tsActiveCell = null;
+    }
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      var dropdown = document.getElementById('ts-override-dropdown');
+      if (dropdown) dropdown.classList.add('hidden');
+      _tsActiveCell = null;
+    }
+  });
+}
 
 // ─── Symbol color/title maps ──────────────────────────────────────────────────
 var TS_SYM_BG = {
@@ -354,12 +357,16 @@ function tsShowToast(msg) {
 }
 
 // ─── Keyboard support for editable cells ──────────────────────────────────────
-document.addEventListener('keydown', function(e) {
-  if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('editable')) {
-    e.preventDefault();
-    tsOpenOverrideDropdown(e.target);
-  }
-});
+// Guard is already applied above; this block is inside the same _tsListenersRegistered check.
+if (!window._tsEditableKeyRegistered) {
+  window._tsEditableKeyRegistered = true;
+  document.addEventListener('keydown', function(e) {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('editable')) {
+      e.preventDefault();
+      tsOpenOverrideDropdown(e.target);
+    }
+  });
+}
 
 // ─── escHtml utility ──────────────────────────────────────────────────────────
 function tsEscHtml(str) {

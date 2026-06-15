@@ -173,7 +173,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 4. Export & Employee Cabinet | 3/3 | Complete   | 2026-06-14 |
 | 5. Token Kiosk, Reg & Russian UI | 5/5 | Complete | 2026-06-13 |
 | 6. SQLite Migration | 4/4 | Complete | 2026-06-13 |
-| 7. Org Admin UX Improvements | 0/5 | Pending | - |
+| 7. Org Admin UX Improvements | 1/5 | In Progress|  |
 
 ### Phase 5: Token-based Kiosk, Registration & Russian UI
 
@@ -270,7 +270,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 07-01-PLAN.md — Fix dept employee counter race condition (sequential init() in org_admin.html)
+- [x] 07-01-PLAN.md — Fix dept employee counter race condition (sequential init() in org_admin.html)
 
 **Wave 2** *(blocked on Wave 1)*
 

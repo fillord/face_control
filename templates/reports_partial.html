@@ -248,8 +248,8 @@ async function rLoadUsers() {
       ? '<span class="badge badge-present">Активен</span>'
       : '<span class="badge badge-absent">Деактивирован</span>';
     const actionBtn = u.active
-      ? `<button onclick="rDeactivateUser('${u.id}', '${u.username}')" style="padding:5px 12px;background:#fff;border:1px solid #EF9A9A;border-radius:6px;font-size:12px;font-weight:500;color:#B71C1C;cursor:pointer;">Деактивировать</button>`
-      : `<button onclick="rReactivateUser('${u.id}')" class="btn-export" style="padding:5px 12px;font-size:12px;">Активировать</button>`;
+      ? `<button data-uid="${rEscapeHtml(u.id)}" data-name="${rEscapeHtml(u.username)}" onclick="rDeactivateUser(this.dataset.uid, this.dataset.name)" style="padding:5px 12px;background:#fff;border:1px solid #EF9A9A;border-radius:6px;font-size:12px;font-weight:500;color:#B71C1C;cursor:pointer;">Деактивировать</button>`
+      : `<button data-uid="${rEscapeHtml(u.id)}" onclick="rReactivateUser(this.dataset.uid)" class="btn-export" style="padding:5px 12px;font-size:12px;">Активировать</button>`;
     return `<tr>
       <td style="font-weight:500;">${rEscapeHtml(u.username)}</td>
       <td style="color:#546e7a;">${rEscapeHtml(roleName)}</td>

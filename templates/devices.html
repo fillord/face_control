@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+{% block title %}Устройства киоска — {{ org_name }}{% endblock %}
+{% block head %}
+<style>
+.subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 24px; }
+.count-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; background: var(--accent-light); color: var(--accent); border-radius: 20px; font-size: 13px; font-weight: 600; margin-bottom: 20px; }
+.no-devices { text-align: center; padding: 48px 24px; color: #78909c; }
+.no-devices .nd-icon { font-size: 48px; margin-bottom: 12px; }
+.no-devices p { font-size: 14px; line-height: 1.6; }
+.device-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-bottom: 12px; display: flex; align-items: center; gap: 14px; box-shadow: var(--shadow-card); }
+.device-icon { font-size: 28px; flex-shrink: 0; }
+.device-info { flex: 1; min-width: 0; }
+.device-name { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 3px; }
+.device-name-input { font-size: 15px; font-weight: 600; color: var(--text-primary); border: 1.5px solid var(--accent); border-radius: 6px; padding: 3px 8px; outline: none; display: none; }
+.device-meta { font-size: 12px; color: #78909c; }
+.device-meta span + span::before { content: " · "; }
+.device-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.btn { padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; }
+.btn-rename { background: var(--accent-light); color: var(--accent); }
+.btn-rename:hover { background: #a5f3eb; }
+.btn-revoke { background: #FFEBEE; color: #c62828; }
+.btn-revoke:hover { background: #FFCDD2; }
+.btn-save   { background: var(--accent); color: #fff; display: none; }
+.btn-save:hover { background: var(--accent-hover); }
+.btn-cancel { background: var(--content-bg); color: var(--text-secondary); border: 1px solid var(--border); display: none; }
+.btn-cancel:hover { background: var(--border); }
+.no-pin-warn { background: #FFF9C4; border: 1px solid #F9A825; border-radius: 10px; padding: 14px 18px; font-size: 13px; color: #F57F17; margin-bottom: 20px; line-height: 1.6; }
+.toast-bar { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 500; display: none; z-index: 999; }
+.toast-bar.success { background: #1B5E20; color: #fff; display: block; }
+.toast-bar.error   { background: #B71C1C; color: #fff; display: block; }
+</style>
+{% endblock %}
+{% block content %}
+<h1 class="page-title">Устройства киоска</h1>
+
+<div class="page" style="max-width:720px;">
+  <p class="subtitle">Управляйте устройствами, авторизованными для распознавания лиц.</p>
+
+  {% if not has_kiosk_pin %}
+  <div class="no-pin-warn">
+    ⚠ PIN киоска не настроен. Без PIN новые устройства не смогут зарегистрироваться.
+    Задайте PIN в разделе <a href="/org_admin#settings" style="color:#F57F17;">Настройки</a>.
+  </div>
+  {% endif %}
+
+  <div class="count-chip" id="countChip">🖥 Загрузка...</div>
+
+  <div id="deviceList">
+    {% for d in devices %}
+    <div class="device-card" id="dc-{{ d.id }}">
+      <div class="device-icon">🖥</div>
+      <div class="device-info">
+        <div class="device-name" id="dn-{{ d.id }}">{{ d.device_name }}</div>
+        <input class="device-name-input" id="di-{{ d.id }}" value="{{ d.device_name }}" maxlength="60">
+        <div class="device-meta">
+          <span>Зарегистрировано: {{ d.created_at[:16].replace('T',' ') if d.created_at else '—' }}</span>
+          <span>Последний визит: {{ d.last_seen_at[:16].replace('T',' ') if d.last_seen_at else 'ещё не использовалось' }}</span>
+        </div>
+      </div>
+      <div class="device-actions">
+        <button class="btn btn-rename" onclick="startRename('{{ d.id }}')">Переименовать</button>
+        <button class="btn btn-save"   onclick="saveRename('{{ d.id }}', '{{ org_token }}')" id="save-{{ d.id }}">Сохранить</button>
+        <button class="btn btn-cancel" onclick="cancelRename('{{ d.id }}')" id="cancel-{{ d.id }}">Отмена</button>
+        <button class="btn btn-revoke" onclick="revokeDevice('{{ d.id }}', '{{ org_token }}')">Отозвать</button>
+      </div>
+    </div>
+    {% endfor %}
+
+    {% if not devices %}
+    <div class="no-devices">
+      <div class="nd-icon">🖥</div>
+      <p>Нет зарегистрированных устройств.<br>
+      Откройте киоск <code>/kiosk/{{ org_token }}</code> на нужном устройстве и введите PIN.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="toast-bar" id="toast"></div>
+
+<script>
+const ORG_TOKEN = "{{ org_token }}";
+
+document.getElementById('countChip').textContent =
+  '🖥 Зарегистрировано устройств: {{ devices|length }}';
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast-bar ' + type;
+  setTimeout(() => { t.className = 'toast-bar'; }, 3000);
+}
+
+function startRename(id) {
+  document.getElementById('dn-' + id).style.display = 'none';
+  document.getElementById('di-' + id).style.display = 'inline-block';
+  document.getElementById('save-' + id).style.display = 'inline-block';
+  document.getElementById('cancel-' + id).style.display = 'inline-block';
+  const card = document.getElementById('dc-' + id);
+  card.querySelector('.btn-rename').style.display = 'none';
+  card.querySelector('.btn-revoke').style.display = 'none';
+  document.getElementById('di-' + id).focus();
+}
+
+function cancelRename(id) {
+  document.getElementById('dn-' + id).style.display = '';
+  document.getElementById('di-' + id).style.display = 'none';
+  document.getElementById('save-' + id).style.display = 'none';
+  document.getElementById('cancel-' + id).style.display = 'none';
+  const card = document.getElementById('dc-' + id);
+  card.querySelector('.btn-rename').style.display = '';
+  card.querySelector('.btn-revoke').style.display = '';
+}
+
+async function saveRename(id, orgToken) {
+  const name = document.getElementById('di-' + id).value.trim();
+  if (!name) { showToast('Название не может быть пустым', 'error'); return; }
+  try {
+    const resp = await fetch(`/api/kiosk/${orgToken}/devices/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_name: name })
+    });
+    if (resp.ok) {
+      document.getElementById('dn-' + id).textContent = name;
+      cancelRename(id);
+      showToast('Название обновлено', 'success');
+    } else {
+      const d = await resp.json();
+      showToast(d.error || 'Ошибка', 'error');
+    }
+  } catch(e) { showToast('Ошибка соединения', 'error'); }
+}
+
+async function revokeDevice(id, orgToken) {
+  if (!confirm('Отозвать это устройство? Оно должно будет пройти регистрацию заново.')) return;
+  try {
+    const resp = await fetch(`/api/kiosk/${orgToken}/devices/${id}`, { method: 'DELETE' });
+    if (resp.ok) {
+      const card = document.getElementById('dc-' + id);
+      card.style.transition = 'opacity 0.3s';
+      card.style.opacity = '0';
+      setTimeout(() => {
+        card.remove();
+        const remaining = document.querySelectorAll('.device-card').length;
+        document.getElementById('countChip').textContent = '🖥 Зарегистрировано устройств: ' + remaining;
+      }, 300);
+      showToast('Устройство отозвано', 'success');
+    } else {
+      const d = await resp.json();
+      showToast(d.error || 'Ошибка', 'error');
+    }
+  } catch(e) { showToast('Ошибка соединения', 'error'); }
+}
+</script>
+{% endblock %}

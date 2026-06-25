@@ -293,7 +293,7 @@ Plans:
 **Goal:** Every authenticated page renders inside a single shared `base.html` shell: a dark fixed sidebar with role-aware navigation (replacing horizontal nav-tabs), a teal accent palette replacing the old blue, Inter font, and a responsive hamburger on small screens. The kiosk and login pages stay standalone.
 **Requirements**: D-01..D-16 (design decisions from 08-CONTEXT.md)
 **Depends on:** Phase 7
-**Plans:** 1/6 plans executed
+**Plans:** 2/6 plans executed
 
 Plans:
 
@@ -303,7 +303,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 — parallel, no file overlap)*
 
-- [ ] 08-02-PLAN.md — Convert superadmin.html (pilot tabbed page) to extend base.html
+- [x] 08-02-PLAN.md — Convert superadmin.html (pilot tabbed page) to extend base.html
 - [ ] 08-03-PLAN.md — Convert org_admin.html + dept_admin.html to extend base.html
 - [ ] 08-04-PLAN.md — Convert admin.html + employee.html + dashboard.html to extend base.html
 

@@ -1,79 +1,44 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Табель Т-13 — МедКонтроль</title>
+{% extends 'base.html' %}
+{% block title %}Табель Т-13 — {{ month_str }}{% endblock %}
+{% block head %}
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f6fb; color: #1a2340; min-height: 100vh; }
-header { background: #fff; border-bottom: 1px solid #e2e6f0; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
-.logo { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
-.logo-icon { width: 34px; height: 34px; background: #1565C0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
-.header-right { display: flex; align-items: center; gap: 12px; }
-.user-badge { font-size: 13px; color: #546e7a; }
-.btn-logout { padding: 7px 14px; background: #fff; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; color: #546e7a; cursor: pointer; text-decoration: none; transition: all 0.15s; }
-.btn-logout:hover { background: #ffebee; color: #c62828; border-color: #ef9a9a; }
-.page { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
-.selector-bar { background: #fff; border: 1px solid #e2e6f0; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.selector-bar { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
 .form-group { display: flex; flex-direction: column; gap: 4px; }
-.form-group label { font-size: 11px; font-weight: 600; color: #546e7a; text-transform: uppercase; letter-spacing: 0.05em; }
+.form-group label { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
 .form-group input[type="month"],
-.form-group select { padding: 8px 12px; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 13px; color: #1a2340; outline: none; font-family: inherit; background: #fff; }
+.form-group select { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text-primary); outline: none; font-family: inherit; background: var(--card-bg); }
 .form-group input[type="month"]:focus,
-.form-group select:focus { border-color: #1565C0; outline: 2px solid #1565C0; }
-.btn-primary { padding: 8px 16px; background: #1565C0; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s; height: 36px; }
-.btn-primary:hover { background: #0d47a1; }
-.btn-secondary { padding: 8px 16px; background: #fff; border: 1px solid #cfd8dc; border-radius: 8px; color: #546e7a; font-size: 13px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; height: 36px; }
-.btn-secondary:hover { background: #f4f6fb; }
-.table-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; overflow-x: auto; margin-bottom: 20px; }
+.form-group select:focus { border-color: var(--accent); outline: 2px solid rgba(13,148,136,0.15); }
+.btn-primary { height: 36px; }
+.btn-secondary { display: inline-flex; align-items: center; height: 36px; text-decoration: none; }
+.table-card { overflow-x: auto; }
 .holiday-banner { background: #FFFDE7; border-bottom: 1px solid #F9A825; border-radius: 0; padding: 12px 16px; font-size: 13px; color: #5D4037; }
 table { border-collapse: collapse; min-width: max-content; table-layout: fixed; }
 thead { background: #f8fafd; }
-thead th { padding: 4px; font-size: 11px; font-weight: 600; color: #546e7a; text-align: center; border-bottom: 1px solid #e2e6f0; white-space: nowrap; }
+thead th { padding: 4px; font-size: 11px; font-weight: 600; color: var(--text-secondary); text-align: center; border-bottom: 1px solid var(--border); white-space: nowrap; }
 thead th.emp-col { text-align: left; padding: 4px 12px; width: 180px; min-width: 180px; text-transform: uppercase; letter-spacing: 0.05em; }
 thead th.day-col { width: 32px; min-width: 32px; }
 thead th.total-col { width: 60px; min-width: 60px; text-transform: uppercase; letter-spacing: 0.05em; }
 thead th.weekend { color: #9E9E9E; }
 tbody td { padding: 4px; font-size: 13px; border-bottom: 1px solid #f0f3f8; text-align: center; vertical-align: middle; }
-tbody td.emp-name { text-align: left; padding: 8px 12px; font-size: 13px; font-weight: 500; color: #1a2340; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+tbody td.emp-name { text-align: left; padding: 8px 12px; font-size: 13px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
 tbody td.sym-cell { font-weight: 600; font-size: 13px; cursor: default; font-variant-numeric: tabular-nums; }
 tbody td.sym-cell.editable { cursor: pointer; }
-tbody td.sym-cell.editable:hover { outline: 2px solid #1565C0; }
+tbody td.sym-cell.editable:hover { outline: 2px solid var(--accent); }
 tbody td.sym-ou { font-size: 11px; font-weight: 600; }
 tbody tr:last-child td { border-bottom: none; }
-.totals-row td { background: #f8fafd; font-size: 13px; font-weight: 600; color: #1565C0; border-top: 2px solid #e2e6f0; }
-.totals-row td.label { color: #546e7a; text-align: left; padding: 8px 12px; }
-.empty-state { padding: 28px; text-align: center; font-size: 13px; color: #90a4ae; }
-.page-title { font-size: 18px; font-weight: 600; color: #1a2340; margin-bottom: 16px; }
-/* Override dropdown */
-#override-dropdown { position: absolute; background: #fff; border: 1px solid #e2e6f0; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); padding: 4px; z-index: 100; min-width: 180px; }
-#override-dropdown button { display: block; width: 100%; text-align: left; padding: 8px 12px; font-size: 13px; border: none; background: none; cursor: pointer; border-radius: 8px; font-family: inherit; color: #1a2340; }
-#override-dropdown button:hover { background: #f4f6fb; }
-#override-dropdown button.restore { color: #546e7a; border-top: 1px solid #f0f3f8; margin-top: 4px; }
-/* Error toast */
+.totals-row td { background: #f8fafd; font-size: 13px; font-weight: 600; color: var(--accent); border-top: 2px solid var(--border); }
+.totals-row td.label { color: var(--text-secondary); text-align: left; padding: 8px 12px; }
+.empty-state { padding: 28px; text-align: center; font-size: 13px; color: var(--text-muted); }
+#override-dropdown { position: absolute; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); padding: 4px; z-index: 100; min-width: 180px; }
+#override-dropdown button { display: block; width: 100%; text-align: left; padding: 8px 12px; font-size: 13px; border: none; background: none; cursor: pointer; border-radius: 8px; font-family: inherit; color: var(--text-primary); }
+#override-dropdown button:hover { background: var(--content-bg); }
+#override-dropdown button.restore { color: var(--text-secondary); border-top: 1px solid #f0f3f8; margin-top: 4px; }
 #error-toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: #FFEBEE; border: 1px solid #EF9A9A; border-radius: 8px; padding: 10px 16px; font-size: 13px; color: #C62828; z-index: 200; display: none; }
-.hidden { display: none; }
 </style>
-</head>
-<body>
-<header>
-  <div class="logo"><div class="logo-icon">🏥</div> МедКонтроль{% if dept_name %} — {{ dept_name }}{% endif %}</div>
-  <div class="header-right">
-    <span class="user-badge">{{ username }}</span>
-    {% if session.role == 'org_admin' %}
-    <a href="/org_admin" class="btn-logout" style="border-color:#cfd8dc;color:#546e7a;">← Управление</a>
-    {% elif session.role in ['dept_admin', 'viewer'] %}
-    <a href="/dept_admin" class="btn-logout" style="border-color:#cfd8dc;color:#546e7a;">← Панель</a>
-    {% else %}
-    <a href="/" class="btn-logout" style="border-color:#cfd8dc;color:#546e7a;">← Киоск</a>
-    {% endif %}
-    <a href="/logout" class="btn-logout">Выйти</a>
-  </div>
-</header>
-
-<div class="page">
-  <h1 class="page-title">Табель Т-13</h1>
+{% endblock %}
+{% block content %}
+<h1 class="page-title">Табель Т-13 — {{ month_str }}</h1>
 
   <!-- ─── Selector bar ──────────────────────────────────────────────── -->
   <form method="GET" action="/timesheet" class="selector-bar">
@@ -157,7 +122,7 @@ tbody tr:last-child td { border-bottom: none; }
       "В": "#9E9E9E",
       "НН": "#90A4AE",
       "П": "#C62828",
-      "Б": "#1565C0",
+      "Б": "var(--accent)",
       "К": "#6A1B9A"
     } %}
     <table>
@@ -208,11 +173,11 @@ tbody tr:last-child td { border-bottom: none; }
               {% if can_edit and sym != 'В' %}tabindex="0" onclick="openOverrideDropdown(this)"{% endif %}>{{ sym }}</td>
           {% endif %}
           {% endfor %}
-          <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.days_worked }}</td>
-          <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.hours_worked }}</td>
-          <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.absences }}</td>
-          <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.late }}</td>
-          <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.vac_sick }}</td>
+          <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.days_worked }}</td>
+          <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.hours_worked }}</td>
+          <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.absences }}</td>
+          <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.late }}</td>
+          <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.vac_sick }}</td>
         </tr>
         {% endfor %}
         <!-- Totals row -->
@@ -231,7 +196,6 @@ tbody tr:last-child td { border-bottom: none; }
     </table>
     {% endif %}
   </div>
-</div>
 
 {% if can_edit %}
 <!-- Override dropdown (only rendered for editors: dept_admin / org_admin / superadmin) -->
@@ -281,7 +245,7 @@ var SYM_BG = {
 };
 var SYM_FG = {
   'Я': '#1B5E20', 'О': '#BF360C', 'У': '#F57F17', 'ОУ': '#BF360C',
-  'В': '#9E9E9E', 'НН': '#90A4AE', 'П': '#C62828', 'Б': '#1565C0', 'К': '#6A1B9A'
+  'В': '#9E9E9E', 'НН': '#90A4AE', 'П': '#C62828', 'Б': '#0d9488', 'К': '#6A1B9A'
 };
 var SYM_TITLES = {
   'Я': 'Я — явка', 'О': 'О — опоздание', 'У': 'У — ранний уход',
@@ -369,5 +333,4 @@ function escHtml(str) {
     .replace(/"/g, '&quot;');
 }
 </script>
-</body>
-</html>
+{% endblock %}

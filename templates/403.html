@@ -1,43 +1,22 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Доступ запрещён — МедКонтроль</title>
+{% extends 'base.html' %}
+{% block title %}Доступ запрещён — МедКонтроль{% endblock %}
+{% block head %}
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f6fb; color: #1a2340; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-.login-wrap { width: 100%; max-width: 400px; padding: 24px; }
-.logo { display: flex; align-items: center; gap: 12px; justify-content: center; margin-bottom: 32px; }
-.logo-icon { width: 48px; height: 48px; background: #1565C0; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 26px; }
-.logo-text { font-size: 20px; font-weight: 700; color: #1a2340; }
-.logo-sub { font-size: 13px; color: #78909c; }
-.card { background: #fff; border: 1px solid #e2e6f0; border-radius: 16px; padding: 32px; box-shadow: 0 4px 24px rgba(21,101,192,0.07); }
-h2 { font-size: 18px; font-weight: 600; margin-bottom: 6px; color: #1a2340; }
+h2 { font-size: 18px; font-weight: 600; margin-bottom: 6px; color: var(--text-primary); }
 .sub { font-size: 13px; color: #78909c; margin-bottom: 24px; }
-.btn { display: block; width: 100%; padding: 12px; background: #1565C0; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; transition: background 0.15s; margin-top: 8px; text-align: center; text-decoration: none; }
-.btn:hover { background: #0d47a1; }
+.card { border-radius: 16px; padding: 32px; box-shadow: 0 4px 24px rgba(13,148,136,0.07); }
 </style>
-</head>
-<body>
-<div class="login-wrap">
-  <div class="logo">
-    <div class="logo-icon">🏥</div>
-    <div>
-      <div class="logo-text">МедКонтроль</div>
-      <div class="logo-sub">Система учёта рабочего времени</div>
-    </div>
-  </div>
-
+{% endblock %}
+{% block content %}
+<div class="page" style="max-width:480px;padding-top:48px;">
   <div class="card">
     <h2>403 — Доступ запрещён</h2>
     <p class="sub">У вас нет прав для просмотра этой страницы.</p>
     {% if session.role in ['viewer', 'employee'] %}
-    <a href="{{ url_for('dashboard_page') }}" class="btn">← Вернуться к панели</a>
+    <a href="{{ url_for('dashboard_page') }}" class="btn-primary">← Вернуться к панели</a>
     {% else %}
-    <a href="{{ url_for('admin_page') }}" class="btn">← Вернуться к панели</a>
+    <a href="{{ url_for('admin_page') }}" class="btn-primary">← Вернуться к панели</a>
     {% endif %}
   </div>
 </div>
-</body>
-</html>
+{% endblock %}

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}МедКонтроль{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --sidebar-bg:          #0f172a;
+  --sidebar-hover:       #1e293b;
+  --sidebar-text:        #94a3b8;
+  --sidebar-text-active: #f1f5f9;
+  --sidebar-accent:      #0d9488;
+  --sidebar-border:      #1e293b;
+  --sidebar-width:       256px;
+  --content-bg:          #f8fafc;
+  --card-bg:             #ffffff;
+  --border:              #e2e8f0;
+  --text-primary:        #0f172a;
+  --text-secondary:      #64748b;
+  --text-muted:          #94a3b8;
+  --accent:              #0d9488;
+  --accent-hover:        #0f766e;
+  --accent-alt:          #0891b2;
+  --accent-light:        #ccfbf1;
+  --accent-text:         #0f766e;
+  --green-bg:  #dcfce7; --green-text:  #15803d;
+  --orange-bg: #fff7ed; --orange-text: #c2410c;
+  --red-bg:    #fef2f2; --red-text:    #dc2626;
+  --gray-bg:   #f8fafc; --gray-text:   #64748b;
+  --radius-card: 12px;
+  --radius-btn:  8px;
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+}
+
+body { font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; background: var(--content-bg); color: var(--text-primary); min-height: 100vh; }
+
+/* ─── Layout ──────────────────────────────────────── */
+.layout { display: flex; min-height: 100vh; }
+
+/* ─── Sidebar ─────────────────────────────────────── */
+.sidebar {
+  position: fixed; top: 0; left: 0;
+  width: var(--sidebar-width); height: 100vh;
+  background: var(--sidebar-bg);
+  overflow-y: auto; overflow-x: hidden;
+  display: flex; flex-direction: column;
+  z-index: 200; transition: transform 0.25s ease;
+}
+.sidebar-logo { padding: 20px 16px 16px; border-bottom: 1px solid var(--sidebar-border); }
+.nav-section { flex: 1; padding: 12px 8px; overflow-y: auto; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 8px;
+  font-size: 14px; font-weight: 500;
+  color: var(--sidebar-text); text-decoration: none;
+  transition: background 0.15s, color 0.15s; margin-bottom: 2px;
+}
+.nav-item:hover { background: var(--sidebar-hover); color: var(--sidebar-text-active); }
+.nav-item.active { background: var(--sidebar-accent); color: #fff; }
+.nav-icon { width: 20px; text-align: center; flex-shrink: 0; font-size: 16px; }
+.sidebar-footer { padding: 16px; border-top: 1px solid var(--sidebar-border); }
+.sidebar-user-name { font-size: 14px; font-weight: 600; color: var(--sidebar-text-active); }
+.sidebar-user-role { font-size: 12px; color: var(--sidebar-text); margin-bottom: 10px; }
+
+/* ─── Content area ────────────────────────────────── */
+.content { margin-left: var(--sidebar-width); flex: 1; min-height: 100vh; padding: 24px 28px; background: var(--content-bg); }
+.page { max-width: 1200px; margin: 0 auto; }
+.page-title { font-size: 22px; font-weight: 600; color: var(--text-primary); margin-bottom: 20px; }
+.hamburger { display: none; background: none; border: none; font-size: 22px; cursor: pointer; padding: 8px; color: var(--text-primary); margin-bottom: 16px; }
+
+/* ─── Mobile ──────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(calc(-1 * var(--sidebar-width))); }
+  .sidebar.open { transform: translateX(0); }
+  .content { margin-left: 0; padding: 16px; }
+  .hamburger { display: block; }
+  .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 199; }
+  .sidebar-overlay.visible { display: block; }
+}
+
+/* ─── stat-card ───────────────────────────────────── */
+.stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 16px 18px; box-shadow: var(--shadow-card); }
+.stat-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-val { font-size: 26px; font-weight: 600; }
+.stat-val.teal   { color: var(--accent); }
+.stat-val.green  { color: var(--green-text); }
+.stat-val.orange { color: var(--orange-text); }
+.stat-val.gray   { color: var(--text-secondary); }
+.stat-val.blue   { color: var(--accent); }
+
+/* ─── table-card ──────────────────────────────────── */
+.table-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 20px; }
+table { width: 100%; border-collapse: collapse; }
+thead { background: #f8fafd; }
+th { padding: 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 12px; font-size: 13px; border-bottom: 1px solid #f0f3f8; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+
+/* ─── buttons ─────────────────────────────────────── */
+.btn-primary { padding: 8px 16px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-btn); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.15s; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-secondary { padding: 8px 16px; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-btn); font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text-secondary); font-family: inherit; }
+.btn-edit   { padding: 6px 12px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+.btn-edit:hover { background: var(--content-bg); }
+.btn-delete { padding: 6px 12px; background: var(--card-bg); border: 1px solid #ef9a9a; border-radius: 6px; font-size: 12px; color: #c62828; cursor: pointer; }
+.btn-delete:hover { background: var(--red-bg); }
+
+/* ─── form inputs ─────────────────────────────────── */
+.form-group { margin-bottom: 16px; }
+.form-group label { font-size: 13px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 6px; }
+.form-group input, .form-group textarea, .form-group select { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-btn); font-size: 13px; color: var(--text-primary); outline: none; font-family: inherit; background: var(--card-bg); }
+.form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color: var(--accent); outline: 2px solid rgba(13,148,136,0.15); }
+input[type=date]:focus, select:focus, input[type=text]:focus { border-color: var(--accent); outline: 2px solid rgba(13,148,136,0.15); }
+
+/* ─── card ────────────────────────────────────────── */
+.card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 24px; margin-bottom: 20px; }
+
+/* ─── badges ──────────────────────────────────────── */
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 14px; font-size: 11px; font-weight: 600; }
+.badge-present { background: var(--green-bg);  color: var(--green-text); }
+.badge-partial  { background: var(--orange-bg); color: var(--orange-text); }
+.badge-absent   { background: var(--gray-bg);   color: var(--gray-text); border: 1px solid var(--border); }
+.badge-late     { background: var(--orange-bg); color: #BF360C; border: 1px solid #FFCC80; }
+.badge-early    { background: var(--accent-light); color: var(--accent-text); border: 1px solid #a5f3eb; }
+.badge-role-superadmin { background: #ede9fe; color: #5b21b6; }
+.badge-role-org-admin  { background: var(--accent-light); color: var(--accent-text); }
+
+/* ─── misc shared ─────────────────────────────────── */
+.hidden  { display: none; }
+.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.toolbar label { font-size: 13px; font-weight: 500; color: var(--text-secondary); white-space: nowrap; }
+.error-msg  { font-size: 13px; color: #c62828; margin-top: 8px; }
+.form-actions { display: flex; gap: 10px; margin-top: 8px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+@media (max-width: 700px) { .stats-grid { grid-template-columns: 1fr 1fr; } }
+</style>
+{% block head %}{% endblock %}
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <span style="font-size:20px;">🏥</span>
+      <span style="font-size:15px;font-weight:600;color:var(--sidebar-text-active);margin-left:8px;">МедКонтроль</span>
+    </div>
+    <nav class="nav-section">
+{% if session.role == 'superadmin' %}
+      <a href="/superadmin" class="nav-item {% if request.path == '/superadmin' %}active{% endif %}" onclick="if(window.location.pathname==='/superadmin'){switchTab('orgs');return false;}">
+        <span class="nav-icon">⊞</span> Организации
+      </a>
+      <a href="/superadmin" class="nav-item" onclick="switchTab('users');return false;">
+        <span class="nav-icon">👥</span> Пользователи
+      </a>
+      <a href="/register" class="nav-item {% if request.path == '/register' %}active{% endif %}">
+        <span class="nav-icon">➕</span> Регистрация
+      </a>
+      <a href="/audit" class="nav-item {% if request.path == '/audit' %}active{% endif %}">
+        <span class="nav-icon">📋</span> Аудит
+      </a>
+      <a href="/timesheet" class="nav-item {% if request.path == '/timesheet' %}active{% endif %}">
+        <span class="nav-icon">📅</span> Табель Т-13
+      </a>
+
+{% elif session.role == 'org_admin' %}
+      <a href="/org_admin" class="nav-item {% if request.path == '/org_admin' %}active{% endif %}">
+        <span class="nav-icon">⊞</span> Отделы
+      </a>
+      <a href="/org_admin" class="nav-item" onclick="switchTab('employees');return false;">
+        <span class="nav-icon">👥</span> Сотрудники
+      </a>
+      <a href="/org_admin" class="nav-item" onclick="switchTab('summary');return false;">
+        <span class="nav-icon">📊</span> Сводка
+      </a>
+      <a href="/org_admin" class="nav-item" onclick="switchTab('reports');return false;">
+        <span class="nav-icon">📈</span> Отчёты
+      </a>
+      <a href="/org_admin" class="nav-item" onclick="switchTab('users');return false;">
+        <span class="nav-icon">🔑</span> Пользователи
+      </a>
+      <a href="/org_admin" class="nav-item" onclick="switchTab('settings');return false;">
+        <span class="nav-icon">⚙</span> Настройки
+      </a>
+      <a href="/timesheet" class="nav-item {% if request.path == '/timesheet' %}active{% endif %}">
+        <span class="nav-icon">📅</span> Табель Т-13
+      </a>
+      <a href="/register" class="nav-item {% if request.path == '/register' %}active{% endif %}">
+        <span class="nav-icon">➕</span> Регистрация
+      </a>
+
+{% elif session.role in ('dept_admin', 'viewer') %}
+      <a href="/dept_admin" class="nav-item {% if request.path == '/dept_admin' %}active{% endif %}">
+        <span class="nav-icon">📋</span> Посещаемость
+      </a>
+      <a href="/dept_admin" class="nav-item" onclick="switchTab('employees');return false;">
+        <span class="nav-icon">👥</span> Сотрудники
+      </a>
+      <a href="/timesheet" class="nav-item {% if request.path == '/timesheet' %}active{% endif %}">
+        <span class="nav-icon">📅</span> Табель Т-13
+      </a>
+      <a href="/register" class="nav-item {% if request.path == '/register' %}active{% endif %}">
+        <span class="nav-icon">➕</span> Регистрация
+      </a>
+
+{% elif session.role == 'hr_viewer' %}
+      <a href="/timesheet" class="nav-item {% if request.path == '/timesheet' %}active{% endif %}">
+        <span class="nav-icon">📅</span> Табель Т-13
+      </a>
+
+{% elif session.role == 'employee' %}
+      <a href="/employee" class="nav-item {% if request.path == '/employee' %}active{% endif %}">
+        <span class="nav-icon">📅</span> Мой табель
+      </a>
+{% endif %}
+
+      <a href="/account" class="nav-item {% if request.path == '/account' %}active{% endif %}">
+        <span class="nav-icon">⚙</span> Аккаунт
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user-name">{{ session.get('username', '') }}</div>
+      <div class="sidebar-user-role">{{ session.get('role', '') }}</div>
+      <a href="/logout" style="font-size:13px;color:var(--sidebar-text);text-decoration:none;">Выйти →</a>
+    </div>
+  </aside>
+  <main class="content">
+    <button class="hamburger" id="hamburgerBtn" onclick="toggleSidebar()">☰</button>
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+<script>
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('visible');
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('visible');
+  }
+});
+</script>
+</body>
+</html>

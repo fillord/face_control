@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-11)
 Phase: 07 (org-admin-ux-improvements) — EXECUTING
 Plan: 1 of 5
 Status: Executing Phase 07
-Last activity: 2026-06-15 -- Phase 07 execution started
+Last activity: 2026-06-25 -- Quick task 260625-c45: kiosk Прибыл/Убыл + hr_viewer + audit log complete
 
 Progress: [████████░░] 87%
 
@@ -110,3 +110,4 @@ Resume file: .planning/phases/04-export-employee-cabinet/04-UI-SPEC.md
 |---|-------------|------|--------|-----------|
 | 1 | Employee IIN field, Excel import, and user edit/delete CRUD | 2026-06-15 | 93c9e1f | [260615-q01](./quick/260615-q01-employee-iin-import-user-crud/) |
 | 2 | Add account settings page for all users (display name + password) | 2026-06-15 | 7c6f4a1 | [260615-jh4](./quick/260615-jh4-add-account-settings-page-for-all-users-/) |
+| 3 | Kiosk Прибыл/Убыл buttons, org-admin time edit, hr_viewer role, super-admin audit log | 2026-06-25 | 2bb5d94 | [260625-c45](./quick/260625-c45-kiosk-arrival-departure-buttons-manual-t/) |

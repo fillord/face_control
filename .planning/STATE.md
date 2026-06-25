@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 08 context gathered
-last_updated: "2026-06-25T10:44:49.143Z"
+last_updated: "2026-06-25T11:18:33.556Z"
 last_activity: "2026-06-25 -- Quick task 260625-c45: kiosk Прибыл/Убыл + hr_viewer + audit log complete"
 progress:
   total_phases: 8
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-11)
 
 Phase: 07 (org-admin-ux-improvements) — EXECUTING
 Plan: 1 of 5
-Status: Executing Phase 07
+Status: Ready to execute
 Last activity: 2026-06-25 -- Quick task 260625-c45: kiosk Прибыл/Убыл + hr_viewer + audit log complete
 
 Progress: [████████░░] 87%

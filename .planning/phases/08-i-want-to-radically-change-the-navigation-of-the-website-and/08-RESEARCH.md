@@ -800,22 +800,22 @@ grep -rn "#1565C0\|#0d47a1" /var/www/sites/face-almgp33/templates/ \
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **In-page tab switching: sidebar items call switchTab() or navigate to new URL?**
    - What we know: `superadmin.html`, `org_admin.html`, `dept_admin.html`, `admin.html` all use JS `switchTab()` with multiple panels in the same HTML page.
    - What's unclear: Should the sidebar items for sub-tabs (e.g., "Пользователи" in superadmin) call `onclick="switchTab('users')"` and navigate to the same page? Or should each tab become a separate route?
-   - Recommendation: Keep JS tab switching within pages for Phase 8 — converting to separate routes is out of scope and would require 4+ new Flask routes. Sidebar items for multi-panel pages call `switchTab()`.
+   - RESOLVED: Keep JS tab switching within pages for Phase 8 — converting to separate routes is out of scope and would require 4+ new Flask routes. Sidebar items for multi-panel pages call `switchTab()`.
 
 2. **`register.html` — does it extend base.html?**
    - What we know: `register.html` is at `/register`, behind `@require_role("superadmin", "org_admin", "dept_admin")`. It IS an authenticated admin page, not a public page.
    - What's unclear: CONTEXT.md D-14 doesn't mention `register.html` explicitly in the redesign list, but it IS an admin-facing authenticated page.
-   - Recommendation: Treat `register.html` as an authenticated template and convert it to extend `base.html`. Note: `register_token.html` is a public page (no auth) and stays standalone.
+   - RESOLVED: Treat `register.html` as an authenticated template and convert it to extend `base.html`. Note: `register_token.html` is a public page (no auth) and stays standalone per D-12.
 
 3. **`display_name` in sidebar user footer — where does it come from?**
    - What we know: `display_name` is passed only by `account_page` route. Not stored in Flask session on login.
    - What's unclear: Should the sidebar show display_name or username?
-   - Recommendation: Sidebar footer uses `session.get('username', '')` which is always available post-login. Display name is shown only on the account page itself. This avoids adding `display_name` to the session or querying the DB in every route.
+   - RESOLVED: Sidebar footer uses `session.get('username', '')` which is always available post-login. Display name is shown only on the account page itself. This avoids adding `display_name` to the session or querying the DB in every route.
 
 ---
 

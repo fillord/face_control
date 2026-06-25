@@ -293,13 +293,13 @@ Plans:
 **Goal:** Every authenticated page renders inside a single shared `base.html` shell: a dark fixed sidebar with role-aware navigation (replacing horizontal nav-tabs), a teal accent palette replacing the old blue, Inter font, and a responsive hamburger on small screens. The kiosk and login pages stay standalone.
 **Requirements**: D-01..D-16 (design decisions from 08-CONTEXT.md)
 **Depends on:** Phase 7
-**Plans:** 6 plans
+**Plans:** 1/6 plans executed
 
 Plans:
 
 **Wave 1** *(foundation)*
 
-- [ ] 08-01-PLAN.md — Create base.html: CSS token system, dark sidebar, role-aware nav (6 roles), user footer, hamburger JS, content block
+- [x] 08-01-PLAN.md — Create base.html: CSS token system, dark sidebar, role-aware nav (6 roles), user footer, hamburger JS, content block
 
 **Wave 2** *(blocked on Wave 1 — parallel, no file overlap)*
 

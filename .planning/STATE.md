@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 08 context gathered
-last_updated: "2026-06-25T11:18:33.556Z"
-last_activity: "2026-06-25 -- Quick task 260625-c45: kiosk Прибыл/Убыл + hr_viewer + audit log complete"
+last_updated: "2026-06-25T11:20:05.301Z"
+last_activity: 2026-06-25 -- Phase 08 execution started
 progress:
   total_phases: 8
   completed_phases: 7
-  total_plans: 31
+  total_plans: 37
   completed_plans: 31
-  percent: 88
+  percent: 84
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-11)
 
 **Core value:** Department heads and HR staff can view, manage, and export attendance data for exactly the employees they are authorized to see — no more, no less.
-**Current focus:** Phase 07 — org-admin-ux-improvements
+**Current focus:** Phase 08 — i-want-to-radically-change-the-navigation-of-the-website-and
 
 ## Current Position
 
-Phase: 07 (org-admin-ux-improvements) — EXECUTING
-Plan: 1 of 5
-Status: Ready to execute
-Last activity: 2026-06-25 -- Quick task 260625-c45: kiosk Прибыл/Убыл + hr_viewer + audit log complete
+Phase: 08 (i-want-to-radically-change-the-navigation-of-the-website-and) — EXECUTING
+Plan: 1 of 6
+Status: Executing Phase 08
+Last activity: 2026-06-25 -- Phase 08 execution started
 
 Progress: [████████░░] 87%
 

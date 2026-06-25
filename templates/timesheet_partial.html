@@ -1,5 +1,5 @@
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
+/* ─── Timesheet-partial-only styles (base.html provides the rest) ─── */
 .page { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
 .selector-bar { background: #fff; border: 1px solid #e2e6f0; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
 .form-group { display: flex; flex-direction: column; gap: 4px; }
@@ -7,15 +7,12 @@
 .form-group input[type="month"],
 .form-group select { padding: 8px 12px; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 13px; color: #1a2340; outline: none; font-family: inherit; background: #fff; }
 .form-group input[type="month"]:focus,
-.form-group select:focus { border-color: #1565C0; outline: 2px solid #1565C0; }
-.btn-primary { padding: 8px 16px; background: #1565C0; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s; height: 36px; }
-.btn-primary:hover { background: #0d47a1; }
-.btn-secondary { padding: 8px 16px; background: #fff; border: 1px solid #cfd8dc; border-radius: 8px; color: #546e7a; font-size: 13px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; height: 36px; }
-.btn-secondary:hover { background: #f4f6fb; }
-.table-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; overflow-x: auto; margin-bottom: 20px; }
+.form-group select:focus { border-color: var(--accent); outline: 2px solid rgba(13,148,136,0.15); }
+/* .btn-primary and .btn-secondary are provided by base.html */
+.table-card { overflow-x: auto; } /* override base: timesheet needs horizontal scroll */
 .holiday-banner { background: #FFFDE7; border-bottom: 1px solid #F9A825; border-radius: 0; padding: 12px 16px; font-size: 13px; color: #5D4037; }
 table { border-collapse: collapse; min-width: max-content; table-layout: fixed; }
-thead { background: #f8fafd; }
+/* thead background provided by base.html */
 thead th { padding: 4px; font-size: 11px; font-weight: 600; color: #546e7a; text-align: center; border-bottom: 1px solid #e2e6f0; white-space: nowrap; }
 thead th.emp-col { text-align: left; padding: 4px 12px; width: 180px; min-width: 180px; text-transform: uppercase; letter-spacing: 0.05em; }
 thead th.day-col { width: 32px; min-width: 32px; }
@@ -25,10 +22,10 @@ tbody td { padding: 4px; font-size: 13px; border-bottom: 1px solid #f0f3f8; text
 tbody td.emp-name { text-align: left; padding: 8px 12px; font-size: 13px; font-weight: 500; color: #1a2340; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
 tbody td.sym-cell { font-weight: 600; font-size: 13px; cursor: default; font-variant-numeric: tabular-nums; }
 tbody td.sym-cell.editable { cursor: pointer; }
-tbody td.sym-cell.editable:hover { outline: 2px solid #1565C0; }
+tbody td.sym-cell.editable:hover { outline: 2px solid var(--accent); }
 tbody td.sym-ou { font-size: 11px; font-weight: 600; }
-tbody tr:last-child td { border-bottom: none; }
-.totals-row td { background: #f8fafd; font-size: 13px; font-weight: 600; color: #1565C0; border-top: 2px solid #e2e6f0; }
+/* tbody tr:last-child td border provided by base.html */
+.totals-row td { background: #f8fafd; font-size: 13px; font-weight: 600; color: var(--accent); border-top: 2px solid #e2e6f0; }
 .totals-row td.label { color: #546e7a; text-align: left; padding: 8px 12px; }
 .empty-state { padding: 28px; text-align: center; font-size: 13px; color: #90a4ae; }
 .page-title { font-size: 18px; font-weight: 600; color: #1a2340; margin-bottom: 16px; }
@@ -39,7 +36,7 @@ tbody tr:last-child td { border-bottom: none; }
 #ts-override-dropdown button.restore { color: #546e7a; border-top: 1px solid #f0f3f8; margin-top: 4px; }
 /* Error toast */
 #ts-error-toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: #FFEBEE; border: 1px solid #EF9A9A; border-radius: 8px; padding: 10px 16px; font-size: 13px; color: #C62828; z-index: 200; display: none; }
-.hidden { display: none; }
+/* .hidden provided by base.html */
 </style>
 
 <div class="page">
@@ -127,7 +124,7 @@ tbody tr:last-child td { border-bottom: none; }
       "В": "#9E9E9E",
       "НН": "#90A4AE",
       "П": "#C62828",
-      "Б": "#1565C0",
+      "Б": "#0d9488",
       "К": "#6A1B9A"
     } %}
     <table id="tabelle-t13">
@@ -178,11 +175,11 @@ tbody tr:last-child td { border-bottom: none; }
               {% if can_edit and sym != 'В' %}tabindex="0" onclick="tsOpenOverrideDropdown(this)"{% endif %}>{{ sym }}</td>
           {% endif %}
           {% endfor %}
-          <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.days_worked }}</td>
-          <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.hours_worked }}</td>
-          <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.absences }}</td>
-          <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.late }}</td>
-          <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.vac_sick }}</td>
+          <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.days_worked }}</td>
+          <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.hours_worked }}</td>
+          <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.absences }}</td>
+          <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.late }}</td>
+          <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.vac_sick }}</td>
         </tr>
         {% endfor %}
         <!-- Totals row -->
@@ -288,7 +285,7 @@ var TS_SYM_BG = {
 };
 var TS_SYM_FG = {
   'Я': '#1B5E20', 'О': '#BF360C', 'У': '#F57F17', 'ОУ': '#BF360C',
-  'В': '#9E9E9E', 'НН': '#90A4AE', 'П': '#C62828', 'Б': '#1565C0', 'К': '#6A1B9A'
+  'В': '#9E9E9E', 'НН': '#90A4AE', 'П': '#C62828', 'Б': '#0d9488', 'К': '#6A1B9A'
 };
 var TS_SYM_TITLES = {
   'Я': 'Я — явка', 'О': 'О — опоздание', 'У': 'У — ранний уход',

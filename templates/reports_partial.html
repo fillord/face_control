@@ -1,67 +1,26 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-.logo { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
-.logo-icon { width: 34px; height: 34px; background: #1565C0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
-.header-right { display: flex; align-items: center; gap: 12px; }
-.user-badge { font-size: 13px; color: #546e7a; }
-.btn-logout { padding: 7px 14px; background: #fff; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; color: #546e7a; cursor: pointer; text-decoration: none; transition: all 0.15s; }
-.btn-logout:hover { background: #ffebee; color: #c62828; border-color: #ef9a9a; }
-.nav-tabs { display: flex; gap: 4px; padding: 0 24px; background: #fff; border-bottom: 1px solid #e2e6f0; }
-.tab { padding: 12px 20px; font-size: 14px; font-weight: 500; color: #78909c; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; text-decoration: none; }
-.tab.active { color: #1565C0; border-bottom-color: #1565C0; }
-.tab:hover:not(.active) { color: #1a2340; }
-.page { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
-.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-.toolbar label { font-size: 13px; font-weight: 500; color: #546e7a; white-space: nowrap; }
+/* ─── Reports-partial-only styles (base.html provides the rest) ─── */
 input[type=date], select, input[type=text] { padding: 9px 12px; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 13px; color: #1a2340; background: #fff; outline: none; }
-input[type=date]:focus, select:focus, input[type=text]:focus { border-color: #1565C0; }
 .search-input { min-width: 180px; }
-.btn-export { padding: 9px 16px; background: #1565C0; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; margin-left: auto; white-space: nowrap; }
-.btn-export:hover { background: #0d47a1; }
+.btn-export { padding: 9px 16px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; margin-left: auto; white-space: nowrap; }
+.btn-export:hover { background: var(--accent-hover); }
 .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
-.stat-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 12px; padding: 16px 18px; }
-.stat-label { font-size: 11px; color: #78909c; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
-.stat-val { font-size: 26px; font-weight: 600; }
-.stat-val.blue { color: #1565C0; } .stat-val.green { color: #2E7D32; }
-.stat-val.orange { color: #E65100; } .stat-val.gray { color: #546e7a; }
-.table-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; overflow: hidden; }
-table { width: 100%; border-collapse: collapse; }
-thead { background: #f8fafd; }
-th { padding: 11px 14px; text-align: left; font-size: 11px; font-weight: 600; color: #546e7a; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e6f0; white-space: nowrap; }
-td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid #f0f3f8; vertical-align: middle; }
-tr:last-child td { border-bottom: none; }
-tr.row-late { background: #fffbf0; }
-tr.row-early-leave { background: #f0f8ff; }
-.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 14px; font-size: 11px; font-weight: 500; }
-.badge-present { background: #E8F5E9; color: #1B5E20; }
-.badge-partial { background: #FFF3E0; color: #E65100; }
-.badge-absent { background: #FAFAFA; color: #90A4AE; border: 1px solid #e0e0e0; }
-.badge-late { background: #FFF3E0; color: #BF360C; border: 1px solid #FFCC80; }
-.badge-early { background: #E3F2FD; color: #0D47A1; border: 1px solid #90CAF9; }
 .emp-cell { display: flex; align-items: center; gap: 9px; }
 .emp-av { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
 .time-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.row-late { background: #fffbf0; }
+tr.row-early-leave { background: #f0f8ff; }
 .chart-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; padding: 20px; margin-bottom: 20px; }
 .chart-title { font-size: 14px; font-weight: 600; color: #1a2340; margin-bottom: 16px; }
 .monthly-table { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; overflow: hidden; margin-top: 20px; }
 .monthly-table table td, .monthly-table table th { padding: 10px 14px; }
-.hidden { display: none; }
 @media (max-width:700px) {
-  .stats-grid { grid-template-columns: 1fr 1fr; }
-  .toolbar { gap: 8px; }
   .btn-export { margin-left: 0; width: 100%; justify-content: center; display: flex; }
   th:nth-child(2), td:nth-child(2) { display: none; }
 }
 </style>
 
-<div class="nav-tabs" id="reportsNavTabs">
-  <span class="tab active" id="rTabJournal" onclick="rSwitchTab('journal')">Журнал посещаемости</span>
-  <span class="tab" id="rTabStats" onclick="rSwitchTab('stats')">Статистика за месяц</span>
-  {% if session.role == 'superadmin' %}
-  <span class="tab" id="rTabUsers" onclick="rSwitchTab('users')">Пользователи</span>
-  {% endif %}
-</div>
 
 <!-- ═══ TAB: JOURNAL ═══ -->
 <div id="panelJournal" class="page">
@@ -75,7 +34,7 @@ tr.row-early-leave { background: #f0f8ff; }
   </div>
 
   <div class="stats-grid">
-    <div class="stat-card"><div class="stat-label">Всего сотрудников</div><div class="stat-val blue" id="rSTotal">—</div></div>
+    <div class="stat-card"><div class="stat-label">Всего сотрудников</div><div class="stat-val teal" id="rSTotal">—</div></div>
     <div class="stat-card"><div class="stat-label">Пришли</div><div class="stat-val green" id="rSPresent">—</div></div>
     <div class="stat-card"><div class="stat-label">Ушли</div><div class="stat-val gray" id="rSLeft">—</div></div>
     <div class="stat-card"><div class="stat-label">Не явились</div><div class="stat-val orange" id="rSAbsent">—</div></div>
@@ -186,7 +145,7 @@ tr.row-early-leave { background: #f0f8ff; }
 </div>
 
 <script>
-const RCOLORS = ["#1565C0","#1B5E20","#4A148C","#BF360C","#006064","#37474F"];
+const RCOLORS = ["#0d9488","#1B5E20","#4A148C","#BF360C","#006064","#37474F"];
 function rColorFor(name) { let h=0; for(let c of name) h=(h*31+c.charCodeAt(0))%RCOLORS.length; return RCOLORS[h]; }
 function rInitials(name) { return (name || '').split(' ').filter(w => w.length > 0).slice(0, 2).map(w => w[0]).join('').toUpperCase(); }
 function rEscapeHtml(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
@@ -208,8 +167,10 @@ function rSwitchTab(tab) {
   document.getElementById("rPanelStats").classList.toggle("hidden", tab !== "stats");
   const panelUsers = document.getElementById("rPanelUsers");
   if (panelUsers) panelUsers.classList.toggle("hidden", tab !== "users");
-  document.getElementById("rTabJournal").classList.toggle("active", tab === "journal");
-  document.getElementById("rTabStats").classList.toggle("active", tab === "stats");
+  const tabJournal = document.getElementById("rTabJournal");
+  if (tabJournal) tabJournal.classList.toggle("active", tab === "journal");
+  const tabStats = document.getElementById("rTabStats");
+  if (tabStats) tabStats.classList.toggle("active", tab === "stats");
   const tabUsers = document.getElementById("rTabUsers");
   if (tabUsers) tabUsers.classList.toggle("active", tab === "users");
   if (tab === "stats") rLoadStats();
@@ -396,7 +357,7 @@ function rRenderTable(rows) {
     const indicatorHtml = indicators.join(" ") || '<span style="color:#bdbdbd;font-size:12px;">—</span>';
 
     const checkInHtml  = r.check_in  ? `<span style="color:${isLate ? '#BF360C' : '#2E7D32'};font-weight:500;">${r.check_in}</span>`  : '<span style="color:#bdbdbd">—</span>';
-    const checkOutHtml = r.check_out ? `<span style="color:${isEarlyLeave ? '#0D47A1' : '#1565C0'};font-weight:500;">${r.check_out}</span>` : '<span style="color:#bdbdbd">—</span>';
+    const checkOutHtml = r.check_out ? `<span style="color:${isEarlyLeave ? '#0f766e' : '#0d9488'};font-weight:500;">${r.check_out}</span>` : '<span style="color:#bdbdbd">—</span>';
 
     return `<tr class="${rowClass}">
       <td><div class="emp-cell">
@@ -465,8 +426,8 @@ async function rLoadStats() {
       datasets: [{
         label: "Присутствовало",
         data: counts,
-        backgroundColor: "rgba(21,101,192,0.7)",
-        borderColor: "#1565C0",
+        backgroundColor: "rgba(13,148,136,0.7)",
+        borderColor: "#0d9488",
         borderWidth: 1,
         borderRadius: 4
       }]
@@ -490,7 +451,7 @@ async function rLoadStats() {
     <tr>
       <td><span style="font-weight:500;">${rEscapeHtml(e.name)}</span></td>
       <td style="color:#546e7a;">${rEscapeHtml(e.role)}</td>
-      <td style="font-weight:600;color:#1565C0;">${e.days}</td>
+      <td style="font-weight:600;color:#0d9488;">${e.days}</td>
       <td style="font-weight:600;">${e.hours_str}</td>
       <td>${e.late_days > 0 ? `<span style="color:#BF360C;font-weight:500;">${e.late_days}</span>` : '<span style="color:#2E7D32;">0</span>'}</td>
     </tr>`).join("");

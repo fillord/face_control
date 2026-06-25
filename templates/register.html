@@ -301,18 +301,21 @@ async function loadEmployees() {
   list.innerHTML = employees.map(e => {
     const col = colorFor(e.name);
     const cnt = e.face_count || 0;
-    const ready = cnt >= 3;
+    const pending = cnt === 0;
+    const statusLabel = pending
+      ? 'Ожидает регистрации лица'
+      : `Зарегистрирован (${cnt} фото)`;
     return `<div class="emp-item">
       <div class="emp-avatar" style="background:${col}22;color:${col};border:2px solid ${col}44;">${initials(e.name)}</div>
       <div class="emp-info">
         <div class="emp-info-name">${escapeHtml(e.name)}</div>
         <div class="emp-info-role">${escapeHtml(e.role)}</div>
       </div>
-      <div class="emp-face-count ${ready ? 'ready' : ''}">
-        ${ready ? '✓' : '📷'} ${cnt} фото
+      <div class="emp-face-count ${pending ? '' : 'ready'}" style="font-size:11px;white-space:nowrap;">
+        ${pending ? '⏳' : '✓'} ${statusLabel}
       </div>
       <div class="emp-actions">
-        <button class="btn btn-warning" title="Удалить все фото и переобучить" onclick="resetFace('${e.id}')">🔄</button>
+        <button class="btn btn-warning" title="Сбросить фото и переобучить" onclick="resetFace('${e.id}')">🔄</button>
         <button class="btn btn-danger" onclick="deleteEmployee('${e.id}')">✕</button>
       </div>
     </div>`;

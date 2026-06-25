@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 04 UI-SPEC verified
-last_updated: "2026-06-15T03:13:45.412Z"
-last_activity: 2026-06-15 -- Phase 07 execution started
+stopped_at: Phase 08 context gathered
+last_updated: "2026-06-25T10:44:49.143Z"
+last_activity: "2026-06-25 -- Quick task 260625-c45: kiosk Прибыл/Убыл + hr_viewer + audit log complete"
 progress:
-  total_phases: 7
-  completed_phases: 6
+  total_phases: 8
+  completed_phases: 7
   total_plans: 31
-  completed_plans: 26
-  percent: 84
+  completed_plans: 31
+  percent: 88
 ---
 
 # Project State
@@ -64,6 +64,7 @@ Progress: [████████░░] 87%
 
 - Phase 5 added: Token-based Kiosk, Registration & Russian UI — org_token/kiosk_pin/reg_token/reg_pin on organizations.json, /kiosk/<org_token> with PIN pad, /register/<reg_token> mobile, Russian UI + МедКонтроль branding, migrate.py; absorbs Plan 02-05
 - Plan 02-05 (kiosk dept display) skipped — superseded by Phase 5's broader kiosk rebuild
+- Phase 8 added: Radical navigation and design overhaul of the website
 
 ### Decisions
 
@@ -100,9 +101,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-15T09:01:20.000Z
-Stopped at: Phase 04 UI-SPEC verified
-Resume file: .planning/phases/04-export-employee-cabinet/04-UI-SPEC.md
+Last session: 2026-06-25T10:44:49.137Z
+Stopped at: Phase 08 context gathered
+Resume file: .planning/phases/08-i-want-to-radically-change-the-navigation-of-the-website-and/08-CONTEXT.md
 
 ### Quick Tasks Completed
 

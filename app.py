@@ -2997,9 +2997,13 @@ def recognize():
                 # No arrival recorded — refuse departure
                 return jsonify({"error": "no_checkin",
                                 "message": "Сначала отметьте приход"}), 409
-            rec.check_out_time = now
-            rec.event_type = "check_out"
-            event = "check_out"
+            if rec.check_out_time:
+                # Departure already recorded — do NOT overwrite
+                event = "already_out"
+            else:
+                rec.check_out_time = now
+                rec.event_type = "check_out"
+                event = "check_out"
         else:
             # Legacy state machine (no mode parameter — backward compatible)
             if rec is None:

@@ -295,6 +295,7 @@ th.sortable:hover { color: #1a2340; }
       <label>Роль</label>
       <select id="newUserRole" style="width:100%;" onchange="onRoleChange()">
         <option value="dept_admin">Администратор отдела</option>
+        <option value="hr_viewer">HR-наблюдатель (только просмотр)</option>
         <option value="employee">Сотрудник</option>
       </select>
     </div>
@@ -960,7 +961,7 @@ async function saveDisplayName() {
 }
 
 // ─── Users ────────────────────────────────────────────────────────────────────
-const ROLE_LABEL = {dept_admin: 'Адм. отдела', viewer: 'Наблюдатель', employee: 'Сотрудник', org_admin: 'Адм. организации'};
+const ROLE_LABEL = {dept_admin: 'Адм. отдела', viewer: 'Наблюдатель', employee: 'Сотрудник', org_admin: 'Адм. организации', hr_viewer: 'HR-наблюдатель'};
 let _allUsers = [];
 
 async function loadOrgUsers() {

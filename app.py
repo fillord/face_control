@@ -2867,25 +2867,55 @@ def recognize():
     now = now_dt.strftime("%H:%M:%S")
     is_late = now > "09:00:00"
 
-    # ORM-backed attendance state machine (D-01, T-06-14)
+    # Mode-aware attendance logic (kiosk «Прибыл»/«Убыл» buttons).
+    # If mode is absent or invalid, fall back to legacy state machine for backward compat.
+    mode = data.get("mode")
     rec = AttendanceRecord.query.filter_by(emp_id=emp_id, date=today).first()
     try:
-        if rec is None:
-            rec = AttendanceRecord(
-                emp_id=emp_id,
-                date=today,
-                check_in_time=now,
-                check_out_time=None,
-                event_type="check_in",
-            )
-            db.session.add(rec)
-            event = "check_in"
-        elif rec.check_out_time is None:
+        if mode == "arrive":
+            if rec is None:
+                rec = AttendanceRecord(
+                    emp_id=emp_id,
+                    date=today,
+                    check_in_time=now,
+                    check_out_time=None,
+                    event_type="check_in",
+                )
+                db.session.add(rec)
+                event = "check_in"
+            elif rec.check_in_time:
+                # Arrival already recorded — do NOT overwrite
+                event = "already_in"
+            else:
+                rec.check_in_time = now
+                rec.event_type = "check_in"
+                event = "check_in"
+        elif mode == "depart":
+            if rec is None or rec.check_in_time is None:
+                # No arrival recorded — refuse departure
+                return jsonify({"error": "no_checkin",
+                                "message": "Сначала отметьте приход"}), 409
             rec.check_out_time = now
             rec.event_type = "check_out"
             event = "check_out"
         else:
-            event = "already_done"
+            # Legacy state machine (no mode parameter — backward compatible)
+            if rec is None:
+                rec = AttendanceRecord(
+                    emp_id=emp_id,
+                    date=today,
+                    check_in_time=now,
+                    check_out_time=None,
+                    event_type="check_in",
+                )
+                db.session.add(rec)
+                event = "check_in"
+            elif rec.check_out_time is None:
+                rec.check_out_time = now
+                rec.event_type = "check_out"
+                event = "check_out"
+            else:
+                event = "already_done"
         db.session.commit()
     except Exception:
         db.session.rollback()

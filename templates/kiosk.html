@@ -91,6 +91,14 @@ canvas#overlay { position: absolute; inset: 0; width: 100%; height: 100%; transf
 .nav-links { padding: 16px 24px; border-top: 1px solid #1e2a4a; display: flex; gap: 8px; }
 .nav-link { flex: 1; padding: 10px; text-align: center; border-radius: 8px; font-size: 13px; font-weight: 500; text-decoration: none; border: 1px solid #1e2a4a; color: #7986cb; transition: all 0.2s; }
 .nav-link:hover { background: #1a2240; color: #c5cae9; }
+/* Action buttons (Прибыл / Убыл) */
+.action-buttons { display: flex; gap: 16px; margin-top: 12px; }
+.btn-arrive, .btn-depart { flex: 1; padding: 18px 24px; border: none; border-radius: 14px; font-size: 18px; font-weight: 700; cursor: pointer; transition: transform 0.1s, opacity 0.15s; font-family: inherit; }
+.btn-arrive { background: #1B5E20; color: #A5D6A7; border: 2px solid #2E7D32; }
+.btn-arrive:hover { background: #2E7D32; }
+.btn-depart { background: #0d2137; color: #90CAF9; border: 2px solid #1565C0; }
+.btn-depart:hover { background: #1565C0; }
+.btn-arrive:active, .btn-depart:active { transform: scale(0.97); }
 /* Device setup screen */
 #deviceSetupScreen { position: fixed; inset: 0; background: rgba(6,11,24,0.97); display: flex; align-items: center; justify-content: center; z-index: 200; }
 #deviceSetupScreen.hidden { display: none; }
@@ -160,7 +168,7 @@ canvas#overlay { position: absolute; inset: 0; width: 100%; height: 100%; transf
       <div class="status-row">
         <div class="status-chip idle" id="statusChip">
           <div class="dot pulse"></div>
-          <span id="statusText">Нажмите ПРОБЕЛ для сканирования</span>
+          <span id="statusText">Выберите действие: Прибыл или Убыл</span>
         </div>
         <div class="confidence-badge" id="confidenceBadge">
           <span>🎯</span><span id="confidenceText"></span>
@@ -169,6 +177,12 @@ canvas#overlay { position: absolute; inset: 0; width: 100%; height: 100%; transf
           ⚠ Опоздание
         </div>
       </div>
+      {% if has_employees %}
+      <div class="action-buttons" id="actionButtons">
+        <button class="btn-arrive" onclick="startMode('arrive')">Прибыл</button>
+        <button class="btn-depart" onclick="startMode('depart')">Убыл</button>
+      </div>
+      {% endif %}
     </div>
 
     <!-- QR section (shown when no employees) -->
@@ -250,6 +264,7 @@ buildQR("qrCode", registerUrl);
 <script>
 let scanning = false;
 let cooldownUntil = 0;
+let currentMode = null;
 const COOLDOWN_MS = 4000;
 const hasEmployees = {{ 'true' if has_employees else 'false' }};
 const ORG_ID = {{ org_id|default(none)|tojson }};
@@ -304,43 +319,79 @@ function capture() {
   return c.toDataURL("image/jpeg", 0.8);
 }
 
+function showActionButtons() {
+  const btns = document.getElementById("actionButtons");
+  if (btns) btns.style.display = "flex";
+}
+
+function hideActionButtons() {
+  const btns = document.getElementById("actionButtons");
+  if (btns) btns.style.display = "none";
+}
+
+function startMode(mode) {
+  if (scanning || Date.now() < cooldownUntil) return;
+  currentMode = mode;
+  hideActionButtons();
+  setStatus("scanning", mode === "arrive" ? "Распознавание прихода..." : "Распознавание ухода...");
+  recognize();
+}
+
+function resetToIdle() {
+  currentMode = null;
+  showActionButtons();
+  setStatus("idle", "Выберите действие: Прибыл или Убыл");
+  hideConfidence();
+}
+
 async function recognize() {
   if (!hasEmployees || scanning || Date.now() < cooldownUntil) return;
+  if (currentMode === null) return;
   scanning = true;
   document.getElementById("scanOverlay").classList.add("active");
-  setStatus("scanning", "Распознавание...");
 
   try {
     const image = capture();
     const resp = await fetch("/api/recognize", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image, org_id: ORG_ID })
+      body: JSON.stringify({ image, org_id: ORG_ID, mode: currentMode })
     });
     const data = await resp.json();
 
     if (!resp.ok) {
       hideConfidence();
       if (data.error === "no_face") {
-        setStatus("idle", "Нажмите ПРОБЕЛ для сканирования");
+        setStatus("idle", "Лицо не обнаружено — попробуйте ещё");
+        cooldownUntil = Date.now() + 1500;
+        setTimeout(resetToIdle, 2000);
+      } else if (data.error === "no_checkin") {
+        setStatus("error", "Сначала отметьте приход");
+        cooldownUntil = Date.now() + 3000;
+        setTimeout(resetToIdle, 3500);
       } else if (data.error === "unknown") {
         setStatus("error", "Лицо не распознано");
         cooldownUntil = Date.now() + 2000;
+        setTimeout(resetToIdle, 2500);
       } else if (data.error === "not_trained") {
         setStatus("error", "Недостаточно обучающих данных");
         cooldownUntil = Date.now() + 3000;
+        setTimeout(resetToIdle, 3500);
       } else {
         setStatus("error", data.error || "Ошибка");
         cooldownUntil = Date.now() + 2000;
+        setTimeout(resetToIdle, 2500);
       }
     } else {
       showConfidence(data.confidence_pct);
       showResult(data);
       cooldownUntil = Date.now() + COOLDOWN_MS;
+      setTimeout(resetToIdle, COOLDOWN_MS);
     }
   } catch(e) {
     setStatus("error", "Ошибка соединения");
     cooldownUntil = Date.now() + 3000;
+    setTimeout(resetToIdle, 3500);
   }
 
   document.getElementById("scanOverlay").classList.remove("active");
@@ -399,10 +450,15 @@ function showResult(data) {
     badge.textContent = "← Уход зафиксирован";
     setStatus("success-out", "До свидания, " + emp.name.split(" ")[0] + "!");
     lateWarn.classList.remove("visible");
+  } else if (event === "already_in") {
+    badge.className = "event-badge done";
+    badge.textContent = "ℹ Приход уже зафиксирован";
+    setStatus("idle", "Приход уже зафиксирован");
+    lateWarn.classList.remove("visible");
   } else {
     badge.className = "event-badge done";
     badge.textContent = "⚠ Уход уже зарегистрирован";
-    setStatus("idle", "Нажмите ПРОБЕЛ для сканирования");
+    setStatus("idle", "Выберите действие: Прибыл или Убыл");
     lateWarn.classList.remove("visible");
   }
 
@@ -452,11 +508,6 @@ async function loadLog() {
 }
 
 loadLog();
-if (DEVICE_AUTHORIZED && hasEmployees) {
-  document.addEventListener('keydown', e => {
-    if (e.code === 'Space' && !e.repeat) { e.preventDefault(); recognize(); }
-  });
-}
 
 // ─── Device registration ──────────────────────────────────────────────────────
 
@@ -488,7 +539,6 @@ async function submitDeviceRegistration() {
       document.getElementById('deviceSetupScreen').classList.add('hidden');
       document.getElementById('mainKiosk').style.display = '';
       startCamera();
-      if (hasEmployees) setInterval(recognize, 1500);
     } else {
       const msg = data.error === 'wrong_pin' ? 'Неверный PIN-код'
                 : data.error === 'no_pin_set' ? 'PIN не настроен — обратитесь к администратору'

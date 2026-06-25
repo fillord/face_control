@@ -1,70 +1,41 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Личный кабинет — МедКонтроль</title>
+{% extends 'base.html' %}
+{% block title %}Мой табель — МедКонтроль{% endblock %}
+
+{% block head %}
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f6fb; color: #1a2340; min-height: 100vh; }
-header { background: #fff; border-bottom: 1px solid #e2e6f0; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
-.logo { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
-.logo-icon { width: 34px; height: 34px; background: #1565C0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
-.header-right { display: flex; align-items: center; gap: 12px; }
-.user-badge { font-size: 13px; color: #546e7a; }
-.btn-logout { padding: 7px 14px; background: #fff; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; color: #546e7a; cursor: pointer; text-decoration: none; transition: all 0.15s; }
-.btn-logout:hover { background: #ffebee; color: #c62828; border-color: #ef9a9a; }
-.page { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
-.page-title { font-size: 18px; font-weight: 600; color: #1a2340; margin-bottom: 16px; }
-/* Stats grid */
-.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
-.stat-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 12px; padding: 16px 18px; }
-.stat-label { font-size: 11px; color: #78909c; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
-.stat-val { font-size: 26px; font-weight: 600; }
-.stat-val.orange { color: #E65100; }
-/* Selector bar */
-.selector-bar { background: #fff; border: 1px solid #e2e6f0; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
-.form-group { display: flex; flex-direction: column; gap: 4px; }
-.form-group label { font-size: 11px; font-weight: 600; color: #546e7a; text-transform: uppercase; letter-spacing: 0.05em; }
-.form-group input[type="month"] { padding: 8px 12px; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 13px; color: #1a2340; outline: none; font-family: inherit; background: #fff; }
-.form-group input[type="month"]:focus { border-color: #1565C0; outline: 2px solid #1565C0; }
-.btn-primary { padding: 8px 16px; background: #1565C0; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s; height: 36px; }
-.btn-primary:hover { background: #0d47a1; }
-/* T-13 table */
-.table-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; overflow-x: auto; margin-bottom: 20px; }
-table { border-collapse: collapse; min-width: max-content; table-layout: fixed; }
-thead { background: #f8fafd; }
-thead th { padding: 4px; font-size: 11px; font-weight: 600; color: #546e7a; text-align: center; border-bottom: 1px solid #e2e6f0; white-space: nowrap; }
-thead th.emp-col { text-align: left; padding: 4px 12px; width: 180px; min-width: 180px; text-transform: uppercase; letter-spacing: 0.05em; }
-thead th.day-col { width: 32px; min-width: 32px; }
-thead th.total-col { width: 60px; min-width: 60px; text-transform: uppercase; letter-spacing: 0.05em; }
-thead th.weekend { color: #9E9E9E; }
-tbody td { padding: 4px; font-size: 13px; border-bottom: 1px solid #f0f3f8; text-align: center; vertical-align: middle; }
-tbody td.emp-name { text-align: left; padding: 8px 12px; font-size: 13px; font-weight: 500; color: #1a2340; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
-tbody td.sym-cell { font-weight: 600; font-size: 13px; cursor: default; font-variant-numeric: tabular-nums; }
-tbody td.sym-ou { font-size: 11px; font-weight: 600; }
-tbody tr:last-child td { border-bottom: none; }
-.totals-row td { background: #f8fafd; font-size: 13px; font-weight: 600; color: #1565C0; border-top: 2px solid #e2e6f0; }
-.totals-row td.label { color: #546e7a; text-align: left; padding: 8px 12px; }
+/* ─── Selector bar ──────────────────────────────────────────── */
+.selector-bar { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.selector-bar .form-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 0; }
+.selector-bar .form-group label { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0; }
+.selector-bar .form-group input[type="month"] { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text-primary); outline: none; font-family: inherit; background: var(--card-bg); }
+.selector-bar .form-group input[type="month"]:focus { border-color: var(--accent); outline: 2px solid rgba(13,148,136,0.15); }
+.selector-bar .btn-primary { height: 36px; }
+/* ─── T-13 table (wide grid — allow horizontal scroll) ─────── */
+.table-card { overflow-x: auto; }
+.table-card table { border-collapse: collapse; min-width: max-content; table-layout: fixed; width: auto; }
+.table-card thead { background: #f8fafd; }
+.table-card thead th { padding: 4px; font-size: 11px; font-weight: 600; color: var(--text-secondary); text-align: center; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.table-card thead th.emp-col { text-align: left; padding: 4px 12px; width: 180px; min-width: 180px; text-transform: uppercase; letter-spacing: 0.05em; }
+.table-card thead th.day-col { width: 32px; min-width: 32px; }
+.table-card thead th.total-col { width: 60px; min-width: 60px; text-transform: uppercase; letter-spacing: 0.05em; }
+.table-card thead th.weekend { color: #9E9E9E; }
+.table-card tbody td { padding: 4px; font-size: 13px; border-bottom: 1px solid #f0f3f8; text-align: center; vertical-align: middle; }
+.table-card tbody td.emp-name { text-align: left; padding: 8px 12px; font-size: 13px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+.table-card tbody td.sym-cell { font-weight: 600; font-size: 13px; cursor: default; font-variant-numeric: tabular-nums; }
+.table-card tbody td.sym-ou { font-size: 11px; font-weight: 600; }
+.table-card tbody tr:last-child td { border-bottom: none; }
+.totals-row td { background: #f8fafd; font-size: 13px; font-weight: 600; color: var(--accent); border-top: 2px solid var(--border); }
+.totals-row td.label { color: var(--text-secondary); text-align: left; padding: 8px 12px; }
 .empty-state { padding: 28px; text-align: center; font-size: 13px; color: #90a4ae; }
 </style>
-</head>
-<body>
-<header>
-  <div class="logo"><div class="logo-icon">🏥</div> МедКонтроль — Личный кабинет</div>
-  <div class="header-right">
-    <span class="user-badge">{{ username }}</span>
-    <a href="/logout" class="btn-logout">Выйти</a>
-  </div>
-</header>
+{% endblock %}
 
-<div class="page">
+{% block content %}
+<h1 class="page-title">Мой табель</h1>
 
 {% if error %}
-  <div class="empty-state">{{ error }}</div>
+<div class="empty-state">{{ error }}</div>
 {% else %}
-
-  <h1 class="page-title">Мой табель</h1>
 
   <!-- ─── Stats cards ────────────────────────────────────────────── -->
   <div class="stats-grid">
@@ -92,6 +63,7 @@ tbody tr:last-child td { border-bottom: none; }
   </form>
 
   <!-- ─── T-13 Grid (read-only, single employee row) ─────────────── -->
+  <div style="overflow-x:auto;">
   <div class="table-card">
   {% set sym_titles = {
     "Я": "Я — явка",
@@ -156,11 +128,11 @@ tbody tr:last-child td { border-bottom: none; }
             title="{% if time_data %}Приход: {{ time_data.check_in[:5] if time_data.check_in else '—' }} / Уход: {{ time_data.check_out[:5] if time_data.check_out else '—' }}{% else %}Нет данных{% endif %}">{{ sym }}</td>
         {% endif %}
         {% endfor %}
-        <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.days_worked }}</td>
-        <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.hours_worked }}</td>
-        <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.absences }}</td>
-        <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.late }}</td>
-        <td class="total-col" style="font-size:13px;font-weight:600;color:#1565C0;text-align:center;">{{ totals.vac_sick }}</td>
+        <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.days_worked }}</td>
+        <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.hours_worked }}</td>
+        <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.absences }}</td>
+        <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.late }}</td>
+        <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.vac_sick }}</td>
       </tr>
       <tr class="totals-row">
         <td class="label">Итого</td>
@@ -176,8 +148,7 @@ tbody tr:last-child td { border-bottom: none; }
     </tbody>
   </table>
   </div>
+  </div>
 
 {% endif %}
-</div>
-</body>
-</html>
+{% endblock %}

@@ -1,91 +1,34 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Отчёты — МедКонтроль</title>
+{% extends 'base.html' %}
+{% block title %}Журнал — МедКонтроль{% endblock %}
+
+{% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f6fb; color: #1a2340; min-height: 100vh; }
-header { background: #fff; border-bottom: 1px solid #e2e6f0; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
-.logo { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
-.logo-icon { width: 34px; height: 34px; background: #1565C0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
-.header-right { display: flex; align-items: center; gap: 12px; }
-.user-badge { font-size: 13px; color: #546e7a; }
-.btn-logout { padding: 7px 14px; background: #fff; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; color: #546e7a; cursor: pointer; text-decoration: none; transition: all 0.15s; }
-.btn-logout:hover { background: #ffebee; color: #c62828; border-color: #ef9a9a; }
-.nav-tabs { display: flex; gap: 4px; padding: 0 24px; background: #fff; border-bottom: 1px solid #e2e6f0; }
-.tab { padding: 12px 20px; font-size: 14px; font-weight: 500; color: #78909c; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; text-decoration: none; }
-.tab.active { color: #1565C0; border-bottom-color: #1565C0; }
-.tab:hover:not(.active) { color: #1a2340; }
-.page { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
-.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-.toolbar label { font-size: 13px; font-weight: 500; color: #546e7a; white-space: nowrap; }
-input[type=date], select, input[type=text] { padding: 9px 12px; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 13px; color: #1a2340; background: #fff; outline: none; }
-input[type=date]:focus, select:focus, input[type=text]:focus { border-color: #1565C0; }
 .search-input { min-width: 180px; }
-.btn-export { padding: 9px 16px; background: #1565C0; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; margin-left: auto; white-space: nowrap; }
-.btn-export:hover { background: #0d47a1; }
-.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
-.stat-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 12px; padding: 16px 18px; }
-.stat-label { font-size: 11px; color: #78909c; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
-.stat-val { font-size: 26px; font-weight: 600; }
-.stat-val.blue { color: #1565C0; } .stat-val.green { color: #2E7D32; }
-.stat-val.orange { color: #E65100; } .stat-val.gray { color: #546e7a; }
-.table-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; overflow: hidden; }
-table { width: 100%; border-collapse: collapse; }
-thead { background: #f8fafd; }
-th { padding: 11px 14px; text-align: left; font-size: 11px; font-weight: 600; color: #546e7a; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e6f0; white-space: nowrap; }
-td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid #f0f3f8; vertical-align: middle; }
-tr:last-child td { border-bottom: none; }
-tr.row-late { background: #fffbf0; }
-tr.row-early-leave { background: #f0f8ff; }
-.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 14px; font-size: 11px; font-weight: 500; }
-.badge-present { background: #E8F5E9; color: #1B5E20; }
-.badge-partial { background: #FFF3E0; color: #E65100; }
-.badge-absent { background: #FAFAFA; color: #90A4AE; border: 1px solid #e0e0e0; }
-.badge-late { background: #FFF3E0; color: #BF360C; border: 1px solid #FFCC80; }
-.badge-early { background: #E3F2FD; color: #0D47A1; border: 1px solid #90CAF9; }
+.btn-export { padding: 9px 16px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; margin-left: auto; white-space: nowrap; }
+.btn-export:hover { background: var(--accent-hover); }
+.row-late { background: #fffbf0; }
+.row-early-leave { background: #f0f8ff; }
 .emp-cell { display: flex; align-items: center; gap: 9px; }
 .emp-av { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
 .time-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.chart-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; padding: 20px; margin-bottom: 20px; }
-.chart-title { font-size: 14px; font-weight: 600; color: #1a2340; margin-bottom: 16px; }
-.monthly-table { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; overflow: hidden; margin-top: 20px; }
+.chart-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 20px; }
+.chart-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 16px; }
+.monthly-table { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-top: 20px; }
 .monthly-table table td, .monthly-table table th { padding: 10px 14px; }
-.hidden { display: none; }
+input[type=month] { padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text-primary); background: var(--card-bg); outline: none; }
+input[type=month]:focus { border-color: var(--accent); outline: 2px solid rgba(13,148,136,0.15); }
 @media (max-width:700px) {
-  .stats-grid { grid-template-columns: 1fr 1fr; }
-  .toolbar { gap: 8px; }
   .btn-export { margin-left: 0; width: 100%; justify-content: center; display: flex; }
   th:nth-child(2), td:nth-child(2) { display: none; }
 }
 </style>
-</head>
-<body>
-<header>
-  <div class="logo"><div class="logo-icon">🏥</div> МедКонтроль — Отчёты</div>
-  <div class="header-right">
-    <span class="user-badge">{{ username }}</span>
-    {% if session.role == 'org_admin' %}
-    <a href="/org_admin" class="btn-logout" style="border-color:#cfd8dc;color:#546e7a;">← Управление</a>
-    {% else %}
-    <a href="/" class="btn-logout" style="border-color:#cfd8dc;color:#546e7a;">← Киоск</a>
-    {% endif %}
-    <a href="/logout" class="btn-logout">Выйти</a>
-  </div>
-</header>
+{% endblock %}
 
-<div class="nav-tabs">
-  <span class="tab active" id="tabJournal" onclick="switchTab('journal')">Журнал посещаемости</span>
-  <span class="tab" id="tabStats" onclick="switchTab('stats')">Статистика за месяц</span>
-  {% if session.role == 'superadmin' %}
-  <span class="tab" id="tabUsers" onclick="switchTab('users')">Пользователи</span>
-  {% endif %}
-</div>
+{% block content %}
+<h1 class="page-title">Журнал посещаемости</h1>
 
-<!-- ═══ TAB: JOURNAL ═══ -->
+<!-- ═══ PANEL: JOURNAL ═══ -->
 <div id="panelJournal" class="page">
   <div class="toolbar">
     <label>Дата:</label>
@@ -97,7 +40,7 @@ tr.row-early-leave { background: #f0f8ff; }
   </div>
 
   <div class="stats-grid">
-    <div class="stat-card"><div class="stat-label">Всего сотрудников</div><div class="stat-val blue" id="sTotal">—</div></div>
+    <div class="stat-card"><div class="stat-label">Всего сотрудников</div><div class="stat-val teal" id="sTotal">—</div></div>
     <div class="stat-card"><div class="stat-label">Пришли</div><div class="stat-val green" id="sPresent">—</div></div>
     <div class="stat-card"><div class="stat-label">Ушли</div><div class="stat-val gray" id="sLeft">—</div></div>
     <div class="stat-card"><div class="stat-label">Не явились</div><div class="stat-val orange" id="sAbsent">—</div></div>
@@ -123,7 +66,7 @@ tr.row-early-leave { background: #f0f8ff; }
   </div>
 </div>
 
-<!-- ═══ TAB: USERS ═══ -->
+<!-- ═══ PANEL: USERS ═══ -->
 {% if session.role == 'superadmin' %}
 <div id="panelUsers" class="page hidden">
   <div class="toolbar">
@@ -154,7 +97,7 @@ tr.row-early-leave { background: #f0f8ff; }
     </div>
     <div style="display:flex;gap:10px;margin-top:8px;">
       <button class="btn-export" onclick="createUser()" style="flex:1;">Создать пользователя</button>
-      <button onclick="toggleCreateForm()" style="flex:1;padding:9px 16px;background:#fff;border:1px solid #cfd8dc;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;color:#546e7a;">Отмена</button>
+      <button onclick="toggleCreateForm()" style="flex:1;padding:9px 16px;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;color:var(--text-secondary);">Отмена</button>
     </div>
   </div>
 
@@ -176,11 +119,11 @@ tr.row-early-leave { background: #f0f8ff; }
 </div>
 {% endif %}
 
-<!-- ═══ TAB: STATS ═══ -->
+<!-- ═══ PANEL: STATS ═══ -->
 <div id="panelStats" class="page hidden">
   <div class="toolbar">
     <label>Месяц:</label>
-    <input type="month" id="monthPicker" style="padding:9px 12px;border:1px solid #cfd8dc;border-radius:8px;font-size:13px;">
+    <input type="month" id="monthPicker">
     <button class="btn-export" style="margin-left:0;" onclick="loadStats()">Загрузить</button>
   </div>
 
@@ -208,7 +151,7 @@ tr.row-early-leave { background: #f0f8ff; }
 </div>
 
 <script>
-const COLORS = ["#1565C0","#1B5E20","#4A148C","#BF360C","#006064","#37474F"];
+const COLORS = ["#0d9488","#1B5E20","#4A148C","#BF360C","#006064","#37474F"];
 function colorFor(name) { let h=0; for(let c of name) h=(h*31+c.charCodeAt(0))%COLORS.length; return COLORS[h]; }
 function initials(name) { return name.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase(); }
 function escapeHtml(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
@@ -230,10 +173,6 @@ function switchTab(tab) {
   document.getElementById("panelStats").classList.toggle("hidden", tab !== "stats");
   const panelUsers = document.getElementById("panelUsers");
   if (panelUsers) panelUsers.classList.toggle("hidden", tab !== "users");
-  document.getElementById("tabJournal").classList.toggle("active", tab === "journal");
-  document.getElementById("tabStats").classList.toggle("active", tab === "stats");
-  const tabUsers = document.getElementById("tabUsers");
-  if (tabUsers) tabUsers.classList.toggle("active", tab === "users");
   if (tab === "stats") loadStats();
   if (tab === "users") loadUsers();
 }
@@ -259,7 +198,7 @@ async function loadUsers() {
   const tbody = document.getElementById("usersTableBody");
   if (!users.length) {
     tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:28px;">
-      <div style="font-size:15px;font-weight:600;color:#1a2340;margin-bottom:8px;">Пользователей пока нет</div>
+      <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:8px;">Пользователей пока нет</div>
       <div style="font-size:13px;color:#90a4ae;">Нажмите «Создать пользователя», чтобы добавить первого пользователя.</div>
     </td></tr>`;
     return;
@@ -270,11 +209,11 @@ async function loadUsers() {
       ? '<span class="badge badge-present">Активен</span>'
       : '<span class="badge badge-absent">Деактивирован</span>';
     const actionBtn = u.active
-      ? `<button onclick="deactivateUser('${u.id}', '${u.username}')" style="padding:5px 12px;background:#fff;border:1px solid #EF9A9A;border-radius:6px;font-size:12px;font-weight:500;color:#B71C1C;cursor:pointer;">Деактивировать</button>`
+      ? `<button onclick="deactivateUser('${u.id}', '${u.username}')" style="padding:5px 12px;background:var(--card-bg);border:1px solid #EF9A9A;border-radius:6px;font-size:12px;font-weight:500;color:#B71C1C;cursor:pointer;">Деактивировать</button>`
       : `<button onclick="reactivateUser('${u.id}')" class="btn-export" style="padding:5px 12px;font-size:12px;">Активировать</button>`;
     return `<tr>
       <td style="font-weight:500;">${escapeHtml(u.username)}</td>
-      <td style="color:#546e7a;">${escapeHtml(roleName)}</td>
+      <td style="color:var(--text-secondary);">${escapeHtml(roleName)}</td>
       <td>${statusBadge}</td>
       <td>${actionBtn}</td>
     </tr>`;
@@ -393,14 +332,14 @@ function renderTable(rows) {
     const indicatorHtml = indicators.join(" ") || '<span style="color:#bdbdbd;font-size:12px;">—</span>';
 
     const checkInHtml  = r.check_in  ? `<span style="color:${isLate ? '#BF360C' : '#2E7D32'};font-weight:500;">${r.check_in}</span>`  : '<span style="color:#bdbdbd">—</span>';
-    const checkOutHtml = r.check_out ? `<span style="color:${isEarlyLeave ? '#0D47A1' : '#1565C0'};font-weight:500;">${r.check_out}</span>` : '<span style="color:#bdbdbd">—</span>';
+    const checkOutHtml = r.check_out ? `<span style="color:${isEarlyLeave ? '#0f766e' : '#0d9488'};font-weight:500;">${r.check_out}</span>` : '<span style="color:#bdbdbd">—</span>';
 
     return `<tr class="${rowClass}">
       <td><div class="emp-cell">
         <div class="emp-av" style="background:${col}22;color:${col};border:1.5px solid ${col}44;">${initials(r.name)}</div>
         <span style="font-weight:500;">${escapeHtml(r.name)}</span>
       </div></td>
-      <td style="color:#546e7a;">${escapeHtml(r.role)}</td>
+      <td style="color:var(--text-secondary);">${escapeHtml(r.role)}</td>
       <td class="time-cell">${checkInHtml}</td>
       <td class="time-cell">${checkOutHtml}</td>
       <td>${r.duration ? `<span style="font-weight:500;">${r.duration}</span>` : '<span style="color:#bdbdbd">—</span>'}</td>
@@ -456,8 +395,8 @@ async function loadStats() {
       datasets: [{
         label: "Присутствовало",
         data: counts,
-        backgroundColor: "rgba(21,101,192,0.7)",
-        borderColor: "#1565C0",
+        backgroundColor: "rgba(13,148,136,0.7)",
+        borderColor: "#0d9488",
         borderWidth: 1,
         borderRadius: 4
       }]
@@ -481,8 +420,8 @@ async function loadStats() {
   statsBody.innerHTML = sorted.map(e => `
     <tr>
       <td><span style="font-weight:500;">${escapeHtml(e.name)}</span></td>
-      <td style="color:#546e7a;">${escapeHtml(e.role)}</td>
-      <td style="font-weight:600;color:#1565C0;">${e.days}</td>
+      <td style="color:var(--text-secondary);">${escapeHtml(e.role)}</td>
+      <td style="font-weight:600;color:var(--accent);">${e.days}</td>
       <td style="font-weight:600;">${e.hours_str}</td>
       <td>${e.late_days > 0 ? `<span style="color:#BF360C;font-weight:500;">${e.late_days}</span>` : '<span style="color:#2E7D32;">0</span>'}</td>
     </tr>`).join("");
@@ -491,5 +430,4 @@ async function loadStats() {
 loadDates();
 loadData(today);
 </script>
-</body>
-</html>
+{% endblock %}

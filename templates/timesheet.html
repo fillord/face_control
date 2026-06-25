@@ -81,11 +81,11 @@ tbody tr:last-child td { border-bottom: none; }
       <label for="month-input">Месяц</label>
       <input type="month" id="month-input" name="month" value="{{ month_str }}">
     </div>
-    {% if role in ("org_admin", "superadmin") %}
+    {% if role in ("org_admin", "hr_viewer", "superadmin") %}
     <div class="form-group">
       <label for="dept-select">Отдел</label>
       <select id="dept-select" name="dept_id">
-        {% if role == "org_admin" %}
+        {% if role in ("org_admin", "hr_viewer") %}
           {% for opt in dept_options %}
             <option value="{{ opt.id }}" {% if opt.id == dept_id %}selected{% endif %}>{{ opt.name }}</option>
           {% endfor %}

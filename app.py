@@ -88,10 +88,10 @@ def init_users():
 
 # ─── Auth: RBAC ───────────────────────────────────────────────────────────────
 
-ROLE_HIERARCHY = ['superadmin', 'org_admin', 'dept_admin', 'viewer', 'employee']
+ROLE_HIERARCHY = ['superadmin', 'org_admin', 'dept_admin', 'hr_viewer', 'viewer', 'employee']
 
 # Roles that are permitted to log in via the admin login page (AUTH-ROLE-01)
-ALLOWED_LOGIN_ROLES = ("superadmin", "org_admin", "dept_admin", "employee")
+ALLOWED_LOGIN_ROLES = ("superadmin", "org_admin", "dept_admin", "hr_viewer", "employee")
 
 def require_role(*allowed_roles):
     def decorator(f):
@@ -642,6 +642,8 @@ def login_page():
             return redirect(url_for("org_admin_page"))
         elif role_now in ("dept_admin", "viewer"):
             return redirect(url_for("dept_admin_page"))
+        elif role_now == "hr_viewer":
+            return redirect(url_for("timesheet"))
         else:
             return redirect(url_for("dashboard_page"))
     error = None
@@ -671,6 +673,8 @@ def login_page():
                     return redirect(url_for("org_admin_page"))
                 elif role == "dept_admin":
                     return redirect(url_for("dept_admin_page"))
+                elif role == "hr_viewer":
+                    return redirect(url_for("timesheet"))
                 elif role == "employee":
                     return redirect(url_for("employee_page"))
                 else:
@@ -869,6 +873,7 @@ ROLE_DISPLAY = {
     "superadmin": "Суперадмин",
     "org_admin": "Администратор организации",
     "dept_admin": "Администратор отдела",
+    "hr_viewer": "HR-наблюдатель",
     "viewer": "Наблюдатель",
     "employee": "Сотрудник",
 }
@@ -1156,7 +1161,7 @@ def api_me():
 # ─── Page routes: T-13 Timesheet ──────────────────────────────────────────────
 
 @app.route("/timesheet")
-@require_role("dept_admin", "org_admin", "superadmin")
+@require_role("dept_admin", "org_admin", "hr_viewer", "superadmin")
 def timesheet():
     """T13-01: Render the T-13 attendance timesheet grid for a dept/month."""
     user = User.query.get(session.get("user_id"))
@@ -1181,7 +1186,7 @@ def timesheet():
 
     if role == "dept_admin":
         dept_id = session_dept_id  # always fixed from session; param ignored
-    elif role == "org_admin":
+    elif role in ("org_admin", "hr_viewer"):
         if dept_id_param:
             dept_obj = Department.query.get(dept_id_param)
             if not dept_obj or dept_obj.org_id != session_org_id:
@@ -1282,6 +1287,7 @@ def timesheet():
         holidays_set=holidays_set,
         missing_holiday_year=missing_holiday_year,
         can_edit=(role in ("dept_admin", "org_admin", "superadmin")),
+        # hr_viewer is read-only; can_edit stays False for them
     )
 
 
@@ -1313,7 +1319,7 @@ def _resolve_export_scope():
 
     if role == "dept_admin":
         dept_id = session_dept_id  # always fixed from session; param ignored
-    elif role == "org_admin":
+    elif role in ("org_admin", "hr_viewer"):
         if dept_id_param:
             dept_obj = Department.query.get(dept_id_param)
             if not dept_obj or dept_obj.org_id != session_org_id:
@@ -1379,7 +1385,7 @@ def _build_export_grid(days, scoped_employees, attendance, overrides, holidays_s
 
 
 @app.route("/timesheet/export/xlsx")
-@require_role("dept_admin", "org_admin", "superadmin")
+@require_role("dept_admin", "org_admin", "hr_viewer", "superadmin")
 def export_timesheet_xlsx():
     """EXP-01: Download the T-13 grid as an openpyxl .xlsx file."""
     ctx, err = _resolve_export_scope()
@@ -1443,7 +1449,7 @@ def export_timesheet_xlsx():
 
 
 @app.route("/timesheet/export/csv")
-@require_role("dept_admin", "org_admin", "superadmin")
+@require_role("dept_admin", "org_admin", "hr_viewer", "superadmin")
 def export_timesheet_csv():
     """EXP-02: Download the T-13 grid as UTF-8 BOM semicolon-delimited CSV."""
     ctx, err = _resolve_export_scope()
@@ -1712,7 +1718,7 @@ def delete_user(user_id):
 # ─── Page routes: Org admin inline partials ───────────────────────────────────
 
 @app.route("/org_admin/partial/reports")
-@require_role("org_admin", "superadmin")
+@require_role("org_admin", "hr_viewer", "superadmin")
 def org_admin_partial_reports():
     """ORGUX-05: Return reports HTML fragment for inline injection into org_admin."""
     user = User.query.get(session.get("user_id"))
@@ -1721,7 +1727,7 @@ def org_admin_partial_reports():
 
 
 @app.route("/org_admin/partial/timesheet")
-@require_role("org_admin", "superadmin")
+@require_role("org_admin", "hr_viewer", "superadmin")
 def org_admin_partial_timesheet():
     """ORGUX-05: Return timesheet HTML fragment for inline injection into org_admin."""
     user = User.query.get(session.get("user_id"))
@@ -1743,7 +1749,7 @@ def org_admin_partial_timesheet():
     dept_id_param = request.args.get("dept_id", "")
     dept_options = []
 
-    if role == "org_admin":
+    if role in ("org_admin", "hr_viewer"):
         if dept_id_param:
             dept_obj = Department.query.get(dept_id_param)
             if not dept_obj or dept_obj.org_id != session_org_id:
@@ -2209,11 +2215,11 @@ def rename_kiosk_device(org_token, device_id):
 # ─── API: Depts ───────────────────────────────────────────────────────────────
 
 @app.route("/api/depts", methods=["GET"])
-@require_role("superadmin", "org_admin", "dept_admin")
+@require_role("superadmin", "org_admin", "hr_viewer", "dept_admin")
 def list_depts():
     caller_role = session.get("role")
     caller_org_id = session.get("org_id")
-    if caller_role in ("org_admin", "dept_admin"):
+    if caller_role in ("org_admin", "hr_viewer", "dept_admin"):
         result = [_dept_to_dict(d) for d in Department.query.filter_by(org_id=caller_org_id).all()]
     else:
         result = [_dept_to_dict(d) for d in Department.query.all()]
@@ -2310,14 +2316,14 @@ def delete_dept(dept_id):
 # ─── API: Employees ───────────────────────────────────────────────────────────
 
 @app.route("/api/employees", methods=["GET"])
-@require_role("superadmin", "org_admin", "dept_admin")
+@require_role("superadmin", "org_admin", "hr_viewer", "dept_admin")
 def get_employees():
     role = session.get("role")
     org_id = session.get("org_id")
     dept_id = session.get("dept_id")
     if role == "superadmin":
         emps = Employee.query.all()
-    elif role == "org_admin" and org_id:
+    elif role in ("org_admin", "hr_viewer") and org_id:
         emps = Employee.query.filter_by(org_id=org_id).all()
     elif role == "dept_admin" and dept_id:
         emps = Employee.query.filter_by(dept_id=dept_id).all()
@@ -2679,7 +2685,7 @@ def superadmin_stats():
 
 
 @app.route("/api/dept_attendance_today", methods=["GET"])
-@require_role("dept_admin", "org_admin", "superadmin")
+@require_role("dept_admin", "org_admin", "hr_viewer", "superadmin")
 def dept_attendance_today():
     """DASH-02: Today's attendance scoped by caller role (dept_admin→dept, org_admin→org, superadmin→all)."""
     role = session.get("role")
@@ -2692,7 +2698,7 @@ def dept_attendance_today():
     # Build attendance dict adapter for today only
     if role == "dept_admin":
         emps = Employee.query.filter_by(dept_id=dept_id).all()
-    elif role == "org_admin":
+    elif role in ("org_admin", "hr_viewer"):
         emps = Employee.query.filter_by(org_id=org_id).all()
     else:  # superadmin — all employees
         emps = Employee.query.all()
@@ -2966,7 +2972,7 @@ def kiosk_log():
 # ─── API: Attendance ──────────────────────────────────────────────────────────
 
 @app.route("/api/attendance", methods=["GET"])
-@require_role("superadmin", "org_admin", "dept_admin")
+@require_role("superadmin", "org_admin", "hr_viewer", "dept_admin")
 def get_attendance():
     day = request.args.get("date", date.today().isoformat())
     employees = {e.id: _emp_to_dict(e) for e in Employee.query.all()}
@@ -3002,7 +3008,7 @@ def get_attendance():
     return jsonify(result)
 
 @app.route("/api/attendance/dates", methods=["GET"])
-@require_role("superadmin", "org_admin", "dept_admin")
+@require_role("superadmin", "org_admin", "hr_viewer", "dept_admin")
 def get_dates():
     dates = db.session.execute(
         db.select(AttendanceRecord.date).distinct().order_by(AttendanceRecord.date.desc())
@@ -3010,7 +3016,7 @@ def get_dates():
     return jsonify(list(dates))
 
 @app.route("/api/stats", methods=["GET"])
-@require_role("superadmin", "org_admin", "dept_admin")
+@require_role("superadmin", "org_admin", "hr_viewer", "dept_admin")
 def get_stats():
     from_date = request.args.get("from")
     to_date = request.args.get("to")

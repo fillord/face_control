@@ -287,3 +287,27 @@ Plans:
 **Wave 5** *(blocked on Wave 4)*
 
 - [x] 07-05-PLAN.md — Kiosk Settings visual redesign (icon-headed cards, modern spacing)
+
+### Phase 8: I want to radically change the navigation of the website and the design.
+
+**Goal:** Every authenticated page renders inside a single shared `base.html` shell: a dark fixed sidebar with role-aware navigation (replacing horizontal nav-tabs), a teal accent palette replacing the old blue, Inter font, and a responsive hamburger on small screens. The kiosk and login pages stay standalone.
+**Requirements**: D-01..D-16 (design decisions from 08-CONTEXT.md)
+**Depends on:** Phase 7
+**Plans:** 6 plans
+
+Plans:
+
+**Wave 1** *(foundation)*
+
+- [ ] 08-01-PLAN.md — Create base.html: CSS token system, dark sidebar, role-aware nav (6 roles), user footer, hamburger JS, content block
+
+**Wave 2** *(blocked on Wave 1 — parallel, no file overlap)*
+
+- [ ] 08-02-PLAN.md — Convert superadmin.html (pilot tabbed page) to extend base.html
+- [ ] 08-03-PLAN.md — Convert org_admin.html + dept_admin.html to extend base.html
+- [ ] 08-04-PLAN.md — Convert admin.html + employee.html + dashboard.html to extend base.html
+
+**Wave 3** *(blocked on Wave 1 — parallel, no file overlap)*
+
+- [ ] 08-05-PLAN.md — Convert timesheet, profile, account, audit, 403, devices, register to extend base.html
+- [ ] 08-06-PLAN.md — Update reports_partial.html + timesheet_partial.html CSS tokens (no extends, partials)

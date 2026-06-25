@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Аудит — МедКонтроль</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f6fb; color: #1a2340; min-height: 100vh; }
+header { background: #fff; border-bottom: 1px solid #e2e6f0; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.logo { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
+.logo-icon { width: 34px; height: 34px; background: #1565C0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.user-badge { font-size: 13px; color: #546e7a; }
+.btn-logout { padding: 7px 14px; background: #fff; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; color: #546e7a; cursor: pointer; text-decoration: none; transition: all 0.15s; }
+.btn-logout:hover { background: #ffebee; color: #c62828; border-color: #ef9a9a; }
+.nav-tabs { display: flex; gap: 4px; padding: 0 24px; background: #fff; border-bottom: 1px solid #e2e6f0; }
+.tab { padding: 12px 20px; font-size: 13px; font-weight: 600; color: #78909c; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; text-decoration: none; display: inline-block; }
+.tab.active { color: #1565C0; border-bottom-color: #1565C0; }
+.tab:hover:not(.active) { color: #1a2340; }
+.page { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+.page-title { font-size: 20px; font-weight: 600; color: #1a2340; margin-bottom: 20px; }
+.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.toolbar input, .toolbar select { padding: 8px 12px; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 13px; color: #1a2340; outline: none; font-family: inherit; background: #fff; }
+.toolbar input:focus, .toolbar select:focus { border-color: #1565C0; }
+.btn-primary { padding: 8px 16px; background: #1565C0; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+.btn-primary:hover { background: #0d47a1; }
+.btn-secondary { padding: 8px 16px; background: #fff; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; color: #546e7a; }
+.table-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; overflow: hidden; margin-bottom: 20px; }
+table { width: 100%; border-collapse: collapse; }
+thead { background: #f8fafd; }
+th { padding: 11px 12px; text-align: left; font-size: 11px; font-weight: 600; color: #546e7a; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e6f0; white-space: nowrap; }
+td { padding: 10px 12px; font-size: 12px; border-bottom: 1px solid #f0f3f8; vertical-align: top; word-break: break-word; }
+tr:last-child td { border-bottom: none; }
+.action-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+.action-badge.create { background: #E8F5E9; color: #2E7D32; }
+.action-badge.update { background: #E3F2FD; color: #1565C0; }
+.action-badge.delete { background: #FFEBEE; color: #c62828; }
+.action-badge.manual { background: #FFF8E1; color: #F57F17; }
+.action-badge.register { background: #F3E5F5; color: #6A1B9A; }
+.value-cell { max-width: 220px; overflow: hidden; font-size: 11px; color: #546e7a; font-family: 'Courier New', monospace; white-space: pre-wrap; word-break: break-all; }
+.empty-state { text-align: center; padding: 40px; color: #90a4ae; font-size: 14px; }
+.load-msg { text-align: center; padding: 24px; color: #90a4ae; font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><div class="logo-icon">🏥</div> МедКонтроль — Суперадмин</div>
+  <div class="header-right">
+    <span class="user-badge">{{ username }}</span>
+    <a href="/account" class="btn-logout" style="border-color:#cfd8dc;color:#546e7a;">Аккаунт</a>
+    <a href="/logout" class="btn-logout">Выйти</a>
+  </div>
+</header>
+
+<div class="nav-tabs">
+  <a class="tab" href="/admin">Организации</a>
+  <a class="tab" href="/register">Регистрация →</a>
+  <a class="tab active" href="/audit">Аудит</a>
+</div>
+
+<div class="page">
+  <div class="page-title">Журнал аудита</div>
+
+  <div class="toolbar">
+    <input type="text" id="filterAction" placeholder="Фильтр по действию..." style="min-width:180px;">
+    <input type="text" id="filterActor" placeholder="Фильтр по пользователю..." style="min-width:180px;">
+    <button class="btn-primary" onclick="loadAudit()">Найти</button>
+    <button class="btn-secondary" onclick="clearFilters()">Сбросить</button>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th style="min-width:140px;">Время</th>
+          <th style="min-width:100px;">Пользователь</th>
+          <th style="min-width:120px;">Действие</th>
+          <th style="min-width:100px;">Объект</th>
+          <th style="min-width:80px;">ID цели</th>
+          <th style="min-width:180px;">Было</th>
+          <th style="min-width:180px;">Стало</th>
+        </tr>
+      </thead>
+      <tbody id="auditTableBody">
+        <tr><td colspan="7" class="load-msg">Загрузка...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const ACTION_LABELS = {
+  user_create: 'Создан пользователь',
+  user_update: 'Изменён пользователь',
+  user_delete: 'Удалён пользователь',
+  org_create: 'Создана организация',
+  org_update: 'Изменена организация',
+  org_delete: 'Удалена организация',
+  dept_create: 'Создан отдел',
+  dept_update: 'Изменён отдел',
+  dept_delete: 'Удалён отдел',
+  employee_register: 'Зарегистрирован сотрудник',
+  manual_time_edit: 'Правка времени',
+};
+
+function actionClass(action) {
+  if (action.endsWith('_create') || action.endsWith('_register')) return 'create';
+  if (action.endsWith('_update') || action === 'manual_time_edit') return action === 'manual_time_edit' ? 'manual' : 'update';
+  if (action.endsWith('_delete')) return 'delete';
+  if (action.includes('register')) return 'register';
+  return 'update';
+}
+
+function formatValue(v) {
+  if (!v) return '—';
+  try {
+    const parsed = JSON.parse(v);
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    return v;
+  }
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function loadAudit() {
+  const action = document.getElementById('filterAction').value.trim();
+  const actor = document.getElementById('filterActor').value.trim();
+  const tbody = document.getElementById('auditTableBody');
+  tbody.innerHTML = '<tr><td colspan="7" class="load-msg">Загрузка...</td></tr>';
+
+  const params = new URLSearchParams();
+  if (action) params.set('action', action);
+  if (actor) params.set('actor', actor);
+
+  try {
+    const resp = await fetch('/api/audit?' + params.toString());
+    if (!resp.ok) { tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Ошибка загрузки данных</td></tr>'; return; }
+    const rows = await resp.json();
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Записи не найдены</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => {
+      const label = ACTION_LABELS[r.action] || r.action;
+      const cls = actionClass(r.action);
+      const ts = r.ts ? r.ts.replace('T', ' ').slice(0, 19) : '—';
+      const targetId = r.target_id ? escapeHtml(r.target_id) : '—';
+      return `<tr>
+        <td style="font-variant-numeric:tabular-nums;white-space:nowrap;">${escapeHtml(ts)}</td>
+        <td>${escapeHtml(r.actor_username || '—')}</td>
+        <td><span class="action-badge ${cls}">${escapeHtml(label)}</span></td>
+        <td>${escapeHtml(r.target_type || '—')}</td>
+        <td style="font-size:11px;color:#90a4ae;">${targetId}</td>
+        <td><div class="value-cell">${escapeHtml(formatValue(r.old_value))}</div></td>
+        <td><div class="value-cell">${escapeHtml(formatValue(r.new_value))}</div></td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Ошибка соединения</td></tr>';
+  }
+}
+
+function clearFilters() {
+  document.getElementById('filterAction').value = '';
+  document.getElementById('filterActor').value = '';
+  loadAudit();
+}
+
+loadAudit();
+</script>
+</body>
+</html>

@@ -3174,6 +3174,45 @@ def get_stats():
         "total_days": len(dates)
     })
 
+# ─── Audit log page + API ─────────────────────────────────────────────────────
+
+@app.route("/audit")
+@require_role("superadmin")
+def audit_page():
+    """Superadmin-only audit log viewer page."""
+    user = User.query.get(session.get("user_id"))
+    username = user.username if user else ""
+    return render_template("audit.html", username=username)
+
+
+@app.route("/api/audit", methods=["GET"])
+@require_role("superadmin")
+def audit_api():
+    """Return most recent 500 AuditLog rows; supports optional ?action= and ?actor= filters."""
+    action_filter = request.args.get("action", "").strip()
+    actor_filter = request.args.get("actor", "").strip()
+
+    q = AuditLog.query.order_by(AuditLog.id.desc())
+    if action_filter:
+        q = q.filter(AuditLog.action.contains(action_filter))
+    if actor_filter:
+        q = q.filter(AuditLog.actor_username.contains(actor_filter))
+    rows = q.limit(500).all()
+
+    return jsonify([
+        {
+            "ts": r.ts,
+            "actor_username": r.actor_username,
+            "action": r.action,
+            "target_type": r.target_type,
+            "target_id": r.target_id,
+            "old_value": r.old_value,
+            "new_value": r.new_value,
+        }
+        for r in rows
+    ])
+
+
 # ─── Startup ──────────────────────────────────────────────────────────────────
 # db.create_all() is idempotent — safe to call on every startup (D-16, Pitfall 2).
 # Must run BEFORE init_config/init_users so tables exist (T-06-06).

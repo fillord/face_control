@@ -1,86 +1,20 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Суперадмин — МедКонтроль</title>
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f6fb; color: #1a2340; min-height: 100vh; }
-header { background: #fff; border-bottom: 1px solid #e2e6f0; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
-.logo { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
-.logo-icon { width: 34px; height: 34px; background: #1565C0; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
-.header-right { display: flex; align-items: center; gap: 12px; }
-.user-badge { font-size: 13px; color: #546e7a; }
-.btn-logout { padding: 7px 14px; background: #fff; border: 1px solid #e0e0e0; border-radius: 7px; font-size: 13px; color: #546e7a; cursor: pointer; text-decoration: none; transition: all 0.15s; }
-.btn-logout:hover { background: #ffebee; color: #c62828; border-color: #ef9a9a; }
-.nav-tabs { display: flex; gap: 4px; padding: 0 24px; background: #fff; border-bottom: 1px solid #e2e6f0; }
-.tab { padding: 12px 20px; font-size: 13px; font-weight: 600; color: #78909c; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; text-decoration: none; display: inline-block; }
-.tab.active { color: #1565C0; border-bottom-color: #1565C0; }
-.tab:hover:not(.active) { color: #1a2340; }
-.page { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
-.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
-.stat-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 12px; padding: 16px; }
-.stat-label { font-size: 11px; color: #78909c; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
-.stat-val { font-size: 26px; font-weight: 600; }
-.stat-val.blue { color: #1565C0; }
-.stat-val.green { color: #2E7D32; }
-.stat-val.orange { color: #E65100; }
-.stat-val.gray { color: #546e7a; }
-.table-card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; overflow: hidden; margin-bottom: 20px; }
-table { width: 100%; border-collapse: collapse; }
-thead { background: #f8fafd; }
-th { padding: 12px 12px; text-align: left; font-size: 11px; font-weight: 600; color: #546e7a; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e6f0; white-space: nowrap; }
-td { padding: 12px 12px; font-size: 13px; border-bottom: 1px solid #f0f3f8; vertical-align: middle; }
-tr:last-child td { border-bottom: none; }
-.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 14px; font-size: 11px; font-weight: 600; }
-.btn-primary { padding: 8px 16px; background: #1565C0; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
-.btn-primary:hover { background: #0d47a1; }
-.btn-secondary { padding: 8px 16px; background: #fff; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; color: #546e7a; }
-.btn-edit { padding: 6px 12px; background: #fff; border: 1px solid #cfd8dc; border-radius: 6px; font-size: 12px; color: #546e7a; cursor: pointer; }
-.btn-edit:hover { background: #f4f6fb; }
-.btn-delete { padding: 6px 12px; background: #fff; border: 1px solid #ef9a9a; border-radius: 6px; font-size: 12px; color: #c62828; cursor: pointer; }
-.btn-delete:hover { background: #ffebee; }
-.card { background: #fff; border: 1px solid #e2e6f0; border-radius: 14px; padding: 24px; max-width: 480px; margin-bottom: 20px; }
-.form-group { margin-bottom: 16px; }
-.form-group label { font-size: 13px; font-weight: 600; color: #546e7a; display: block; margin-bottom: 6px; }
-.form-group input, .form-group textarea { width: 100%; padding: 8px 12px; border: 1px solid #cfd8dc; border-radius: 8px; font-size: 13px; color: #1a2340; outline: none; font-family: inherit; }
-.form-group input:focus, .form-group textarea:focus { border-color: #1565C0; }
-.form-actions { display: flex; gap: 10px; margin-top: 8px; }
-.hidden { display: none; }
-.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-.error-msg { font-size: 13px; color: #c62828; margin-top: 8px; }
-@media (max-width: 700px) {
-  .stats-grid { grid-template-columns: 1fr 1fr; }
-}
-</style>
-</head>
-<body>
-<header>
-  <div class="logo"><div class="logo-icon">🏥</div> МедКонтроль — Суперадмин</div>
-  <div class="header-right">
-    <span class="user-badge">{{ username }}</span>
-    <a href="/account" class="btn-logout" style="border-color:#cfd8dc;color:#546e7a;">Аккаунт</a>
-    <a href="/logout" class="btn-logout">Выйти</a>
-  </div>
-</header>
+{% extends 'base.html' %}
+{% block title %}Суперадмин — МедКонтроль{% endblock %}
 
-<div class="nav-tabs">
-  <span class="tab active" id="tabOrgs" onclick="switchTab('orgs')">Организации</span>
-  <span class="tab" id="tabUsers" onclick="switchTab('users')">Пользователи</span>
-  <a class="tab" href="/register">Регистрация →</a>
-  <a class="tab" href="/audit">Аудит</a>
-</div>
+{% block head %}{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Организации</h1>
 
 <div id="panelOrgs" class="page">
   <div class="stats-grid">
     <div class="stat-card">
       <div class="stat-label">Организации</div>
-      <div class="stat-val blue" id="statOrgs">—</div>
+      <div class="stat-val teal" id="statOrgs">—</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Сотрудников</div>
-      <div class="stat-val blue" id="statEmployees">—</div>
+      <div class="stat-val teal" id="statEmployees">—</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Сегодня пришли</div>
@@ -198,8 +132,6 @@ async function init() {
 
 // ─── Tab switching ─────────────────────────────────────────────────────────────
 function switchTab(tab) {
-  document.getElementById('tabOrgs').classList.toggle('active', tab === 'orgs');
-  document.getElementById('tabUsers').classList.toggle('active', tab === 'users');
   document.getElementById('panelOrgs').classList.toggle('hidden', tab !== 'orgs');
   document.getElementById('panelUsers').classList.toggle('hidden', tab !== 'users');
 }
@@ -261,9 +193,9 @@ function renderOrgs() {
       : `<span style="color:#90a4ae;font-size:11px;">Без PIN</span>`;
     return `<tr>
       <td style="font-weight:500;">${escapeHtml(org.name)}</td>
-      <td style="color:#1565C0;font-weight:600;">${empCount}</td>
+      <td style="color:var(--accent);font-weight:600;">${empCount}</td>
       <td>${desc}</td>
-      <td><a href="${kioskUrl}" target="_blank" style="color:#1565C0;font-size:12px;">Открыть</a> ${pinBadge}</td>
+      <td><a href="${kioskUrl}" target="_blank" style="color:var(--accent);font-size:12px;">Открыть</a> ${pinBadge}</td>
       <td style="display:flex;gap:8px;align-items:center;">
         <button class="btn-edit" onclick="startEdit('${org.id}')">Изменить</button>
         <button class="btn-edit" onclick="setPIN('${org.id}', '${escapeHtml(org.name)}')">PIN</button>
@@ -509,5 +441,4 @@ function escapeHtml(str) {
 
 init();
 </script>
-</body>
-</html>
+{% endblock %}

@@ -180,3 +180,22 @@ class AppSetting(db.Model):
 
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
+# ─── AuditLog ─────────────────────────────────────────────────────────────────
+
+class AuditLog(db.Model):
+    """Audit log for sensitive actions — superadmin-only viewer at /audit.
+    Capped at 50,000 rows via ordered DELETE (same pattern as LogEntry D-03).
+    """
+    __tablename__ = "audit_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ts: Mapped[str] = mapped_column(String(32), nullable=False)
+    actor_user_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    actor_username: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    action: Mapped[str] = mapped_column(String(48), nullable=False)
+    target_type: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    target_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    old_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    new_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

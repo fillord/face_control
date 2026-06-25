@@ -15,7 +15,7 @@ from openpyxl.utils import get_column_letter
 from sqlalchemy import text
 from sqlalchemy import exc as sa_exc
 from models import db, Employee, User, Organization, Department
-from models import AttendanceRecord, EmployeeSchedule, LogEntry, TimesheetOverride, AppSetting, KioskDevice
+from models import AttendanceRecord, EmployeeSchedule, LogEntry, TimesheetOverride, AppSetting, KioskDevice, AuditLog
 
 app = Flask(__name__)
 _secret_key = os.environ.get("SECRET_KEY")
@@ -514,6 +514,59 @@ def append_log(entry):
         LogEntry.query.filter(LogEntry.id.in_(oldest_ids)).delete(synchronize_session=False)
     db.session.commit()
 
+# ─── Audit helpers ────────────────────────────────────────────────────────────
+
+def write_audit(action, target_type=None, target_id=None, old_value=None, new_value=None):
+    """Insert an AuditLog row with 50,000-row cap (D-03 style).
+
+    Reads acting user from session. Failure-isolated — never propagates exceptions
+    (audit failure must not break the underlying action).
+    Do NOT call from kiosk/public routes (no session context there).
+    """
+    try:
+        actor_user_id = session.get("user_id")
+        actor_username = None
+        if actor_user_id:
+            u = User.query.get(actor_user_id)
+            actor_username = u.username if u else session.get("role")
+        else:
+            actor_username = session.get("role") or None
+
+        def _serialize(v):
+            if v is None:
+                return None
+            if isinstance(v, dict):
+                return json.dumps(v, ensure_ascii=False)
+            return str(v)
+
+        entry = AuditLog(
+            ts=datetime.now().isoformat(),
+            actor_user_id=str(actor_user_id) if actor_user_id else None,
+            actor_username=actor_username,
+            action=action,
+            target_type=target_type,
+            target_id=str(target_id) if target_id is not None else None,
+            old_value=_serialize(old_value),
+            new_value=_serialize(new_value),
+        )
+        db.session.add(entry)
+        db.session.flush()
+        count = AuditLog.query.count()
+        if count > 50000:
+            excess = count - 50000
+            oldest_ids = db.session.execute(
+                db.select(AuditLog.id).order_by(AuditLog.id.asc()).limit(excess)
+            ).scalars().all()
+            AuditLog.query.filter(AuditLog.id.in_(oldest_ids)).delete(synchronize_session=False)
+        db.session.commit()
+    except Exception as exc:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        print(f"AUDIT_FAIL action={action!r} exc={exc!r}", flush=True)
+
+
 # ─── CV helpers ───────────────────────────────────────────────────────────────
 
 def decode_image(b64_string):
@@ -755,6 +808,10 @@ def register_token_submit(reg_token):
 
     os.makedirs(os.path.join(FACES_DIR, emp_id), exist_ok=True)
     print(f"REGISTER_TOKEN: emp_id={emp_id!r} name={name!r} org_id={org_id!r} dept_id={dept_id!r}", flush=True)
+    # Note: write_audit uses session; self-registration has no session user — actor_username
+    # will fall back to None (no admin context). This is expected for public registration.
+    write_audit("employee_register", target_type="employee", target_id=emp_id,
+                new_value={"name": name, "org_id": org_id, "dept_id": dept_id})
     return jsonify({"id": emp_id, "status": "created"})
 
 
@@ -1579,6 +1636,8 @@ def create_user():
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
+    write_audit("user_create", target_type="user", target_id=user_id,
+                new_value={"username": username, "role": target_role, "org_id": new_org_id, "dept_id": new_dept_id})
     print(f"USER_CREATED: username={username!r} role={target_role!r} org_id={new_org_id!r} dept_id={new_dept_id!r} emp_id={new_emp_id!r}", flush=True)
     return jsonify({"id": user_id, "status": "created"})
 
@@ -1595,20 +1654,29 @@ def update_user(user_id):
             ROLE_HIERARCHY.index(caller_role) >= ROLE_HIERARCHY.index(target_role)):
         return jsonify({"error": "forbidden"}), 403
     data = request.get_json(silent=True) or {}
+    old_active = target.active
+    old_dept_id = target.dept_id
+    changes = {}
     if "active" in data:
         target.active = bool(data["active"])
+        changes["active"] = data["active"]
     if "password" in data:
         pw = data["password"]
         if len(pw) < 8:
             return jsonify({"error": "Пароль должен содержать не менее 8 символов"}), 400
         target.password_hash = bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
+        changes["password"] = "***"
     if "dept_id" in data:
         target.dept_id = data["dept_id"] or None
+        changes["dept_id"] = data["dept_id"] or None
     try:
         db.session.commit()
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
+    write_audit("user_update", target_type="user", target_id=user_id,
+                old_value={"active": old_active, "dept_id": old_dept_id},
+                new_value=changes)
     return jsonify({"status": "updated", "active": target.active})
 
 
@@ -1628,12 +1696,16 @@ def delete_user(user_id):
         return jsonify({"error": "forbidden"}), 403
     if caller_role == "org_admin" and target.org_id != session.get("org_id"):
         return jsonify({"error": "forbidden"}), 403
+    old_username = target.username
+    old_role = target.role
     try:
         db.session.delete(target)
         db.session.commit()
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
+    write_audit("user_delete", target_type="user", target_id=user_id,
+                old_value={"username": old_username, "role": old_role})
     return jsonify({"status": "deleted"})
 
 
@@ -1888,6 +1960,8 @@ def create_org():
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
+    write_audit("org_create", target_type="org", target_id=org_id,
+                new_value={"name": name})
     return jsonify({"id": org_id, "status": "created"})
 
 
@@ -1898,6 +1972,8 @@ def update_org(org_id):
     if not org:
         return jsonify({"error": "Организация не найдена"}), 404
     data = request.json or {}
+    old_name = org.name
+    old_description = org.description
     if "name" in data:
         name = data["name"].strip()
         if not name:
@@ -1910,6 +1986,9 @@ def update_org(org_id):
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
+    write_audit("org_update", target_type="org", target_id=org_id,
+                old_value={"name": old_name, "description": old_description},
+                new_value={k: data[k] for k in ("name", "description") if k in data})
     return jsonify({"status": "updated"})
 
 
@@ -1921,12 +2000,15 @@ def delete_org(org_id):
         return jsonify({"error": "Организация не найдена"}), 404
     if Employee.query.filter_by(org_id=org_id).count() > 0:
         return jsonify({"error": "Организация содержит сотрудников"}), 409
+    old_name = org.name
     try:
         db.session.delete(org)
         db.session.commit()
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
+    write_audit("org_delete", target_type="org", target_id=org_id,
+                old_value={"name": old_name})
     return jsonify({"status": "deleted"})
 
 
@@ -2165,6 +2247,8 @@ def create_dept():
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
+    write_audit("dept_create", target_type="dept", target_id=dept_id,
+                new_value={"name": name, "org_id": target_org_id})
     return jsonify({"id": dept_id, "status": "created"})
 
 
@@ -2179,6 +2263,8 @@ def update_dept(dept_id):
     if caller_role == "org_admin" and dept.org_id != caller_org_id:
         return jsonify({"error": "forbidden"}), 403
     data = request.json or {}
+    old_name = dept.name
+    old_head_name = dept.head_name
     if "name" in data:
         name = data["name"].strip()
         if not name:
@@ -2191,6 +2277,9 @@ def update_dept(dept_id):
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
+    write_audit("dept_update", target_type="dept", target_id=dept_id,
+                old_value={"name": old_name, "head_name": old_head_name},
+                new_value={k: data[k] for k in ("name", "head_name") if k in data})
     return jsonify({"status": "updated"})
 
 
@@ -2206,12 +2295,15 @@ def delete_dept(dept_id):
         return jsonify({"error": "forbidden"}), 403
     if Employee.query.filter_by(dept_id=dept_id).count() > 0:
         return jsonify({"error": "Отдел содержит сотрудников"}), 409
+    old_dept_name = dept.name
     try:
         db.session.delete(dept)
         db.session.commit()
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
+    write_audit("dept_delete", target_type="dept", target_id=dept_id,
+                old_value={"name": old_dept_name})
     return jsonify({"status": "deleted"})
 
 
@@ -2281,6 +2373,8 @@ def add_employee():
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
     os.makedirs(os.path.join(FACES_DIR, emp_id), exist_ok=True)
+    write_audit("employee_register", target_type="employee", target_id=emp_id,
+                new_value={"name": name, "org_id": org_id, "dept_id": dept_id})
     return jsonify({"id": emp_id, "status": "created"})
 
 

@@ -1490,6 +1490,102 @@ def export_timesheet_csv():
     )
 
 
+# ─── API: Manual attendance time edit ────────────────────────────────────────
+
+@app.route("/api/attendance/manual", methods=["POST"])
+@require_role("superadmin", "org_admin")
+def manual_time_edit():
+    """Manually set check_in or check_out for an employee on a date.
+
+    Allowed roles: superadmin (global), org_admin (own org only).
+    dept_admin and hr_viewer → 403 (not listed in require_role).
+    Writes an AuditLog row after successful commit.
+    """
+    data = request.get_json(silent=True) or {}
+    emp_id = data.get("emp_id", "")
+    date_str = data.get("date", "")
+    check_in_raw = data.get("check_in")   # HH:MM or HH:MM:SS or empty/null
+    check_out_raw = data.get("check_out")  # same
+
+    # Validate emp exists
+    emp = Employee.query.get(emp_id)
+    if not emp:
+        return jsonify({"error": "employee_not_found"}), 404
+
+    # Scope gate: org_admin may only edit own org
+    role = session.get("role")
+    if role == "org_admin" and emp.org_id != session.get("org_id"):
+        return jsonify({"error": "forbidden"}), 403
+
+    # Validate date
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+    except (ValueError, TypeError):
+        return jsonify({"error": "invalid_date", "message": "Ожидается YYYY-MM-DD"}), 422
+
+    # Validate and normalize each time value
+    def _normalize_time(raw):
+        """Return HH:MM:SS string, None (clear), or raise ValueError on bad input."""
+        if raw is None or raw == "":
+            return None  # clear the field
+        s = str(raw).strip()
+        if not re.match(r'^\d{2}:\d{2}(:\d{2})?$', s):
+            raise ValueError(f"invalid time format: {s!r}")
+        parts = s.split(":")
+        h, m = int(parts[0]), int(parts[1])
+        sec = int(parts[2]) if len(parts) == 3 else 0
+        if not (0 <= h <= 23 and 0 <= m <= 59 and 0 <= sec <= 59):
+            raise ValueError(f"time out of range: {s!r}")
+        return f"{h:02d}:{m:02d}:{sec:02d}"
+
+    try:
+        new_ci = _normalize_time(check_in_raw)
+        new_co = _normalize_time(check_out_raw)
+    except ValueError as e:
+        return jsonify({"error": "invalid_time", "message": str(e)}), 422
+
+    # If no meaningful changes requested, bail early
+    if check_in_raw is None and check_out_raw is None:
+        return jsonify({"error": "no_fields"}), 422
+
+    # Upsert AttendanceRecord
+    rec = AttendanceRecord.query.filter_by(emp_id=emp_id, date=date_str).first()
+    old_ci = rec.check_in_time if rec else None
+    old_co = rec.check_out_time if rec else None
+
+    try:
+        if rec is None:
+            rec = AttendanceRecord(
+                emp_id=emp_id,
+                date=date_str,
+                check_in_time=new_ci,
+                check_out_time=new_co,
+                event_type="manual",
+            )
+            db.session.add(rec)
+        else:
+            if check_in_raw is not None:
+                rec.check_in_time = new_ci
+            if check_out_raw is not None:
+                rec.check_out_time = new_co
+            rec.event_type = "manual"
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Internal server error"}), 500
+
+    write_audit("manual_time_edit", target_type="attendance",
+                target_id=f"{emp_id}:{date_str}",
+                old_value={"check_in": old_ci, "check_out": old_co},
+                new_value={"check_in": rec.check_in_time, "check_out": rec.check_out_time})
+
+    return jsonify({
+        "status": "updated",
+        "check_in": rec.check_in_time,
+        "check_out": rec.check_out_time,
+    })
+
+
 # ─── API: T-13 Timesheet Override ────────────────────────────────────────────
 
 @app.route("/api/timesheet/override", methods=["POST", "DELETE"])

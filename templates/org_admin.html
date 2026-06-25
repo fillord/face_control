@@ -412,6 +412,32 @@ th.sortable:hover { color: #1a2340; }
       <button class="btn-secondary" onclick="cancelEmployeeEdit()">Отмена</button>
     </div>
   </div>
+  <!-- Manual time edit panel -->
+  <div id="manualTimePanel" class="card hidden" style="max-width:560px;margin-bottom:20px;">
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">Изменить время прихода/ухода</h3>
+    <input type="hidden" id="manualTimeEmpId">
+    <div style="font-size:13px;color:#546e7a;margin-bottom:12px;">Сотрудник: <strong id="manualTimeEmpName">—</strong></div>
+    <div class="form-group">
+      <label>Дата</label>
+      <input type="date" id="manualTimeDate">
+    </div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;">
+      <div class="form-group" style="flex:1;min-width:120px;">
+        <label>Приход (HH:MM)</label>
+        <input type="time" id="manualTimeCheckIn" step="1" placeholder="Оставьте пустым для очистки">
+      </div>
+      <div class="form-group" style="flex:1;min-width:120px;">
+        <label>Уход (HH:MM)</label>
+        <input type="time" id="manualTimeCheckOut" step="1" placeholder="Оставьте пустым для очистки">
+      </div>
+    </div>
+    <div id="manualTimeMsg" style="font-size:13px;min-height:18px;margin-bottom:8px;"></div>
+    <div class="form-actions">
+      <button class="btn-primary" onclick="saveManualTime()">Сохранить</button>
+      <button class="btn-secondary" onclick="cancelManualTime()">Отмена</button>
+    </div>
+  </div>
+
   <div class="table-card">
     <table>
       <thead>
@@ -644,8 +670,9 @@ function renderEmployees() {
       <td style="color:#546e7a;font-variant-numeric:tabular-nums;">${schedule}</td>
       <td style="color:#78909c;font-size:12px;">${emp.registered_at ? emp.registered_at.slice(0,10) : '—'}</td>
       <td>${faceStatus}${resetBtn}</td>
-      <td style="display:flex;gap:6px;white-space:nowrap;">
+      <td style="display:flex;gap:6px;white-space:nowrap;flex-wrap:wrap;">
         <button class="btn-edit" data-id="${escapeHtml(emp.id)}" onclick="startEditEmp(this.dataset.id)">Изменить</button>
+        <button class="btn-edit" data-id="${escapeHtml(emp.id)}" data-name="${escapeHtml(emp.name)}" onclick="startManualTime(this.dataset.id, this.dataset.name)" style="color:#1565C0;border-color:#bbdefb;">Время</button>
       </td>
     </tr>`;
   }).join('');
@@ -659,6 +686,65 @@ async function resetFace(empId) {
     if (resp.ok) await loadEmployees();
     else alert('Ошибка при сбросе.');
   } catch (e) { alert('Ошибка соединения.'); }
+}
+
+// ─── Manual time edit ─────────────────────────────────────────────────────────
+
+function startManualTime(empId, empName) {
+  document.getElementById('manualTimeEmpId').value = empId;
+  document.getElementById('manualTimeEmpName').textContent = empName;
+  // Default date to today
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('manualTimeDate').value = today;
+  document.getElementById('manualTimeCheckIn').value = '';
+  document.getElementById('manualTimeCheckOut').value = '';
+  document.getElementById('manualTimeMsg').textContent = '';
+  document.getElementById('manualTimeMsg').style.color = '';
+  document.getElementById('manualTimePanel').classList.remove('hidden');
+  document.getElementById('editEmpPanel').classList.add('hidden');
+  document.getElementById('manualTimePanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cancelManualTime() {
+  document.getElementById('manualTimePanel').classList.add('hidden');
+}
+
+async function saveManualTime() {
+  const empId = document.getElementById('manualTimeEmpId').value;
+  const dateVal = document.getElementById('manualTimeDate').value;
+  const checkIn = document.getElementById('manualTimeCheckIn').value;
+  const checkOut = document.getElementById('manualTimeCheckOut').value;
+  const msgEl = document.getElementById('manualTimeMsg');
+
+  if (!dateVal) {
+    msgEl.textContent = 'Введите дату';
+    msgEl.style.color = '#c62828';
+    return;
+  }
+
+  const body = { emp_id: empId, date: dateVal };
+  // send empty string to clear, time string to set, undefined to leave unchanged
+  if (checkIn !== undefined) body.check_in = checkIn || null;
+  if (checkOut !== undefined) body.check_out = checkOut || null;
+
+  try {
+    const resp = await fetch('/api/attendance/manual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      msgEl.style.color = '#2E7D32';
+      msgEl.textContent = `Сохранено: приход ${data.check_in || '—'}, уход ${data.check_out || '—'}`;
+    } else {
+      msgEl.style.color = '#c62828';
+      msgEl.textContent = data.message || data.error || 'Ошибка';
+    }
+  } catch (e) {
+    msgEl.style.color = '#c62828';
+    msgEl.textContent = 'Ошибка соединения';
+  }
 }
 
 function startEditEmp(empId) {

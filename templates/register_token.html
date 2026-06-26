@@ -181,6 +181,7 @@ let pinDigits = [];
 let createdEmpId = null;
 let photoCount = 0;
 let detectInterval = null;
+let pinProof = null;  // CR-02: signed proof token received from verify_pin
 
 // ─── PIN pad ───────────────────────────────────────────────────────────────
 
@@ -201,6 +202,7 @@ async function submitPin() {
     });
     const data = await resp.json();
     if (data.verified) {
+      pinProof = data.proof || null;  // CR-02: store signed proof for downstream calls
       document.getElementById('pinError').textContent = '';
       revealForm();
     } else {
@@ -270,7 +272,7 @@ async function submitEmployee() {
     const resp = await fetch(`/api/register/${REG_TOKEN}/submit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, dept_id: dept_id || null })
+      body: JSON.stringify({ name, dept_id: dept_id || null, proof: pinProof })
     });
     const data = await resp.json();
     if (resp.ok && data.id) {

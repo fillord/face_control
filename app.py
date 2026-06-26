@@ -60,12 +60,19 @@ csrf = CSRFProtect(app)
 # ─── Rate Limiting (SEC-01, SEC-02) ──────────────────────────────────────────
 # default_limits=[] so kiosk routes (/, /api/recognize, /api/detect) are
 # never throttled — only explicitly decorated routes are limited.
+# WR-06: allow Redis storage for durable rate-limit counters across restarts.
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
-    storage_uri="memory://",
+    storage_uri=os.environ.get("RATELIMIT_STORAGE_URI", "memory://"),
     default_limits=[],
 )
+
+# ─── PIN proof serializer (CR-02) ────────────────────────────────────────────
+# Issued by verify_pin on success; required by /submit and /capture_face.
+# Uses the app secret key so it cannot be forged without server access.
+from itsdangerous import URLSafeTimedSerializer as _USTS
+_pin_ser = _USTS(os.environ.get("SECRET_KEY", ""), salt="reg-pin-ok")
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 FACES_DIR = os.path.join(DATA_DIR, "faces")
@@ -844,13 +851,16 @@ def register_token_verify_pin(reg_token):
         return jsonify({"error": "link_expired"}), 410
     stored = org.reg_pin
     if not stored:
-        # No PIN configured — open registration
-        return jsonify({"verified": True})
+        # No PIN configured — open registration; still issue proof so
+        # /submit and /capture_face can always require a valid proof token.
+        proof = _pin_ser.dumps({"reg_token": reg_token})
+        return jsonify({"verified": True, "proof": proof})
     entered = str((request.json or {}).get("pin", ""))
     if len(entered) != 4 or not entered.isdigit():
         return jsonify({"error": "invalid_pin"}), 400
     if bcrypt.checkpw(entered.encode(), stored.encode()):
-        return jsonify({"verified": True})
+        proof = _pin_ser.dumps({"reg_token": reg_token})
+        return jsonify({"verified": True, "proof": proof})
     return jsonify({"error": "wrong_pin", "verified": False}), 401
 
 
@@ -865,6 +875,16 @@ def register_token_submit(reg_token):
         return jsonify({"error": "link_expired"}), 410
 
     data = request.json or {}
+
+    # CR-02: require signed PIN proof when org has a reg_pin configured.
+    # The proof is issued by verify_pin and expires after 30 minutes.
+    if org.reg_pin:
+        proof = data.get("proof", "")
+        try:
+            _pin_ser.loads(proof, max_age=1800)
+        except Exception:
+            return jsonify({"error": "pin_proof_required"}), 403
+
     name = data.get("name", "").strip()
     dept_id = data.get("dept_id", "")
 
@@ -937,6 +957,15 @@ def register_token_capture_face(reg_token):
     if is_reg_token_expired(_org_to_dict(org)):
         return jsonify({"error": "link_expired"}), 410
     data = request.json or {}
+
+    # CR-02: require signed PIN proof when org has a reg_pin configured.
+    if org.reg_pin:
+        proof = data.get("proof", "")
+        try:
+            _pin_ser.loads(proof, max_age=1800)
+        except Exception:
+            return jsonify({"error": "pin_proof_required"}), 403
+
     emp_id = data.get("emp_id")
     image = data.get("image")
     if not emp_id or not image:

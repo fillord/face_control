@@ -35,6 +35,10 @@ _db_url = os.environ.get("DATABASE_URL") or (
 )
 app.config["SQLALCHEMY_DATABASE_URI"] = _db_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+# SEC-04: harden session cookies — nginx terminates SSL so Secure is safe
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 db.init_app(app)
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
@@ -226,6 +230,13 @@ KZ_HOLIDAYS = {
         "2026-07-06", "2026-08-30",
         "2026-10-25", "2026-12-01", "2026-12-16", "2026-12-17",
     ],
+    2027: [
+        "2027-01-01", "2027-01-02", "2027-01-07", "2027-03-08",
+        "2027-03-21", "2027-03-22", "2027-03-23",
+        "2027-05-01", "2027-05-07", "2027-05-09",
+        "2027-07-06", "2027-08-30",
+        "2027-10-25", "2027-12-01", "2027-12-16", "2027-12-17",
+    ],
 }
 
 MANUAL_SYMBOLS = {"Б", "К", "П"}
@@ -374,6 +385,8 @@ def compute_dept_summary(year, month_num, org_id, employees, attendance, overrid
         if emp.get("org_id") == org_id and emp.get("dept_id"):
             dept_ids_in_org.add(emp["dept_id"])
 
+    dept_name_map = {d.id: d.name for d in Department.query.filter_by(org_id=org_id).all()}
+
     summary_rows = []
     for dept_id in sorted(dept_ids_in_org):
         dept_employees = {
@@ -385,7 +398,7 @@ def compute_dept_summary(year, month_num, org_id, employees, attendance, overrid
 
         total_work_days = 0
         total_ya = 0
-        dept_name = dept_id  # fallback if dept name not available here
+        dept_name = dept_name_map.get(dept_id, dept_id)
 
         for emp_id, emp in dept_employees.items():
             schedule = emp.get("schedule", {"start": "09:00", "end": "18:00", "work_days": [1, 2, 3, 4, 5]})

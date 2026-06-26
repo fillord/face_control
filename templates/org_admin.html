@@ -1175,5 +1175,11 @@ function escapeHtml(str) {
 }
 
 init();
+
+// Restore tab from URL hash when arriving from another page via navSwitchTab
+(function() {
+  var h = window.location.hash.slice(1);
+  if (h) { switchTab(h); history.replaceState(null, '', window.location.pathname); }
+})();
 </script>
 {% endblock %}

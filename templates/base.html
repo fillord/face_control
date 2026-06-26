@@ -151,10 +151,10 @@ input[type=date]:focus, select:focus, input[type=text]:focus { border-color: var
     </div>
     <nav class="nav-section">
 {% if session.role == 'superadmin' %}
-      <a href="/superadmin" class="nav-item {% if request.path == '/superadmin' %}active{% endif %}" onclick="if(window.location.pathname==='/superadmin'){switchTab('orgs');return false;}">
+      <a href="/superadmin" class="nav-item {% if request.path == '/superadmin' %}active{% endif %}" onclick="return navSwitchTab('/superadmin','orgs');">
         <span class="nav-icon">⊞</span> Организации
       </a>
-      <a href="/superadmin" class="nav-item" onclick="switchTab('users');return false;">
+      <a href="/superadmin" class="nav-item" onclick="return navSwitchTab('/superadmin','users');">
         <span class="nav-icon">👥</span> Пользователи
       </a>
       <a href="/register" class="nav-item {% if request.path == '/register' %}active{% endif %}">
@@ -171,19 +171,19 @@ input[type=date]:focus, select:focus, input[type=text]:focus { border-color: var
       <a href="/org_admin" class="nav-item {% if request.path == '/org_admin' %}active{% endif %}">
         <span class="nav-icon">⊞</span> Отделы
       </a>
-      <a href="/org_admin" class="nav-item" onclick="switchTab('employees');return false;">
+      <a href="/org_admin" class="nav-item" onclick="return navSwitchTab('/org_admin','employees');">
         <span class="nav-icon">👥</span> Сотрудники
       </a>
-      <a href="/org_admin" class="nav-item" onclick="switchTab('summary');return false;">
+      <a href="/org_admin" class="nav-item" onclick="return navSwitchTab('/org_admin','summary');">
         <span class="nav-icon">📊</span> Сводка
       </a>
-      <a href="/org_admin" class="nav-item" onclick="switchTab('reports');return false;">
+      <a href="/org_admin" class="nav-item" onclick="return navSwitchTab('/org_admin','reports');">
         <span class="nav-icon">📈</span> Отчёты
       </a>
-      <a href="/org_admin" class="nav-item" onclick="switchTab('users');return false;">
+      <a href="/org_admin" class="nav-item" onclick="return navSwitchTab('/org_admin','users');">
         <span class="nav-icon">🔑</span> Пользователи
       </a>
-      <a href="/org_admin" class="nav-item" onclick="switchTab('settings');return false;">
+      <a href="/org_admin" class="nav-item" onclick="return navSwitchTab('/org_admin','settings');">
         <span class="nav-icon">⚙</span> Настройки
       </a>
       <a href="/timesheet" class="nav-item {% if request.path == '/timesheet' %}active{% endif %}">
@@ -197,7 +197,7 @@ input[type=date]:focus, select:focus, input[type=text]:focus { border-color: var
       <a href="/dept_admin" class="nav-item {% if request.path == '/dept_admin' %}active{% endif %}">
         <span class="nav-icon">📋</span> Посещаемость
       </a>
-      <a href="/dept_admin" class="nav-item" onclick="switchTab('employees');return false;">
+      <a href="/dept_admin" class="nav-item" onclick="return navSwitchTab('/dept_admin','employees');">
         <span class="nav-icon">👥</span> Сотрудники
       </a>
       <a href="/timesheet" class="nav-item {% if request.path == '/timesheet' %}active{% endif %}">
@@ -245,6 +245,16 @@ document.addEventListener('keydown', function(e) {
     document.getElementById('sidebarOverlay').classList.remove('visible');
   }
 });
+// Tab-aware nav: switch tab if already on the target page, otherwise navigate with a hash
+// so the target page can restore the correct tab on load.
+function navSwitchTab(page, tab) {
+  if (window.location.pathname === page && typeof switchTab === 'function') {
+    switchTab(tab);
+  } else {
+    window.location.href = page + '#' + tab;
+  }
+  return false;
+}
 // Keep nav highlight in sync when switchTab() items are clicked (same-page tab switching)
 document.querySelectorAll('.nav-section .nav-item').forEach(function(item) {
   item.addEventListener('click', function() {

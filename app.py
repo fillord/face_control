@@ -1807,10 +1807,18 @@ def timesheet_override():
 def list_users():
     caller_role = session.get("role")
     caller_org_id = session.get("org_id")
-    if caller_role == "org_admin":
-        all_users = User.query.filter_by(org_id=caller_org_id).all()
-    else:
+    # CR-07: scope list to role — dept_admin sees only own-dept users, not all
+    if caller_role == "superadmin":
         all_users = User.query.all()
+    elif caller_role == "org_admin":
+        all_users = User.query.filter_by(org_id=caller_org_id).all()
+    elif caller_role == "dept_admin":
+        all_users = User.query.filter_by(
+            org_id=caller_org_id,
+            dept_id=session.get("dept_id"),
+        ).all()
+    else:
+        all_users = []
     result = [
         {
             "id": u.id,
@@ -1890,6 +1898,9 @@ def update_user(user_id):
     if (caller_role not in ROLE_HIERARCHY or
             target_role not in ROLE_HIERARCHY or
             ROLE_HIERARCHY.index(caller_role) >= ROLE_HIERARCHY.index(target_role)):
+        return jsonify({"error": "forbidden"}), 403
+    # CR-06: org-scope guard — org_admin and dept_admin may only modify users in their own org
+    if caller_role in ("org_admin", "dept_admin") and target.org_id != session.get("org_id"):
         return jsonify({"error": "forbidden"}), 403
     data = request.get_json(silent=True) or {}
     old_active = target.active

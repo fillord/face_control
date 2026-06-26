@@ -5,7 +5,7 @@ milestone_name: milestone
 status: executing
 stopped_at: Phase 08 context gathered
 last_updated: "2026-06-25T16:41:26.167Z"
-last_activity: 2026-06-26 -- Completed quick task 260626-bxu: T-13 compact layout
+last_activity: 2026-06-26 -- Completed quick task 260626-dfl: per-tab direct URLs for all hub pages
 progress:
   total_phases: 8
   completed_phases: 7
@@ -113,3 +113,4 @@ Resume file: .planning/phases/08-i-want-to-radically-change-the-navigation-of-th
 | 2 | Add account settings page for all users (display name + password) | 2026-06-15 | 7c6f4a1 | [260615-jh4](./quick/260615-jh4-add-account-settings-page-for-all-users-/) |
 | 3 | Kiosk Прибыл/Убыл buttons, org-admin time edit, hr_viewer role, super-admin audit log | 2026-06-25 | 2bb5d94 | [260625-c45](./quick/260625-c45-kiosk-arrival-departure-buttons-manual-t/) |
 | 4 | T-13 report card compact layout to fit on screen | 2026-06-26 | 2598e42 | [260626-bxu](./quick/260626-bxu-the-t-13-report-card-is-very-long-you-ne/) |
+| 5 | make separate page files for each tab with direct URLs like /register and /account | 2026-06-26 | 11109e6 | [260626-dfl](./quick/260626-dfl-make-separate-page-files-for-each-tab-wi/) |

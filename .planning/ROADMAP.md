@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Export & Employee Cabinet** - Excel/CSV export and employee self-service timesheet view (completed 2026-06-14)
 - [x] **Phase 7: Org Admin UX Improvements** - Fix dept employee counter bug; add sortable tables; org_admin employee editing; Reports/Timesheet rendered inline; Kiosk Settings visual redesign (completed 2026-06-15)
 - [x] **Phase 8: Navigation & Design Overhaul** - Dark sidebar, teal palette, Inter font, base.html shell for all authenticated pages (completed 2026-06-26)
-- [ ] **Phase 9: Security Hardening & Critical Bug Fixes** - Brute-force protection, CSRF, cookie flags, configurable LBPH threshold, 3 confirmed bugs fixed, /health endpoint, KZ_HOLIDAYS 2027, DB backup, composite index
+- [x] **Phase 9: Security Hardening & Critical Bug Fixes** - Brute-force protection, CSRF, cookie flags, configurable LBPH threshold, 3 confirmed bugs fixed, /health endpoint, KZ_HOLIDAYS 2027, DB backup, composite index (completed 2026-06-26)
 
 ## Phase Details
 
@@ -319,7 +319,7 @@ Plans:
 **Goal:** Plug the highest-risk security gaps and fix three confirmed bugs. All items are small-effort, high-impact, grounded in the 260626-jko analysis report: brute-force protection on login and PIN endpoints; CSRF via Flask-WTF; session cookie security flags; configurable LBPH threshold in AppSetting; three hardcoded-`"09:00:00"` bugs fixed; /health endpoint; KZ_HOLIDAYS extended to 2027; DB backup button; composite index on AttendanceRecord.
 **Depends on:** Phase 8
 **Requirements**: SEC-01, SEC-02, SEC-03, SEC-04, SEC-05, BUG-01, BUG-02, BUG-03, REL-01, REL-02, REL-03, PERF-01
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 
@@ -337,4 +337,4 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 — app.py overlap)*
 
-- [ ] 09-04-PLAN.md — Configurable LBPH threshold (SEC-05) + DB backup button (REL-03) + superadmin System UI
+- [x] 09-04-PLAN.md — Configurable LBPH threshold (SEC-05) + DB backup button (REL-03) + superadmin System UI

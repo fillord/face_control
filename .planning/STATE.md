@@ -5,7 +5,7 @@ milestone_name: milestone
 status: executing
 stopped_at: Phase 08 context gathered
 last_updated: "2026-06-25T16:41:26.167Z"
-last_activity: 2026-06-26 -- Completed quick task 260626-dfl: per-tab direct URLs for all hub pages
+last_activity: 2026-06-26 -- Completed quick task 260626-dxy: fix reports tab data isolation
 progress:
   total_phases: 8
   completed_phases: 7
@@ -114,3 +114,4 @@ Resume file: .planning/phases/08-i-want-to-radically-change-the-navigation-of-th
 | 3 | Kiosk Прибыл/Убыл buttons, org-admin time edit, hr_viewer role, super-admin audit log | 2026-06-25 | 2bb5d94 | [260625-c45](./quick/260625-c45-kiosk-arrival-departure-buttons-manual-t/) |
 | 4 | T-13 report card compact layout to fit on screen | 2026-06-26 | 2598e42 | [260626-bxu](./quick/260626-bxu-the-t-13-report-card-is-very-long-you-ne/) |
 | 5 | make separate page files for each tab with direct URLs like /register and /account | 2026-06-26 | 11109e6 | [260626-dfl](./quick/260626-dfl-make-separate-page-files-for-each-tab-wi/) |
+| 6 | fix reports tab data isolation: /api/attendance and /api/stats return all-org employees | 2026-06-26 | 735e695 | [260626-dxy](./quick/260626-dxy-fix-reports-tab-data-isolation-api-atten/) |

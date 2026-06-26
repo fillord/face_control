@@ -65,6 +65,35 @@
   </div>
 </div>
 
+<!-- ═══ TAB: SYSTEM ═══ -->
+<div id="panelSystem" class="page hidden">
+<h1 class="page-title">Система</h1>
+
+  <div class="card" style="max-width:480px;margin-bottom:20px;">
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">Порог распознавания (LBPH)</h3>
+    <p style="font-size:13px;color:#546e7a;margin-bottom:16px;">
+      Чем ниже значение — тем строже распознавание (меньше ложных совпадений).
+      Диапазон: 50–120. По умолчанию: 80.
+    </p>
+    <div class="form-group">
+      <label>Порог распознавания (LBPH)</label>
+      <input type="number" id="lbphThresholdInput" min="50" max="120"
+             value="{{ lbph_threshold|default(80) }}"
+             style="width:120px;">
+    </div>
+    <div id="thresholdMsg" style="font-size:13px;margin-bottom:12px;display:none;"></div>
+    <button class="btn-primary" onclick="saveThreshold()">Сохранить</button>
+  </div>
+
+  <div class="card" style="max-width:480px;">
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">Резервная копия базы данных</h3>
+    <p style="font-size:13px;color:#546e7a;margin-bottom:16px;">
+      Скачать текущую базу данных (app.db) как резервную копию с датой в имени файла.
+    </p>
+    <button class="btn-primary" onclick="window.location='/api/backup/db'">Скачать резервную копию БД</button>
+  </div>
+</div>
+
 <!-- ═══ TAB: USERS ═══ -->
 <div id="panelUsers" class="page hidden">
 <h1 class="page-title">Пользователи</h1>
@@ -134,6 +163,38 @@ async function init() {
 function switchTab(tab) {
   document.getElementById('panelOrgs').classList.toggle('hidden', tab !== 'orgs');
   document.getElementById('panelUsers').classList.toggle('hidden', tab !== 'users');
+  document.getElementById('panelSystem').classList.toggle('hidden', tab !== 'system');
+}
+
+// ─── System: LBPH threshold ───────────────────────────────────────────────────
+async function saveThreshold() {
+  const value = parseInt(document.getElementById('lbphThresholdInput').value, 10);
+  const msgEl = document.getElementById('thresholdMsg');
+  if (isNaN(value) || value < 50 || value > 120) {
+    msgEl.textContent = 'Введите значение от 50 до 120.';
+    msgEl.style.color = '#c62828';
+    msgEl.style.display = 'block';
+    return;
+  }
+  try {
+    const resp = await fetch('/api/settings/lbph_threshold', {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({value}),
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      msgEl.textContent = 'Сохранено. Новый порог: ' + data.value;
+      msgEl.style.color = '#2e7d32';
+    } else {
+      msgEl.textContent = data.error || 'Ошибка при сохранении.';
+      msgEl.style.color = '#c62828';
+    }
+  } catch (e) {
+    msgEl.textContent = 'Ошибка соединения.';
+    msgEl.style.color = '#c62828';
+  }
+  msgEl.style.display = 'block';
 }
 
 // ─── Stats ────────────────────────────────────────────────────────────────────

@@ -151,10 +151,10 @@ input[type=date]:focus, select:focus, input[type=text]:focus { border-color: var
     </div>
     <nav class="nav-section">
 {% if session.role == 'superadmin' %}
-      <a href="/superadmin" class="nav-item {% if request.path == '/superadmin' %}active{% endif %}" onclick="return navSwitchTab('/superadmin','orgs');">
+      <a href="/superadmin" class="nav-item {% if request.path in ['/superadmin', '/superadmin/orgs'] %}active{% endif %}">
         <span class="nav-icon">⊞</span> Организации
       </a>
-      <a href="/superadmin" class="nav-item" onclick="return navSwitchTab('/superadmin','users');">
+      <a href="/superadmin/users" class="nav-item {% if request.path == '/superadmin/users' %}active{% endif %}">
         <span class="nav-icon">👥</span> Пользователи
       </a>
       <a href="/register" class="nav-item {% if request.path == '/register' %}active{% endif %}">
@@ -168,22 +168,22 @@ input[type=date]:focus, select:focus, input[type=text]:focus { border-color: var
       </a>
 
 {% elif session.role == 'org_admin' %}
-      <a href="/org_admin" class="nav-item {% if request.path == '/org_admin' %}active{% endif %}">
+      <a href="/org_admin" class="nav-item {% if request.path in ['/org_admin', '/org_admin/depts'] %}active{% endif %}">
         <span class="nav-icon">⊞</span> Отделы
       </a>
-      <a href="/org_admin" class="nav-item" onclick="return navSwitchTab('/org_admin','employees');">
+      <a href="/org_admin/employees" class="nav-item {% if request.path == '/org_admin/employees' %}active{% endif %}">
         <span class="nav-icon">👥</span> Сотрудники
       </a>
-      <a href="/org_admin" class="nav-item" onclick="return navSwitchTab('/org_admin','summary');">
+      <a href="/org_admin/summary" class="nav-item {% if request.path == '/org_admin/summary' %}active{% endif %}">
         <span class="nav-icon">📊</span> Сводка
       </a>
-      <a href="/org_admin" class="nav-item" onclick="return navSwitchTab('/org_admin','reports');">
+      <a href="/org_admin/reports" class="nav-item {% if request.path == '/org_admin/reports' %}active{% endif %}">
         <span class="nav-icon">📈</span> Отчёты
       </a>
-      <a href="/org_admin" class="nav-item" onclick="return navSwitchTab('/org_admin','users');">
+      <a href="/org_admin/users" class="nav-item {% if request.path == '/org_admin/users' %}active{% endif %}">
         <span class="nav-icon">🔑</span> Пользователи
       </a>
-      <a href="/org_admin" class="nav-item" onclick="return navSwitchTab('/org_admin','settings');">
+      <a href="/org_admin/settings" class="nav-item {% if request.path == '/org_admin/settings' %}active{% endif %}">
         <span class="nav-icon">⚙</span> Настройки
       </a>
       <a href="/timesheet" class="nav-item {% if request.path == '/timesheet' %}active{% endif %}">
@@ -194,10 +194,10 @@ input[type=date]:focus, select:focus, input[type=text]:focus { border-color: var
       </a>
 
 {% elif session.role in ('dept_admin', 'viewer') %}
-      <a href="/dept_admin" class="nav-item {% if request.path == '/dept_admin' %}active{% endif %}">
+      <a href="/dept_admin" class="nav-item {% if request.path in ['/dept_admin', '/dept_admin/attendance'] %}active{% endif %}">
         <span class="nav-icon">📋</span> Посещаемость
       </a>
-      <a href="/dept_admin" class="nav-item" onclick="return navSwitchTab('/dept_admin','employees');">
+      <a href="/dept_admin/employees" class="nav-item {% if request.path == '/dept_admin/employees' %}active{% endif %}">
         <span class="nav-icon">👥</span> Сотрудники
       </a>
       <a href="/timesheet" class="nav-item {% if request.path == '/timesheet' %}active{% endif %}">

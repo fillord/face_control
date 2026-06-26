@@ -992,18 +992,24 @@ def employee_page():
 
 # ─── Page routes: Role Dashboards ─────────────────────────────────────────────
 
+@app.route("/superadmin/<tab>")
 @app.route("/superadmin")
 @require_role("superadmin")
-def superadmin_page():
+def superadmin_page(tab="orgs"):
+    VALID_TABS = {"orgs", "users"}
+    initial_tab = tab if tab in VALID_TABS else "orgs"
     user = User.query.get(session.get("user_id"))
     username = user.username if user else ""
     role = user.role if user else ""
-    return render_template("superadmin.html", username=username, role=role)
+    return render_template("superadmin.html", username=username, role=role, initial_tab=initial_tab)
 
 
+@app.route("/org_admin/<tab>")
 @app.route("/org_admin")
 @require_role("org_admin")
-def org_admin_page():
+def org_admin_page(tab="depts"):
+    VALID_TABS = {"depts", "employees", "summary", "reports", "users", "settings", "timesheet"}
+    initial_tab = tab if tab in VALID_TABS else "depts"
     user = User.query.get(session.get("user_id"))
     username = user.username if user else ""
     role = user.role if user else ""
@@ -1072,18 +1078,22 @@ def org_admin_page():
         kiosk_display_name=kiosk_display_name,
         summary_month=summary_month,
         summary_rows=summary_rows,
+        initial_tab=initial_tab,
     )
 
 
+@app.route("/dept_admin/<tab>")
 @app.route("/dept_admin")
 @require_role("dept_admin", "viewer")
-def dept_admin_page():
+def dept_admin_page(tab="attendance"):
+    VALID_TABS = {"attendance", "employees", "timesheet"}
+    initial_tab = tab if tab in VALID_TABS else "attendance"
     user = User.query.get(session.get("user_id"))
     username = user.username if user else ""
     role = user.role if user else ""
     dept = Department.query.get(session.get("dept_id"))
     dept_name = dept.name if dept else ""
-    return render_template("dept_admin.html", username=username, role=role, dept_name=dept_name)
+    return render_template("dept_admin.html", username=username, role=role, dept_name=dept_name, initial_tab=initial_tab)
 
 
 @app.route("/dashboard")

@@ -3043,6 +3043,13 @@ def register_face():
     if not emp:
         return jsonify({"error": "Сотрудник не найден"}), 404
 
+    # CR-03: IDOR guard — org_admin/dept_admin may only update employees in their scope
+    _role = session.get("role")
+    if _role == "org_admin" and emp.org_id != session.get("org_id"):
+        return jsonify({"error": "forbidden"}), 403
+    if _role == "dept_admin" and emp.dept_id != session.get("dept_id"):
+        return jsonify({"error": "forbidden"}), 403
+
     img = decode_image(data["image"])
     face_roi, bbox = extract_face(img)
     if face_roi is None:

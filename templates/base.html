@@ -196,7 +196,7 @@ input[type=date]:focus, select:focus, input[type=text]:focus { border-color: var
         <span class="nav-icon">➕</span> Регистрация
       </a>
 
-{% elif session.role in ('dept_admin', 'viewer') %}
+{% elif session.role == 'dept_admin' %}{# IN-04: removed dead 'viewer' role from nav #}
       <a href="/dept_admin" class="nav-item {% if request.path in ['/dept_admin', '/dept_admin/attendance'] %}active{% endif %}">
         <span class="nav-icon">📋</span> Посещаемость
       </a>

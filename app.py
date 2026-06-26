@@ -704,7 +704,7 @@ def login_page():
             return redirect(url_for("superadmin_page"))
         elif role_now == "org_admin":
             return redirect(url_for("org_admin_page"))
-        elif role_now in ("dept_admin", "viewer"):
+        elif role_now == "dept_admin":  # IN-04: removed dead 'viewer' from redirect
             return redirect(url_for("dept_admin_page"))
         elif role_now == "hr_viewer":
             return redirect(url_for("timesheet"))
@@ -731,6 +731,7 @@ def login_page():
                 session["role"] = role
                 session["org_id"] = user.org_id
                 session["dept_id"] = user.dept_id
+                session["username"] = user.username  # IN-02: populate sidebar display name
                 print(f"LOGIN_OK: username={username!r} role={role!r}", flush=True)
                 if role == "superadmin":
                     return redirect(url_for("superadmin_page"))
@@ -759,11 +760,10 @@ def ratelimit_handler(e):
     For other /api/ paths: return generic JSON 429.
     For HTML paths (/login): render login.html with Russian error message.
     """
-    import re as _re
     path = request.path
 
     # SEC-02: lock registration token on PIN brute-force breach
-    pin_match = _re.match(r"^/api/register/([^/]+)/verify_pin$", path)
+    pin_match = re.match(r"^/api/register/([^/]+)/verify_pin$", path)  # IN-05: use module-level re
     if pin_match:
         token_val = pin_match.group(1)
         try:
@@ -1221,7 +1221,7 @@ def org_admin_page(tab="depts"):
 
 @app.route("/dept_admin/<tab>")
 @app.route("/dept_admin")
-@require_role("dept_admin", "viewer")
+@require_role("dept_admin")  # IN-04: removed dead 'viewer' role (unreachable — excluded from ALLOWED_LOGIN_ROLES)
 def dept_admin_page(tab="attendance"):
     VALID_TABS = {"attendance", "employees", "timesheet"}
     initial_tab = tab if tab in VALID_TABS else "attendance"
@@ -2679,6 +2679,10 @@ def update_employee_assignment(emp_id):
     allowed_keys = {"dept_id", "org_id", "name", "role", "iin"} if caller_role == "superadmin" else {"dept_id", "name", "role", "iin"}
     update_data = {k: v for k, v in data.items() if k in allowed_keys}
 
+    # IN-01: capture old values for audit log before mutation
+    old_emp_values = {"name": emp.name, "dept_id": emp.dept_id, "org_id": emp.org_id,
+                      "role": emp.role, "iin": emp.iin}
+
     if "dept_id" in update_data:
         target_dept_id = update_data["dept_id"]
         if caller_role == "org_admin":
@@ -2706,6 +2710,10 @@ def update_employee_assignment(emp_id):
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
+    # IN-01: audit log for employee assignment update
+    write_audit("employee_update", target_type="employee", target_id=emp_id,
+                old_value=old_emp_values,
+                new_value={k: update_data[k] for k in update_data})
     return jsonify({"status": "updated", "employee": _emp_to_dict(emp)})
 
 @app.route("/api/employees/<emp_id>", methods=["DELETE"])
@@ -2732,6 +2740,9 @@ def delete_employee(emp_id):
     emp_dir = os.path.join(FACES_DIR, emp_id)
     if os.path.exists(emp_dir):
         shutil.rmtree(emp_dir)
+    # IN-01: audit log for employee deletion
+    write_audit("employee_delete", target_type="employee", target_id=emp_id,
+                old_value={"name": emp.name, "org_id": emp.org_id, "dept_id": emp.dept_id})
     train_recognizer()
     return jsonify({"status": "deleted"})
 

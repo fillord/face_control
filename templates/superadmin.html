@@ -258,9 +258,9 @@ function renderOrgs() {
       <td>${desc}</td>
       <td><a href="${kioskUrl}" target="_blank" style="color:var(--accent);font-size:12px;">Открыть</a> ${pinBadge}</td>
       <td style="display:flex;gap:8px;align-items:center;">
-        <button class="btn-edit" onclick="startEdit('${org.id}')">Изменить</button>
-        <button class="btn-edit" onclick="setPIN('${org.id}', '${escapeHtml(org.name)}')">PIN</button>
-        <button class="btn-delete" onclick="deleteOrg('${org.id}', '${escapeHtml(org.name)}')">Удалить</button>
+        <button class="btn-edit" onclick="startEdit('${escapeHtml(org.id)}')">Изменить</button>
+        <button class="btn-edit" onclick="setPIN('${escapeHtml(org.id)}', '${escapeHtml(org.name)}')">PIN</button>
+        <button class="btn-delete" onclick="deleteOrg('${escapeHtml(org.id)}', '${escapeHtml(org.name)}')">Удалить</button>
       </td>
     </tr>`;
   }).join('');
@@ -414,7 +414,7 @@ function renderUsers() {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Нет пользователей</td></tr>';
     return;
   }
-  const roleLabels = {superadmin:'Суперадмин', org_admin:'Адм. орг.', dept_admin:'Адм. отдела', viewer:'Наблюдатель', employee:'Сотрудник'};
+  const roleLabels = {superadmin:'Суперадмин', org_admin:'Адм. орг.', dept_admin:'Адм. отдела', hr_viewer:'HR-наблюдатель', viewer:'Наблюдатель', employee:'Сотрудник'};  // IN-03: added hr_viewer
   tbody.innerHTML = allUsers.map(u => {
     const org = allOrgs.find(o => o.id === u.org_id);
     const orgName = org ? escapeHtml(org.name) : '<span style="color:#bdbdbd;">—</span>';

@@ -898,7 +898,11 @@ def register_token_submit(reg_token):
             return jsonify({"error": "Недопустимый отдел для этой ссылки"}), 400
 
     emp_id = str(int(time.time() * 1000))
-    label = Employee.query.count() + 1
+    # CR-08: use max(label)+1 rather than count()+1 to avoid collision after deletions
+    _max_label_rt = db.session.execute(
+        db.select(db.func.max(Employee.label))
+    ).scalar()
+    label = (_max_label_rt or 0) + 1
 
     try:
         emp = Employee(
@@ -2589,7 +2593,11 @@ def add_employee():
         return jsonify({"error": "forbidden"}), 403
 
     emp_id = str(int(time.time() * 1000))
-    label = Employee.query.count() + 1
+    # CR-08: use max(label)+1 rather than count()+1 to avoid collision after deletions
+    _max_label = db.session.execute(
+        db.select(db.func.max(Employee.label))
+    ).scalar()
+    label = (_max_label or 0) + 1
 
     name = data.get("name", "").strip()
     if not name:

@@ -1084,12 +1084,15 @@ def employee_page():
 @app.route("/superadmin")
 @require_role("superadmin")
 def superadmin_page(tab="orgs"):
-    VALID_TABS = {"orgs", "users"}
+    VALID_TABS = {"orgs", "users", "system"}
     initial_tab = tab if tab in VALID_TABS else "orgs"
     user = User.query.get(session.get("user_id"))
     username = user.username if user else ""
     role = user.role if user else ""
-    return render_template("superadmin.html", username=username, role=role, initial_tab=initial_tab)
+    thr_setting = AppSetting.query.get("lbph_threshold")
+    lbph_threshold = int(thr_setting.value) if thr_setting and str(thr_setting.value).isdigit() else 80
+    return render_template("superadmin.html", username=username, role=role,
+                           initial_tab=initial_tab, lbph_threshold=lbph_threshold)
 
 
 @app.route("/org_admin/<tab>")

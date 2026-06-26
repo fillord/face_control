@@ -31,6 +31,7 @@ input[type=password]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
     {% endif %}
 
     <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
         <label>Текущий пароль</label>
         <input type="password" name="current_password" placeholder="••••••••" autocomplete="current-password" required>

@@ -44,6 +44,7 @@ input:focus { border-color: #1565C0; box-shadow: 0 0 0 3px rgba(21,101,192,0.1);
     {% endif %}
 
     <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
         <label>Логин</label>
         <input type="text" name="username" placeholder="admin" autocomplete="username" autofocus required>

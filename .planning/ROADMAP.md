@@ -18,6 +18,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: T-13 Timesheet Grid** - Symbol engine, grid view, auto-derivation from check-in data, monthly totals (completed 2026-06-13)
 - [x] **Phase 4: Export & Employee Cabinet** - Excel/CSV export and employee self-service timesheet view (completed 2026-06-14)
 - [x] **Phase 7: Org Admin UX Improvements** - Fix dept employee counter bug; add sortable tables; org_admin employee editing; Reports/Timesheet rendered inline; Kiosk Settings visual redesign (completed 2026-06-15)
+- [x] **Phase 8: Navigation & Design Overhaul** - Dark sidebar, teal palette, Inter font, base.html shell for all authenticated pages (completed 2026-06-26)
+- [ ] **Phase 9: Security Hardening & Critical Bug Fixes** - Brute-force protection, CSRF, cookie flags, configurable LBPH threshold, 3 confirmed bugs fixed, /health endpoint, KZ_HOLIDAYS 2027, DB backup, composite index
 
 ## Phase Details
 
@@ -311,3 +313,10 @@ Plans:
 
 - [x] 08-05-PLAN.md — Convert timesheet, profile, account, audit, 403, devices, register to extend base.html
 - [x] 08-06-PLAN.md — Update reports_partial.html + timesheet_partial.html CSS tokens (no extends, partials)
+
+### Phase 9: Security Hardening & Critical Bug Fixes
+
+**Goal:** Plug the highest-risk security gaps and fix three confirmed bugs. All items are small-effort, high-impact, grounded in the 260626-jko analysis report: brute-force protection on login and PIN endpoints; CSRF via Flask-WTF; session cookie security flags; configurable LBPH threshold in AppSetting; three hardcoded-`"09:00:00"` bugs fixed; /health endpoint; KZ_HOLIDAYS extended to 2027; DB backup button; composite index on AttendanceRecord.
+**Depends on:** Phase 8
+**Requirements**: SEC-01, SEC-02, SEC-03, SEC-04, BUG-01, BUG-02, BUG-03, REL-01, REL-02, REL-03, PERF-01
+**Plans:** 0 plans

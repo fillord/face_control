@@ -16,6 +16,8 @@ from sqlalchemy import text
 from sqlalchemy import exc as sa_exc
 from models import db, Employee, User, Organization, Department
 from models import AttendanceRecord, EmployeeSchedule, LogEntry, TimesheetOverride, AppSetting, KioskDevice, AuditLog
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
 _secret_key = os.environ.get("SECRET_KEY")
@@ -40,6 +42,16 @@ app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 db.init_app(app)
+
+# ─── Rate Limiting (SEC-01, SEC-02) ──────────────────────────────────────────
+# default_limits=[] so kiosk routes (/, /api/recognize, /api/detect) are
+# never throttled — only explicitly decorated routes are limited.
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    storage_uri="memory://",
+    default_limits=[],
+)
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 FACES_DIR = os.path.join(DATA_DIR, "faces")
@@ -660,6 +672,7 @@ def kiosk_token(org_token):
                            has_kiosk_pin=has_kiosk_pin)
 
 @app.route("/login", methods=["GET", "POST"])
+@limiter.limit("5 per 15 minutes", methods=["POST"])
 def login_page():
     if request.method == "GET" and session.get("user_id"):
         role_now = session.get("role")
@@ -710,6 +723,40 @@ def login_page():
             print(f"LOGIN_FAIL: username={username!r} user_found={user is not None} hash_match=False", flush=True)
             error = "Неверный логин или пароль"
     return render_template("login.html", error=error)
+
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    """SEC-01/SEC-02: Return 429 with Russian message on rate limit breach.
+
+    For /api/register/<reg_token>/verify_pin: lock the token by setting
+    reg_token_expires to the past so subsequent requests get 410.
+    For other /api/ paths: return generic JSON 429.
+    For HTML paths (/login): render login.html with Russian error message.
+    """
+    import re as _re
+    path = request.path
+
+    # SEC-02: lock registration token on PIN brute-force breach
+    pin_match = _re.match(r"^/api/register/([^/]+)/verify_pin$", path)
+    if pin_match:
+        token_val = pin_match.group(1)
+        try:
+            org = Organization.query.filter_by(reg_token=token_val).first()
+            if org:
+                org.reg_token_expires = (datetime.now() - timedelta(days=1)).isoformat()
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
+        return jsonify({"error": "Токен заблокирован из-за превышения лимита попыток"}), 429
+
+    if path.startswith("/api/"):
+        return jsonify({"error": "Слишком много попыток"}), 429
+
+    # HTML paths (e.g. /login)
+    return render_template("login.html",
+                           error="Слишком много попыток. Попробуйте через 15 минут."), 429
+
 
 @app.route("/logout")
 def logout():

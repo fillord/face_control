@@ -3085,9 +3085,24 @@ def kiosk_log():
 @require_role("superadmin", "org_admin", "hr_viewer", "dept_admin")
 def get_attendance():
     day = request.args.get("date", date.today().isoformat())
-    employees = {e.id: _emp_to_dict(e) for e in Employee.query.all()}
-    # Build attendance dict for this day from ORM
-    _att_recs = AttendanceRecord.query.filter_by(date=day).all()
+    role = session.get("role")
+    org_id = session.get("org_id")
+    dept_id = session.get("dept_id")
+    if role == "superadmin":
+        emps = Employee.query.all()
+    elif role in ("org_admin", "hr_viewer") and org_id:
+        emps = Employee.query.filter_by(org_id=org_id).all()
+    elif role == "dept_admin" and dept_id:
+        emps = Employee.query.filter_by(dept_id=dept_id).all()
+    else:
+        emps = Employee.query.all()
+    employees = {e.id: _emp_to_dict(e) for e in emps}
+    # Build attendance dict for this day scoped to visible employees
+    emp_ids = list(employees.keys())
+    _att_recs = AttendanceRecord.query.filter(
+        AttendanceRecord.date == day,
+        AttendanceRecord.emp_id.in_(emp_ids)
+    ).all()
     day_data = {r.emp_id: {"check_in": r.check_in_time, "check_out": r.check_out_time}
                 for r in _att_recs}
     result = []
@@ -3130,10 +3145,22 @@ def get_dates():
 def get_stats():
     from_date = request.args.get("from")
     to_date = request.args.get("to")
-    employees = {e.id: _emp_to_dict(e) for e in Employee.query.all()}
+    role = session.get("role")
+    org_id = session.get("org_id")
+    dept_id = session.get("dept_id")
+    if role == "superadmin":
+        emps = Employee.query.all()
+    elif role in ("org_admin", "hr_viewer") and org_id:
+        emps = Employee.query.filter_by(org_id=org_id).all()
+    elif role == "dept_admin" and dept_id:
+        emps = Employee.query.filter_by(dept_id=dept_id).all()
+    else:
+        emps = Employee.query.all()
+    employees = {e.id: _emp_to_dict(e) for e in emps}
 
-    # Query attendance records from ORM with optional date filters
-    q = AttendanceRecord.query
+    # Query attendance records scoped to visible employees with optional date filters
+    emp_ids = list(employees.keys())
+    q = AttendanceRecord.query.filter(AttendanceRecord.emp_id.in_(emp_ids))
     if from_date:
         q = q.filter(AttendanceRecord.date >= from_date)
     if to_date:

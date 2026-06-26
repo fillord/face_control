@@ -816,6 +816,7 @@ def register_token(reg_token):
 # ─── API: Public token registration ───────────────────────────────────────────
 
 @app.route("/api/register/<reg_token>/verify_pin", methods=["POST"])
+@limiter.limit("10 per 15 minutes", methods=["POST"])
 def register_token_verify_pin(reg_token):
     """Verify reg_pin for a registration token link (REG-TOKEN-04..05)."""
     org = Organization.query.filter_by(reg_token=reg_token).first()

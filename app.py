@@ -85,6 +85,9 @@ def init_config():
         db.session.add(AppSetting(key="username", value="admin"))
         db.session.add(AppSetting(key="password_hash", value=pw_hash))
         db.session.commit()
+    if not AppSetting.query.get("lbph_threshold"):
+        db.session.add(AppSetting(key="lbph_threshold", value="80"))
+        db.session.commit()
 
 # ─── Auth: Users ──────────────────────────────────────────────────────────────
 
@@ -2876,6 +2879,42 @@ def superadmin_stats():
     })
 
 
+@app.route("/api/settings/lbph_threshold", methods=["PATCH"])
+@require_role("superadmin")
+def update_lbph_threshold():
+    """SEC-05: Superadmin-only update of the LBPH recognition threshold (50–120)."""
+    data = request.get_json(silent=True) or {}
+    value = data.get("value")
+    if not isinstance(value, int) or not (50 <= value <= 120):
+        return jsonify({"error": "Значение должно быть целым числом от 50 до 120"}), 400
+    setting = AppSetting.query.get("lbph_threshold")
+    if setting:
+        setting.value = str(value)
+    else:
+        db.session.add(AppSetting(key="lbph_threshold", value=str(value)))
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Internal server error"}), 500
+    return jsonify({"status": "updated", "value": value})
+
+
+@app.route("/api/backup/db", methods=["GET"])
+@require_role("superadmin")
+def backup_db():
+    """REL-03: Superadmin-only download of the SQLite database as a dated attachment."""
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "app.db")
+    if not os.path.isfile(db_path):
+        return jsonify({"error": "Файл базы данных не найден"}), 404
+    return send_file(
+        db_path,
+        as_attachment=True,
+        download_name=f"app_backup_{date.today()}.db",
+        mimetype="application/octet-stream",
+    )
+
+
 @app.route("/api/dept_attendance_today", methods=["GET"])
 @require_role("dept_admin", "org_admin", "hr_viewer", "superadmin")
 def dept_attendance_today():
@@ -3026,10 +3065,12 @@ def recognize():
         return jsonify({"error": "no_face"}), 400
 
     label, confidence = recognizer.predict(face_roi)
-    # LBPH: lower confidence = better. Threshold ~80. Convert to % (0–100 good to bad).
-    conf_pct = max(0, min(100, round(100 - (confidence / 80 * 100))))
+    # LBPH: lower confidence = better. Threshold read from AppSetting at request time (SEC-05).
+    _thr_setting = AppSetting.query.filter_by(key="lbph_threshold").first()
+    threshold = int(_thr_setting.value) if _thr_setting and str(_thr_setting.value).isdigit() else 80
+    conf_pct = max(0, min(100, round(100 - (confidence / threshold * 100))))
 
-    if confidence > 80:
+    if confidence > threshold:
         append_log({"ts": datetime.now().isoformat(), "event": "unknown",
                     "confidence_raw": float(confidence), "confidence_pct": conf_pct})
         return jsonify({"error": "unknown", "confidence": float(confidence)}), 400

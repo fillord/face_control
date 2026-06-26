@@ -629,6 +629,20 @@ def train_recognizer():
 def kiosk():
     return redirect(url_for("login_page"))
 
+@app.route("/health")
+def health():
+    """Public health check endpoint — no auth required (REL-01).
+
+    Returns 200 {"status": "ok", "db": "connected"} when the database is reachable,
+    503 {"status": "error", "db": "unavailable"} when not.
+    """
+    try:
+        db.session.execute(text("SELECT 1"))
+        return jsonify({"status": "ok", "db": "connected"}), 200
+    except Exception:
+        return jsonify({"status": "error", "db": "unavailable"}), 503
+
+
 @app.route("/kiosk/<org_token>")
 def kiosk_token(org_token):
     org = Organization.query.filter_by(org_token=org_token).first()
@@ -3291,6 +3305,20 @@ with app.app_context():
             conn.commit()
     except sa_exc.OperationalError:
         pass  # Column already exists — safe to ignore
+    # PERF-01: Replace two separate column indexes with a single composite index.
+    # Drop SQLAlchemy-default-named indexes; create composite (emp_id, date) index.
+    # Uses IF EXISTS / IF NOT EXISTS for full idempotency on repeated startups.
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(text("DROP INDEX IF EXISTS ix_attendance_record_emp_id"))
+            conn.execute(text("DROP INDEX IF EXISTS ix_attendance_record_date"))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_attendance_emp_date "
+                "ON attendance_record (emp_id, date)"
+            ))
+            conn.commit()
+    except sa_exc.OperationalError:
+        pass  # Table may not exist yet on a fresh DB — create_all() will apply it
     init_config()
     init_users()
 

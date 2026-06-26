@@ -1043,10 +1043,18 @@ def employee_page():
     now = datetime.now()
     current_month = now.strftime("%Y-%m")
     prev_month = (now.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
+    # WR-03: wrap month parsing in try/except — same pattern as /timesheet
     month_str = request.args.get("month", current_month)
-    if month_str < prev_month or month_str > current_month:
+    try:
+        year, month_num = map(int, month_str.split("-"))
+        if not (1 <= month_num <= 12 and 2000 <= year <= 2099):
+            raise ValueError
+        if month_str < prev_month or month_str > current_month:
+            month_str = current_month
+            year, month_num = map(int, current_month.split("-"))
+    except (ValueError, AttributeError):
         month_str = current_month
-    year, month_num = map(int, month_str.split("-"))
+        year, month_num = map(int, current_month.split("-"))
 
     # Build days list
     _, num_days = calendar.monthrange(year, month_num)
@@ -1254,6 +1262,13 @@ def profile_page():
             try:
                 user.password_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
                 db.session.commit()
+                # WR-07: regenerate session to invalidate any pre-change sessions
+                session.clear()
+                session["user_id"] = user.id
+                session["role"] = user.role
+                session["org_id"] = user.org_id
+                session["dept_id"] = user.dept_id
+                session["username"] = user.username
                 success = "Пароль успешно изменён"
             except Exception:
                 db.session.rollback()
@@ -1295,6 +1310,14 @@ def api_me():
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
+    # WR-07: if password was changed, regenerate session to invalidate pre-change sessions
+    if "new_password" in data:
+        session.clear()
+        session["user_id"] = user.id
+        session["role"] = user.role
+        session["org_id"] = user.org_id
+        session["dept_id"] = user.dept_id
+        session["username"] = user.username
     return jsonify({"status": "updated", "display_name": user.display_name or ""})
 
 
@@ -2204,8 +2227,8 @@ def create_org():
             created_at=datetime.now().isoformat(),
             org_token=org_token,
             reg_token=reg_token,
-            kiosk_pin=hash_pin("0000"),
-            reg_pin=hash_pin("1234"),
+            kiosk_pin=None,   # WR-05: require explicit PIN configuration — no weak defaults
+            reg_pin=None,     # WR-05: admins must set PINs via /api/orgs/<id>/settings
             reg_token_expires=None,
             kiosk_display_name=name,
         ))
@@ -2375,7 +2398,7 @@ def register_kiosk_device(org_token):
         max_age=365 * 24 * 3600,
         httponly=True,
         samesite="Lax",
-        secure=False,   # set True when enforcing HTTPS at Flask level
+        secure=True,    # WR-01: nginx terminates TLS; browser still enforces Secure flag
     )
     print(f"DEVICE_REGISTERED: org_id={org.id!r} name={device_name!r} id={device.id!r}", flush=True)
     return resp
@@ -2576,7 +2599,7 @@ def get_employees():
     elif role == "dept_admin" and dept_id:
         emps = Employee.query.filter_by(dept_id=dept_id).all()
     else:
-        emps = Employee.query.all()
+        emps = []  # WR-08: fail closed — missing scope returns empty, not all records
     return jsonify({e.id: _emp_to_dict(e) for e in emps})
 
 @app.route("/api/employees", methods=["POST"])
@@ -2920,9 +2943,9 @@ def import_employees_xlsx():
 
     try:
         db.session.commit()
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        return jsonify({"error": f"Ошибка при сохранении: {e}"}), 500
+        return jsonify({"error": "Ошибка при сохранении. Попробуйте ещё раз."}), 500
 
     return jsonify({"created": created, "updated": updated, "skipped": skipped, "errors": errors})
 
@@ -3029,13 +3052,9 @@ def dept_attendance_today():
         check_out = rec.get("check_out") if rec else None
 
         # Late detection: check_in > schedule.start + 15 min grace (A1)
+        # WR-02: use _time_threshold() to avoid midnight-overflow bugs (e.g. 23:50 + 15 → 24:05)
         schedule_start = schedule.get("start", "09:00")
-        sh, sm = map(int, schedule_start.split(":"))
-        late_m = sm + 15
-        if late_m < 60:
-            late_threshold = f"{sh:02d}:{late_m:02d}:00"
-        else:
-            late_threshold = f"{sh + 1:02d}:{late_m % 60:02d}:00"
+        late_threshold = _time_threshold(schedule_start, 15)
 
         if check_in:
             if check_in > late_threshold:
@@ -3301,7 +3320,7 @@ def get_attendance():
     elif role == "dept_admin" and dept_id:
         emps = Employee.query.filter_by(dept_id=dept_id).all()
     else:
-        emps = Employee.query.all()
+        emps = []  # WR-08: fail closed — missing scope returns empty, not all records
     employees = {e.id: _emp_to_dict(e) for e in emps}
     # Build attendance dict for this day scoped to visible employees
     emp_ids = list(employees.keys())
@@ -3361,7 +3380,7 @@ def get_stats():
     elif role == "dept_admin" and dept_id:
         emps = Employee.query.filter_by(dept_id=dept_id).all()
     else:
-        emps = Employee.query.all()
+        emps = []  # WR-08: fail closed — missing scope returns empty, not all records
     employees = {e.id: _emp_to_dict(e) for e in emps}
 
     # Query attendance records scoped to visible employees with optional date filters

@@ -5,6 +5,7 @@ from datetime import datetime, date, timedelta
 from functools import wraps
 from io import BytesIO
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for, send_file
+from werkzeug.middleware.proxy_fix import ProxyFix
 import numpy as np
 import cv2
 import bcrypt
@@ -21,6 +22,10 @@ from flask_limiter.util import get_remote_address
 from flask_wtf.csrf import CSRFProtect
 
 app = Flask(__name__)
+# SEC-PROXY: trust one hop of X-Forwarded-For/Proto/Host from nginx so that
+# get_remote_address returns the real client IP rather than 127.0.0.1.
+# Without this, all rate-limit buckets collapse to the loopback address.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 _secret_key = os.environ.get("SECRET_KEY")
 if not _secret_key:
     raise RuntimeError(

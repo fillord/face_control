@@ -248,7 +248,7 @@ function renderOrgs() {
   tbody.innerHTML = allOrgs.map(org => {
     const empCount = allEmployees.filter(e => e.org_id === org.id).length;
     const desc = org.description ? `<span style="color:#546e7a;">${escapeHtml(org.description)}</span>` : '<span style="color:#bdbdbd;">—</span>';
-    const kioskUrl = `/kiosk/${org.id}`;
+    const kioskUrl = `/kiosk/${org.org_token}`;  // CR-10: kiosk route uses org_token not id
     const pinBadge = org.kiosk_pin
       ? `<span style="color:#2E7D32;font-size:11px;">🔐 PIN</span>`
       : `<span style="color:#90a4ae;font-size:11px;">Без PIN</span>`;

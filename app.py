@@ -2333,6 +2333,7 @@ def update_org_settings(org_id):
 # ─── API: Kiosk device registration & management ──────────────────────────────
 
 @app.route("/api/kiosk/<org_token>/register_device", methods=["POST"])
+@limiter.limit("5 per 15 minutes")  # CR-09: prevent brute-force of 4-digit kiosk PIN
 def register_kiosk_device(org_token):
     """Validate kiosk PIN and register a new device; sets httpOnly cookie in response."""
     org = Organization.query.filter_by(org_token=org_token).first()
@@ -2969,7 +2970,11 @@ def update_lbph_threshold():
 @require_role("superadmin")
 def backup_db():
     """REL-03: Superadmin-only download of the SQLite database as a dated attachment."""
-    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "app.db")
+    # CR-11: derive backup path from SQLALCHEMY_DATABASE_URI so DATABASE_URL is respected
+    db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
+    if not db_uri.startswith("sqlite:///"):
+        return jsonify({"error": "Backup only supported for SQLite"}), 400
+    db_path = db_uri[len("sqlite:///"):]
     if not os.path.isfile(db_path):
         return jsonify({"error": "Файл базы данных не найден"}), 404
     return send_file(

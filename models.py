@@ -11,7 +11,7 @@
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import Integer, String, Text, Boolean, Float
+from sqlalchemy import Integer, String, Text, Boolean, Float, Index
 from typing import Optional
 
 
@@ -112,12 +112,14 @@ class Department(db.Model):
 class AttendanceRecord(db.Model):
     """Attendance records normalized from {date: {emp_id: {check_in, check_out}}} (D-01).
     event_type records the last attendance transition: 'check_in' or 'check_out'.
+    PERF-01: composite index on (emp_id, date) replaces two separate column indexes.
     """
     __tablename__ = "attendance_record"
+    __table_args__ = (Index("ix_attendance_emp_date", "emp_id", "date"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    emp_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
-    date: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
+    emp_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    date: Mapped[str] = mapped_column(String(10), nullable=False)
     check_in_time: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
     check_out_time: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
     # D-01: records the last attendance transition; populated by the recognition route (plan 06-04)

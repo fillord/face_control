@@ -35,6 +35,10 @@ _db_url = os.environ.get("DATABASE_URL") or (
 )
 app.config["SQLALCHEMY_DATABASE_URI"] = _db_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+# SEC-04: harden session cookies — nginx terminates SSL so Secure is safe
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 db.init_app(app)
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
@@ -226,6 +230,13 @@ KZ_HOLIDAYS = {
         "2026-07-06", "2026-08-30",
         "2026-10-25", "2026-12-01", "2026-12-16", "2026-12-17",
     ],
+    2027: [
+        "2027-01-01", "2027-01-02", "2027-01-07", "2027-03-08",
+        "2027-03-21", "2027-03-22", "2027-03-23",
+        "2027-05-01", "2027-05-07", "2027-05-09",
+        "2027-07-06", "2027-08-30",
+        "2027-10-25", "2027-12-01", "2027-12-16", "2027-12-17",
+    ],
 }
 
 MANUAL_SYMBOLS = {"Б", "К", "П"}
@@ -374,6 +385,8 @@ def compute_dept_summary(year, month_num, org_id, employees, attendance, overrid
         if emp.get("org_id") == org_id and emp.get("dept_id"):
             dept_ids_in_org.add(emp["dept_id"])
 
+    dept_name_map = {d.id: d.name for d in Department.query.filter_by(org_id=org_id).all()}
+
     summary_rows = []
     for dept_id in sorted(dept_ids_in_org):
         dept_employees = {
@@ -385,7 +398,7 @@ def compute_dept_summary(year, month_num, org_id, employees, attendance, overrid
 
         total_work_days = 0
         total_ya = 0
-        dept_name = dept_id  # fallback if dept name not available here
+        dept_name = dept_name_map.get(dept_id, dept_id)
 
         for emp_id, emp in dept_employees.items():
             schedule = emp.get("schedule", {"start": "09:00", "end": "18:00", "work_days": [1, 2, 3, 4, 5]})
@@ -615,6 +628,20 @@ def train_recognizer():
 @app.route("/")
 def kiosk():
     return redirect(url_for("login_page"))
+
+@app.route("/health")
+def health():
+    """Public health check endpoint — no auth required (REL-01).
+
+    Returns 200 {"status": "ok", "db": "connected"} when the database is reachable,
+    503 {"status": "error", "db": "unavailable"} when not.
+    """
+    try:
+        db.session.execute(text("SELECT 1"))
+        return jsonify({"status": "ok", "db": "connected"}), 200
+    except Exception:
+        return jsonify({"status": "error", "db": "unavailable"}), 503
+
 
 @app.route("/kiosk/<org_token>")
 def kiosk_token(org_token):
@@ -2977,7 +3004,9 @@ def recognize():
     emp_dict = _emp_to_dict(emp)
     now_dt = datetime.now()
     now = now_dt.strftime("%H:%M:%S")
-    is_late = now > "09:00:00"
+    schedule = emp_dict.get("schedule", {})
+    start = schedule.get("start", "09:00")
+    is_late = now > _time_threshold(start, 15)
 
     # Mode-aware attendance logic (kiosk «Прибыл»/«Убыл» buttons).
     # If mode is absent or invalid, fall back to legacy state machine for backward compat.
@@ -3194,7 +3223,8 @@ def get_stats():
             present += 1
             if eid in emp_stats:
                 emp_stats[eid]["days"] += 1
-                if check_in > "09:00:00":
+                start = employees[eid]["schedule"].get("start", "09:00")
+                if check_in > _time_threshold(start, 15):
                     emp_stats[eid]["late_days"] += 1
                 if check_out:
                     ci = datetime.strptime(check_in, "%H:%M:%S")
@@ -3275,6 +3305,20 @@ with app.app_context():
             conn.commit()
     except sa_exc.OperationalError:
         pass  # Column already exists — safe to ignore
+    # PERF-01: Replace two separate column indexes with a single composite index.
+    # Drop SQLAlchemy-default-named indexes; create composite (emp_id, date) index.
+    # Uses IF EXISTS / IF NOT EXISTS for full idempotency on repeated startups.
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(text("DROP INDEX IF EXISTS ix_attendance_record_emp_id"))
+            conn.execute(text("DROP INDEX IF EXISTS ix_attendance_record_date"))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_attendance_emp_date "
+                "ON attendance_record (emp_id, date)"
+            ))
+            conn.commit()
+    except sa_exc.OperationalError:
+        pass  # Table may not exist yet on a fresh DB — create_all() will apply it
     init_config()
     init_users()
 

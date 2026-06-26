@@ -22,9 +22,8 @@ th.sortable:hover { color: var(--text-primary); }
 </style>
 {% endblock %}
 {% block content %}
-<h1 class="page-title">Отделы</h1>
-
 <div id="panelDepts" class="page">
+<h1 class="page-title">Отделы</h1>
   <div class="stats-grid">
     <div class="stat-card">
       <div class="stat-label">Отделов</div>
@@ -212,6 +211,7 @@ th.sortable:hover { color: var(--text-primary); }
 </div>
 
 <div id="panelUsers" class="page hidden">
+<h1 class="page-title">Пользователи</h1>
   <div class="toolbar">
     <button class="btn-primary" onclick="toggleUserForm()">+ Добавить пользователя</button>
   </div>
@@ -281,6 +281,7 @@ th.sortable:hover { color: var(--text-primary); }
 </div>
 
 <div id="panelReports" class="page hidden">
+<h1 class="page-title">Отчёты</h1>
   <div id="inlineReportsContent" style="min-height:200px;">
     <p style="text-align:center;color:#90a4ae;padding:40px;">Загрузка...</p>
   </div>
@@ -293,6 +294,7 @@ th.sortable:hover { color: var(--text-primary); }
 </div>
 
 <div id="panelEmployees" class="page hidden">
+<h1 class="page-title">Сотрудники</h1>
   <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
     <label class="btn-primary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
       Импорт из Excel

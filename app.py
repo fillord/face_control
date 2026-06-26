@@ -2698,6 +2698,12 @@ def get_employee(emp_id):
     emp = Employee.query.get(emp_id)
     if not emp:
         return jsonify({"error": "Сотрудник не найден"}), 404
+    # CR-04: IDOR guard — org_admin/dept_admin may only read employees in their scope
+    _role = session.get("role")
+    if _role == "org_admin" and emp.org_id != session.get("org_id"):
+        return jsonify({"error": "forbidden"}), 403
+    if _role == "dept_admin" and emp.dept_id != session.get("dept_id"):
+        return jsonify({"error": "forbidden"}), 403
     return jsonify(_emp_to_dict(emp))
 
 @app.route("/api/employees/<emp_id>/schedule", methods=["PATCH"])
@@ -2705,12 +2711,15 @@ def get_employee(emp_id):
 def update_employee_schedule(emp_id):
     """T13-06: Update per-employee work schedule with HH:MM validation."""
     caller_role = session.get("role")
+    caller_org_id = session.get("org_id")
     caller_dept_id = session.get("dept_id")
     emp = Employee.query.get(emp_id)
     if not emp:
         return jsonify({"error": "Сотрудник не найден"}), 404
 
-    # Scope gate: dept_admin may only edit employees in their own dept
+    # CR-05: IDOR guard — org_admin/dept_admin may only edit employees in their scope
+    if caller_role == "org_admin" and emp.org_id != caller_org_id:
+        return jsonify({"error": "forbidden"}), 403
     if caller_role == "dept_admin" and emp.dept_id != caller_dept_id:
         return jsonify({"error": "forbidden"}), 403
 

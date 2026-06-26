@@ -2977,7 +2977,9 @@ def recognize():
     emp_dict = _emp_to_dict(emp)
     now_dt = datetime.now()
     now = now_dt.strftime("%H:%M:%S")
-    is_late = now > "09:00:00"
+    schedule = emp_dict.get("schedule", {})
+    start = schedule.get("start", "09:00")
+    is_late = now > _time_threshold(start, 15)
 
     # Mode-aware attendance logic (kiosk «Прибыл»/«Убыл» buttons).
     # If mode is absent or invalid, fall back to legacy state machine for backward compat.
@@ -3194,7 +3196,8 @@ def get_stats():
             present += 1
             if eid in emp_stats:
                 emp_stats[eid]["days"] += 1
-                if check_in > "09:00:00":
+                start = employees[eid]["schedule"].get("start", "09:00")
+                if check_in > _time_threshold(start, 15):
                     emp_stats[eid]["late_days"] += 1
                 if check_out:
                     ci = datetime.strptime(check_in, "%H:%M:%S")

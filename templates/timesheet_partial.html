@@ -14,13 +14,13 @@
 table { border-collapse: collapse; min-width: max-content; table-layout: fixed; }
 /* thead background provided by base.html */
 thead th { padding: 4px; font-size: 11px; font-weight: 600; color: #546e7a; text-align: center; border-bottom: 1px solid #e2e6f0; white-space: nowrap; }
-thead th.emp-col { text-align: left; padding: 4px 12px; width: 180px; min-width: 180px; text-transform: uppercase; letter-spacing: 0.05em; }
-thead th.day-col { width: 32px; min-width: 32px; }
-thead th.total-col { width: 60px; min-width: 60px; text-transform: uppercase; letter-spacing: 0.05em; }
+thead th.emp-col { text-align: left; padding: 4px 8px; width: 140px; min-width: 140px; text-transform: uppercase; letter-spacing: 0.05em; }
+thead th.day-col { width: 22px; min-width: 22px; }
+thead th.total-col { width: 44px; min-width: 44px; text-transform: uppercase; letter-spacing: 0.05em; }
 thead th.weekend { color: #9E9E9E; }
-tbody td { padding: 4px; font-size: 13px; border-bottom: 1px solid #f0f3f8; text-align: center; vertical-align: middle; }
-tbody td.emp-name { text-align: left; padding: 8px 12px; font-size: 13px; font-weight: 500; color: #1a2340; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
-tbody td.sym-cell { font-weight: 600; font-size: 13px; cursor: default; font-variant-numeric: tabular-nums; }
+tbody td { padding: 2px; font-size: 11px; border-bottom: 1px solid #f0f3f8; text-align: center; vertical-align: middle; }
+tbody td.emp-name { text-align: left; padding: 6px 8px; font-size: 12px; font-weight: 500; color: #1a2340; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+tbody td.sym-cell { font-weight: 600; font-size: 11px; cursor: default; font-variant-numeric: tabular-nums; }
 tbody td.sym-cell.editable { cursor: pointer; }
 tbody td.sym-cell.editable:hover { outline: 2px solid var(--accent); }
 tbody td.sym-ou { font-size: 11px; font-weight: 600; }
@@ -175,11 +175,11 @@ tbody td.sym-ou { font-size: 11px; font-weight: 600; }
               {% if can_edit and sym != 'В' %}tabindex="0" onclick="tsOpenOverrideDropdown(this)"{% endif %}>{{ sym }}</td>
           {% endif %}
           {% endfor %}
-          <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.days_worked }}</td>
-          <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.hours_worked }}</td>
-          <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.absences }}</td>
-          <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.late }}</td>
-          <td class="total-col" style="font-size:13px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.vac_sick }}</td>
+          <td class="total-col" style="font-size:11px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.days_worked }}</td>
+          <td class="total-col" style="font-size:11px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.hours_worked }}</td>
+          <td class="total-col" style="font-size:11px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.absences }}</td>
+          <td class="total-col" style="font-size:11px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.late }}</td>
+          <td class="total-col" style="font-size:11px;font-weight:600;color:var(--accent);text-align:center;">{{ totals.vac_sick }}</td>
         </tr>
         {% endfor %}
         <!-- Totals row -->

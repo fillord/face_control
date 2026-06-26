@@ -318,5 +318,23 @@ Plans:
 
 **Goal:** Plug the highest-risk security gaps and fix three confirmed bugs. All items are small-effort, high-impact, grounded in the 260626-jko analysis report: brute-force protection on login and PIN endpoints; CSRF via Flask-WTF; session cookie security flags; configurable LBPH threshold in AppSetting; three hardcoded-`"09:00:00"` bugs fixed; /health endpoint; KZ_HOLIDAYS extended to 2027; DB backup button; composite index on AttendanceRecord.
 **Depends on:** Phase 8
-**Requirements**: SEC-01, SEC-02, SEC-03, SEC-04, BUG-01, BUG-02, BUG-03, REL-01, REL-02, REL-03, PERF-01
-**Plans:** 0 plans
+**Requirements**: SEC-01, SEC-02, SEC-03, SEC-04, SEC-05, BUG-01, BUG-02, BUG-03, REL-01, REL-02, REL-03, PERF-01
+**Plans:** 4 plans
+
+Plans:
+
+**Wave 1**
+
+- [ ] 09-01-PLAN.md — Critical bug fixes + reliability: schedule-aware late detection (BUG-01/02), real dept names (BUG-03), /health (REL-01), KZ_HOLIDAYS 2027 (REL-02), cookie flags (SEC-04), composite index (PERF-01)
+
+**Wave 2** *(blocked on Wave 1 — app.py overlap)*
+
+- [ ] 09-02-PLAN.md — Flask-Limiter brute-force protection: /login 5/15min (SEC-01), verify_pin 10-attempt token lock (SEC-02) [checkpoint]
+
+**Wave 3** *(blocked on Wave 2 — app.py overlap)*
+
+- [ ] 09-03-PLAN.md — Flask-WTF CSRF on HTML form routes, JSON /api/* exempt (SEC-03) [checkpoint]
+
+**Wave 4** *(blocked on Wave 3 — app.py overlap)*
+
+- [ ] 09-04-PLAN.md — Configurable LBPH threshold (SEC-05) + DB backup button (REL-03) + superadmin System UI

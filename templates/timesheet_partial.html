@@ -1,6 +1,6 @@
 <style>
 /* ─── Timesheet-partial-only styles (base.html provides the rest) ─── */
-.page { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
+.page { max-width: none; padding: 24px 20px; }
 .selector-bar { background: #fff; border: 1px solid #e2e6f0; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
 .form-group { display: flex; flex-direction: column; gap: 4px; }
 .form-group label { font-size: 11px; font-weight: 600; color: #546e7a; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -11,11 +11,11 @@
 /* .btn-primary and .btn-secondary are provided by base.html */
 .table-card { overflow-x: auto; } /* override base: timesheet needs horizontal scroll */
 .holiday-banner { background: #FFFDE7; border-bottom: 1px solid #F9A825; border-radius: 0; padding: 12px 16px; font-size: 13px; color: #5D4037; }
-table { border-collapse: collapse; min-width: max-content; table-layout: fixed; }
+table { border-collapse: collapse; width: 100%; min-width: 600px; table-layout: fixed; }
 /* thead background provided by base.html */
 thead th { padding: 4px; font-size: 11px; font-weight: 600; color: #546e7a; text-align: center; border-bottom: 1px solid #e2e6f0; white-space: nowrap; }
 thead th.emp-col { text-align: left; padding: 4px 8px; width: 140px; min-width: 140px; text-transform: uppercase; letter-spacing: 0.05em; }
-thead th.day-col { width: 22px; min-width: 22px; }
+thead th.day-col { min-width: 18px; }
 thead th.total-col { width: 44px; min-width: 44px; text-transform: uppercase; letter-spacing: 0.05em; }
 thead th.weekend { color: #9E9E9E; }
 tbody td { padding: 2px; font-size: 11px; border-bottom: 1px solid #f0f3f8; text-align: center; vertical-align: middle; }

@@ -245,6 +245,15 @@ document.addEventListener('keydown', function(e) {
     document.getElementById('sidebarOverlay').classList.remove('visible');
   }
 });
+// Keep nav highlight in sync when switchTab() items are clicked (same-page tab switching)
+document.querySelectorAll('.nav-section .nav-item').forEach(function(item) {
+  item.addEventListener('click', function() {
+    document.querySelectorAll('.nav-section .nav-item').forEach(function(el) {
+      el.classList.remove('active');
+    });
+    this.classList.add('active');
+  });
+});
 </script>
 </body>
 </html>

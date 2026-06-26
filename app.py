@@ -18,6 +18,7 @@ from models import db, Employee, User, Organization, Department
 from models import AttendanceRecord, EmployeeSchedule, LogEntry, TimesheetOverride, AppSetting, KioskDevice, AuditLog
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_wtf.csrf import CSRFProtect
 
 app = Flask(__name__)
 _secret_key = os.environ.get("SECRET_KEY")
@@ -42,6 +43,14 @@ app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 db.init_app(app)
+
+# ─── CSRF Protection (SEC-03) ────────────────────────────────────────────────
+# WTF_CSRF_CHECK_DEFAULT=False disables automatic enforcement on every route so
+# the ~40 JSON /api/* endpoints (and the kiosk routes) remain accessible without
+# a CSRF token. Protection is applied explicitly on the two HTML-form POST routes
+# (/login, /profile) via csrf.protect() inside the POST branch of each view.
+app.config["WTF_CSRF_CHECK_DEFAULT"] = False
+csrf = CSRFProtect(app)
 
 # ─── Rate Limiting (SEC-01, SEC-02) ──────────────────────────────────────────
 # default_limits=[] so kiosk routes (/, /api/recognize, /api/detect) are
@@ -688,6 +697,7 @@ def login_page():
             return redirect(url_for("dashboard_page"))
     error = None
     if request.method == "POST":
+        csrf.protect()  # SEC-03: enforce CSRF token on HTML form POST
         username = request.form.get("username", "")
         password = request.form.get("password", "").encode()
         user = User.query.filter_by(username=username).first()
@@ -1184,6 +1194,7 @@ def profile_page():
     error = None
     success = None
     if request.method == "POST":
+        csrf.protect()  # SEC-03: enforce CSRF token on HTML form POST
         current_password = request.form.get("current_password", "")
         new_password = request.form.get("new_password", "")
         confirm_password = request.form.get("confirm_password", "")

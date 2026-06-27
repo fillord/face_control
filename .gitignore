@@ -1,6 +1,10 @@
 # SQLite database — do not commit (DB-05)
 data/app.db
 
+# Face recognition runtime data — generated at startup, do not commit
+data/encodings.json
+data/faces/
+
 # Python bytecode
 __pycache__/
 *.pyc

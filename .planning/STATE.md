@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-11)
 Phase: 09 — COMPLETE
 Plan: 1 of 4
 Status: Phase 09 complete
-Last activity: 2026-06-27 - Completed quick task 260627-gi4: the summary tab does not work, it constantly switches to the departments tab
+Last activity: 2026-06-27 - Completed quick task 260627-w7x: for super admins and administrators of organizations, you need to add a function for the users tab so that you can reset the password and CRUD system (delete, change, etc.)
 
 Progress: [████████░░] 87%
 
@@ -117,3 +117,4 @@ Resume file: .planning/phases/08-i-want-to-radically-change-the-navigation-of-th
 | 6 | fix reports tab data isolation: /api/attendance and /api/stats return all-org employees | 2026-06-26 | 735e695 | [260626-dxy](./quick/260626-dxy-fix-reports-tab-data-isolation-api-atten/) |
 | 7 | анализируй весь проект и скажи что еще можно добавить и какие улутшение можно сделать | 2026-06-26 | b65543b | [260626-jko](./quick/260626-jko-project-analysis-improvements/) |
 | 8 | the summary tab does not work, it constantly switches to the departments tab | 2026-06-27 | 2a32ebf | [260627-gi4](./quick/260627-gi4-the-summary-tab-does-not-work-it-constan/) |
+| 9 | for super admins and administrators of organizations, you need to add a function for the users tab so that you can reset the password and CRUD system (delete, change, etc.) | 2026-06-27 | ce5f004 | [260627-w7x](./quick/260627-w7x-for-super-admins-and-administrators-of-o/) |

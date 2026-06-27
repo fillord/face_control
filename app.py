@@ -8,6 +8,8 @@ from flask import Flask, request, jsonify, render_template, session, redirect, u
 from werkzeug.middleware.proxy_fix import ProxyFix
 import numpy as np
 import cv2
+import face_recognition
+import fcntl
 import bcrypt
 import openpyxl
 from openpyxl import Workbook
@@ -79,8 +81,11 @@ FACES_DIR = os.path.join(DATA_DIR, "faces")
 os.makedirs(FACES_DIR, exist_ok=True)
 
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-recognizer = cv2.face.LBPHFaceRecognizer_create()
+# face_recognition (dlib) embedding-based recognition globals
+known_encodings = None   # np.ndarray of shape (N, 128) — one row per stored face photo
+known_labels = []        # list of int Employee.label values, aligned row-for-row with known_encodings
 recognizer_trained = False
+ENCODINGS_FILE = os.path.join(DATA_DIR, "encodings.json")
 
 MONTHS_RU = {
     1: "Январь", 2: "Февраль", 3: "Март", 4: "Апрель",
@@ -99,6 +104,9 @@ def init_config():
         db.session.commit()
     if not AppSetting.query.get("lbph_threshold"):
         db.session.add(AppSetting(key="lbph_threshold", value="80"))
+        db.session.commit()
+    if not AppSetting.query.get("face_match_tolerance"):
+        db.session.add(AppSetting(key="face_match_tolerance", value="0.6"))
         db.session.commit()
 
 # ─── Auth: Users ──────────────────────────────────────────────────────────────
@@ -635,27 +643,115 @@ def extract_face(img):
     face_roi = cv2.resize(face_roi, (200, 200))
     return face_roi, (int(x), int(y), int(w), int(h))
 
+# ─── Embeddings storage helpers ───────────────────────────────────────────────
+
+def load_encodings():
+    """Return dict { emp_id: [[128 floats], ...] } from ENCODINGS_FILE, or {} if missing."""
+    if not os.path.isfile(ENCODINGS_FILE):
+        return {}
+    try:
+        with open(ENCODINGS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_encodings(d):
+    """Write encodings dict to ENCODINGS_FILE with LOCK_EX for single-writer safety."""
+    with open(ENCODINGS_FILE, "w", encoding="utf-8") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            json.dump(d, f)
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+
+
+def encode_and_store(emp_id, color_img, bbox):
+    """Encode a face from COLOR frame and append its 128-d vector to ENCODINGS_FILE.
+
+    color_img: BGR uint8 np.ndarray (full frame from decode_image)
+    bbox: (x, y, w, h) tuple as returned by extract_face
+    Returns True if an encoding was produced, False if dlib found no face.
+    """
+    x, y, w, h = bbox
+    rgb = cv2.cvtColor(color_img, cv2.COLOR_BGR2RGB)
+    # dlib location format: (top, right, bottom, left)
+    loc = (y, x + w, y + h, x)
+    encs = face_recognition.face_encodings(rgb, known_face_locations=[loc])
+    if not encs:
+        return False
+    enc_list = encs[0].tolist()
+    enc_dict = load_encodings()
+    if emp_id not in enc_dict:
+        enc_dict[emp_id] = []
+    enc_dict[emp_id].append(enc_list)
+    save_encodings(enc_dict)
+    return True
+
+
 def train_recognizer():
-    global recognizer_trained
+    """Build known_encodings / known_labels globals from ENCODINGS_FILE.
+
+    Migration: for any employee whose stored encoding count does not match its
+    JPEG count, re-encode that employee's stored JPEGs (gray 200x200 crops).
+    """
+    global known_encodings, known_labels, recognizer_trained
+    enc_dict = load_encodings()
     all_emps = Employee.query.all()
-    faces, labels = [], []
+
+    # Migration: re-encode JPEGs for employees whose encoding count is stale
+    changed = False
     for emp in all_emps:
         emp_dir = os.path.join(FACES_DIR, emp.id)
         if not os.path.exists(emp_dir):
             continue
-        label = int(emp.label)
-        for fname in os.listdir(emp_dir):
-            if not fname.endswith(".jpg"):
+        jpegs = [f for f in os.listdir(emp_dir) if f.endswith(".jpg")]
+        stored = enc_dict.get(emp.id, [])
+        if len(stored) == len(jpegs):
+            continue  # up-to-date, skip
+        # Re-encode all JPEGs for this employee from scratch
+        new_encs = []
+        for fname in sorted(jpegs):
+            img_bgr = cv2.imread(os.path.join(emp_dir, fname))
+            if img_bgr is None:
                 continue
-            img = cv2.imread(os.path.join(emp_dir, fname), cv2.IMREAD_GRAYSCALE)
-            if img is not None:
-                img = cv2.resize(img, (200, 200))
-                faces.append(img)
-                labels.append(label)
-    if len(faces) >= 2:
-        recognizer.train(faces, np.array(labels))
+            # Stored JPEGs are gray 200x200 crops; convert to RGB and force bbox
+            rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+            # If the image is grayscale (1-channel), force 3-channel RGB
+            if rgb.ndim == 2 or rgb.shape[2] == 1:
+                rgb = cv2.cvtColor(img_bgr, cv2.COLOR_GRAY2RGB)
+            h_img, w_img = rgb.shape[:2]
+            loc = (0, w_img, h_img, 0)
+            encs = face_recognition.face_encodings(rgb, known_face_locations=[loc])
+            if encs:
+                new_encs.append(encs[0].tolist())
+        enc_dict[emp.id] = new_encs
+        changed = True
+
+    if changed:
+        save_encodings(enc_dict)
+
+    # Build numpy arrays for fast distance computation
+    new_encodings_list = []
+    new_labels_list = []
+    # Build emp_id → label map
+    emp_label_map = {emp.id: int(emp.label) for emp in all_emps}
+    for emp_id, vecs in enc_dict.items():
+        if emp_id not in emp_label_map:
+            continue  # stale — employee deleted
+        lbl = emp_label_map[emp_id]
+        for vec in vecs:
+            new_encodings_list.append(vec)
+            new_labels_list.append(lbl)
+
+    if new_encodings_list:
+        known_encodings = np.array(new_encodings_list, dtype=np.float64)
+        known_labels = new_labels_list
         recognizer_trained = True
         return True
+
+    known_encodings = None
+    known_labels = []
     recognizer_trained = False
     return False
 
@@ -991,6 +1087,7 @@ def register_token_capture_face(reg_token):
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
+    encode_and_store(emp_id, img, bbox)
     train_recognizer()
     return jsonify({"status": "saved", "count": count, "bbox": bbox})
 
@@ -3000,6 +3097,31 @@ def update_lbph_threshold():
     return jsonify({"status": "updated", "value": value})
 
 
+@app.route("/api/settings/face_match_tolerance", methods=["PATCH"])
+@require_role("superadmin")
+def update_face_match_tolerance():
+    """Superadmin-only update of the dlib face match tolerance (0.30–0.60)."""
+    data = request.get_json(silent=True) or {}
+    value = data.get("value")
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return jsonify({"error": "Значение должно быть числом от 0.30 до 0.60"}), 400
+    if not (0.30 <= value <= 0.60):
+        return jsonify({"error": "Значение должно быть от 0.30 до 0.60"}), 400
+    setting = AppSetting.query.get("face_match_tolerance")
+    if setting:
+        setting.value = str(round(value, 2))
+    else:
+        db.session.add(AppSetting(key="face_match_tolerance", value=str(round(value, 2))))
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Internal server error"}), 500
+    return jsonify({"status": "updated", "value": round(value, 2)})
+
+
 @app.route("/api/backup/db", methods=["GET"])
 @require_role("superadmin")
 def backup_db():
@@ -3128,6 +3250,7 @@ def register_face():
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
+    encode_and_store(emp_id, img, bbox)
     train_recognizer()
     return jsonify({"status": "saved", "count": count, "bbox": bbox})
 
@@ -3171,13 +3294,26 @@ def recognize():
     if face_roi is None:
         return jsonify({"error": "no_face"}), 400
 
-    label, confidence = recognizer.predict(face_roi)
-    # LBPH: lower confidence = better. Threshold read from AppSetting at request time (SEC-05).
-    _thr_setting = AppSetting.query.filter_by(key="lbph_threshold").first()
-    threshold = int(_thr_setting.value) if _thr_setting and str(_thr_setting.value).isdigit() else 80
-    conf_pct = max(0, min(100, round(100 - (confidence / threshold * 100))))
+    # dlib embedding-based recognition: encode query face and compare to known embeddings
+    rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    x, y, w, h = bbox
+    loc = (y, x + w, y + h, x)
+    q = face_recognition.face_encodings(rgb, known_face_locations=[loc])
+    if not q:
+        return jsonify({"error": "no_face"}), 400
+    dists = face_recognition.face_distance(known_encodings, q[0])
+    best_idx = int(np.argmin(dists))
+    confidence = float(dists[best_idx])
+    label = known_labels[best_idx]
+    # Tolerance read from AppSetting at request time; lower distance = better match
+    _tol_setting = AppSetting.query.filter_by(key="face_match_tolerance").first()
+    try:
+        tolerance = float(_tol_setting.value) if _tol_setting else 0.6
+    except (ValueError, TypeError):
+        tolerance = 0.6
+    conf_pct = max(0, min(100, round((1 - confidence / tolerance) * 100)))
 
-    if confidence > threshold:
+    if confidence > tolerance:
         append_log({"ts": datetime.now().isoformat(), "event": "unknown",
                     "confidence_raw": float(confidence), "confidence_pct": conf_pct})
         return jsonify({"error": "unknown", "confidence": float(confidence)}), 400

@@ -1234,8 +1234,14 @@ def superadmin_page(tab="orgs"):
     role = user.role if user else ""
     thr_setting = AppSetting.query.get("lbph_threshold")
     lbph_threshold = int(thr_setting.value) if thr_setting and str(thr_setting.value).isdigit() else 80
+    tol_setting = AppSetting.query.get("face_match_tolerance")
+    try:
+        face_match_tolerance = float(tol_setting.value) if tol_setting else 0.6
+    except (ValueError, TypeError):
+        face_match_tolerance = 0.6
     return render_template("superadmin.html", username=username, role=role,
-                           initial_tab=initial_tab, lbph_threshold=lbph_threshold)
+                           initial_tab=initial_tab, lbph_threshold=lbph_threshold,
+                           face_match_tolerance=face_match_tolerance)
 
 
 @app.route("/org_admin/<tab>")

@@ -169,7 +169,7 @@ th.sortable:hover { color: var(--text-primary); }
 
 <div id="panelSummary" class="page{% if not summary_month %} hidden{% endif %}">
   <h2 style="font-size:18px;font-weight:600;margin-bottom:20px;">Сводка по отделам</h2>
-  <form method="GET" action="/org_admin" class="toolbar" style="margin-bottom:16px;">
+  <form method="GET" action="/org_admin/summary" class="toolbar" style="margin-bottom:16px;">
     <input type="month" name="summary_month" value="{{ summary_month }}"
       style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text-primary);outline:none;font-family:inherit;background:var(--card-bg);">
     <button type="submit" class="btn-primary">Показать табель</button>

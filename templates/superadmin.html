@@ -130,6 +130,20 @@
     </div>
   </div>
 
+  <div id="editUserPanel" class="card hidden" style="max-width:480px;margin-bottom:20px;">
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">Сменить пароль: <span id="editUserLogin" style="color:var(--accent);"></span></h3>
+    <input type="hidden" id="editUserId">
+    <div class="form-group">
+      <label>Новый пароль (мин. 8 символов)</label>
+      <input type="password" id="editUserPassword" placeholder="••••••••" style="width:100%;" autocomplete="new-password">
+    </div>
+    <div id="editUserError" class="error-msg hidden"></div>
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button class="btn-primary" onclick="saveUserPassword()" style="flex:1;">Сохранить</button>
+      <button onclick="closeEditUserPanel()" style="flex:1;padding:9px 16px;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;color:var(--text-secondary);">Отмена</button>
+    </div>
+  </div>
+
   <div class="table-card">
     <table>
       <thead>
@@ -426,8 +440,10 @@ function renderUsers() {
       <td>${roleLabels[u.role] || u.role}</td>
       <td>${orgName}</td>
       <td>${statusBadge}</td>
-      <td>
+      <td style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button class="btn-edit" onclick="toggleUserActive('${u.id}', ${!u.active})">${u.active ? 'Откл.' : 'Вкл.'}</button>
+        <button class="btn-edit" onclick="openEditUserPanel('${u.id}')">Изменить пароль</button>
+        <button onclick="deleteUser('${u.id}', '${escapeHtml(u.username)}')" style="padding:6px 12px;border:1px solid #ef9a9a;border-radius:6px;background:var(--card-bg);color:#c62828;font-size:12px;font-weight:500;cursor:pointer;">Удалить</button>
       </td>
     </tr>`;
   }).join('');
@@ -488,6 +504,60 @@ async function toggleUserActive(userId, newActive) {
     body: JSON.stringify({active: newActive}),
   });
   await loadUsers();
+}
+
+function openEditUserPanel(userId) {
+  const u = allUsers.find(u => u.id === userId);
+  if (!u) return;
+  document.getElementById('editUserId').value = userId;
+  document.getElementById('editUserLogin').textContent = u.username;
+  document.getElementById('editUserPassword').value = '';
+  document.getElementById('editUserError').classList.add('hidden');
+  document.getElementById('editUserPanel').classList.remove('hidden');
+}
+
+function closeEditUserPanel() {
+  document.getElementById('editUserPanel').classList.add('hidden');
+}
+
+async function saveUserPassword() {
+  const id = document.getElementById('editUserId').value;
+  const password = document.getElementById('editUserPassword').value;
+  const errEl = document.getElementById('editUserError');
+  if (!password || password.length < 8) {
+    errEl.textContent = 'Пароль должен содержать не менее 8 символов';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  errEl.classList.add('hidden');
+  try {
+    const resp = await fetch('/api/users/' + id, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({password}),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      errEl.textContent = data.error || 'Ошибка при сохранении.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    closeEditUserPanel();
+    await loadUsers();
+  } catch (e) {
+    errEl.textContent = 'Ошибка соединения.';
+    errEl.classList.remove('hidden');
+  }
+}
+
+async function deleteUser(userId, username) {
+  if (!confirm(`Удалить пользователя «${username}»? Это действие нельзя отменить.`)) return;
+  try {
+    const resp = await fetch('/api/users/' + userId, {method: 'DELETE'});
+    const data = await resp.json();
+    if (!resp.ok) { alert(data.error || 'Ошибка при удалении.'); return; }
+    await loadUsers();
+  } catch (e) { alert('Ошибка соединения.'); }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

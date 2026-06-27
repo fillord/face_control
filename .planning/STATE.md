@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-06-11)
 Phase: 09 — COMPLETE
 Plan: 1 of 4
 Status: Phase 09 complete
-Last activity: 2026-06-26 -- Phase 09 marked complete
+Last activity: 2026-06-27 - Completed quick task 260627-gi4: the summary tab does not work, it constantly switches to the departments tab
 
 Progress: [████████░░] 87%
 
@@ -116,3 +116,4 @@ Resume file: .planning/phases/08-i-want-to-radically-change-the-navigation-of-th
 | 5 | make separate page files for each tab with direct URLs like /register and /account | 2026-06-26 | 11109e6 | [260626-dfl](./quick/260626-dfl-make-separate-page-files-for-each-tab-wi/) |
 | 6 | fix reports tab data isolation: /api/attendance and /api/stats return all-org employees | 2026-06-26 | 735e695 | [260626-dxy](./quick/260626-dxy-fix-reports-tab-data-isolation-api-atten/) |
 | 7 | анализируй весь проект и скажи что еще можно добавить и какие улутшение можно сделать | 2026-06-26 | b65543b | [260626-jko](./quick/260626-jko-project-analysis-improvements/) |
+| 8 | the summary tab does not work, it constantly switches to the departments tab | 2026-06-27 | 2a32ebf | [260627-gi4](./quick/260627-gi4-the-summary-tab-does-not-work-it-constan/) |

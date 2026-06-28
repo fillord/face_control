@@ -1,7 +1,9 @@
 {% extends 'base.html' %}
 {% block title %}Суперадмин — МедКонтроль{% endblock %}
 
-{% block head %}{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
 
 {% block content %}
 <div id="panelOrgs" class="page">
@@ -288,6 +290,14 @@
   </div>
 </div>
 
+<div id="panelAnalytics" class="page hidden">
+<h1 class="page-title">Аналитика</h1>
+  <div class="card" style="padding:20px;">
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">% присутствия за последние 30 дней</h3>
+    <canvas id="analyticsChart" height="80"></canvas>
+  </div>
+</div>
+
 <script>
 // ─── State ────────────────────────────────────────────────────────────────────
 let allOrgs = [];
@@ -302,6 +312,8 @@ let allSuperLogs = [];
 let logsLoaded = false;
 let allHolidays = [];
 let calendarLoaded = false;
+let analyticsLoaded = false;
+let analyticsChartInst = null;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
@@ -310,7 +322,7 @@ async function init() {
 
 // ─── Tab switching ─────────────────────────────────────────────────────────────
 function switchTab(tab) {
-  ['orgs', 'users', 'system', 'employees', 'devices', 'logs', 'calendar'].forEach(t => {
+  ['orgs', 'users', 'system', 'employees', 'devices', 'logs', 'calendar', 'analytics'].forEach(t => {
     document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1))
       .classList.toggle('hidden', t !== tab);
   });
@@ -318,6 +330,7 @@ function switchTab(tab) {
   if (tab === 'devices' && !devicesLoaded) { loadDevices(); devicesLoaded = true; }
   if (tab === 'logs' && !logsLoaded) { loadSuperLogs(); logsLoaded = true; }
   if (tab === 'calendar' && !calendarLoaded) { loadHolidays(); calendarLoaded = true; }
+  if (tab === 'analytics' && !analyticsLoaded) { loadAnalytics(); analyticsLoaded = true; }
 }
 
 // ─── System: face match tolerance ─────────────────────────────────────────────
@@ -947,6 +960,43 @@ async function onHolidayYearChange() {
     const resp = await fetch(`/api/holidays?year=${year}`);
     allHolidays = resp.ok ? await resp.json() : [];
     renderHolidays(allHolidays);
+  } catch(e) {}
+}
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+async function loadAnalytics() {
+  try {
+    const resp = await fetch('/api/superadmin/attendance_stats?days=30');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (!data || data.length === 0) return;
+    const labels = data.map(r => r.date);
+    const values = data.map(r => r.percent);
+    if (analyticsChartInst) { analyticsChartInst.destroy(); analyticsChartInst = null; }
+    const analyticsCtx = document.getElementById('analyticsChart').getContext('2d');
+    analyticsChartInst = new Chart(analyticsCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: '% присутствия',
+          data: values,
+          tension: 0.3,
+          fill: false,
+          borderColor: '#0d9488',
+          backgroundColor: 'rgba(13,148,136,0.1)',
+          pointRadius: 3,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: true } },
+        scales: {
+          y: { min: 0, max: 100, ticks: { color: '#78909c' }, grid: { color: '#f0f3f8' } },
+          x: { ticks: { color: '#78909c', maxRotation: 45 }, grid: { display: false } }
+        }
+      }
+    });
   } catch(e) {}
 }
 

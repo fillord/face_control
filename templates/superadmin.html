@@ -248,6 +248,46 @@
   </div>
 </div>
 
+<!-- ═══ TAB: CALENDAR ═══ -->
+<div id="panelCalendar" class="page hidden">
+<h1 class="page-title">Календарь</h1>
+  <div class="toolbar">
+    <label style="margin-right:8px;">Год:</label>
+    <select id="holidayYear" onchange="onHolidayYearChange()"></select>
+  </div>
+
+  <div class="card" style="max-width:480px;margin-bottom:20px;">
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">Добавить праздник</h3>
+    <div class="form-group">
+      <label>Дата *</label>
+      <input type="date" id="holidayDate">
+    </div>
+    <div class="form-group">
+      <label>Название *</label>
+      <input type="text" id="holidayName" placeholder="Название праздника">
+    </div>
+    <div id="holidayFormError" class="error-msg hidden"></div>
+    <div class="form-actions">
+      <button class="btn-primary" onclick="addHoliday()">Добавить</button>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Дата</th>
+          <th>Название</th>
+          <th>Действие</th>
+        </tr>
+      </thead>
+      <tbody id="holidaysTableBody">
+        <tr><td colspan="3" style="text-align:center;color:#90a4ae;padding:28px;">Загрузка...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <script>
 // ─── State ────────────────────────────────────────────────────────────────────
 let allOrgs = [];
@@ -260,6 +300,8 @@ let allDevices = [];
 let devicesLoaded = false;
 let allSuperLogs = [];
 let logsLoaded = false;
+let allHolidays = [];
+let calendarLoaded = false;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
@@ -268,13 +310,14 @@ async function init() {
 
 // ─── Tab switching ─────────────────────────────────────────────────────────────
 function switchTab(tab) {
-  ['orgs', 'users', 'system', 'employees', 'devices', 'logs'].forEach(t => {
+  ['orgs', 'users', 'system', 'employees', 'devices', 'logs', 'calendar'].forEach(t => {
     document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1))
       .classList.toggle('hidden', t !== tab);
   });
   if (tab === 'employees' && !employeesLoaded) { loadSuperEmployees(); employeesLoaded = true; }
   if (tab === 'devices' && !devicesLoaded) { loadDevices(); devicesLoaded = true; }
   if (tab === 'logs' && !logsLoaded) { loadSuperLogs(); logsLoaded = true; }
+  if (tab === 'calendar' && !calendarLoaded) { loadHolidays(); calendarLoaded = true; }
 }
 
 // ─── System: face match tolerance ─────────────────────────────────────────────
@@ -813,6 +856,98 @@ function filterLogs() {
     return orgMatch && eventMatch;
   });
   renderSuperLogs(filtered);
+}
+
+// ─── Calendar ─────────────────────────────────────────────────────────────────
+function _initHolidayYearSelect() {
+  const sel = document.getElementById('holidayYear');
+  const cur = new Date().getFullYear();
+  sel.innerHTML = '';
+  for (let y = cur - 1; y <= cur + 2; y++) {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = y;
+    if (y === cur) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+async function loadHolidays() {
+  _initHolidayYearSelect();
+  const year = document.getElementById('holidayYear').value;
+  try {
+    const resp = await fetch(`/api/holidays?year=${year}`);
+    allHolidays = resp.ok ? await resp.json() : [];
+    renderHolidays(allHolidays);
+  } catch(e) {}
+}
+
+function renderHolidays(list) {
+  const tbody = document.getElementById('holidaysTableBody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#90a4ae;padding:28px;">Нет данных</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(h => `<tr>
+    <td style="font-weight:500;">${escapeHtml(h.date || '—')}</td>
+    <td>${escapeHtml(h.name || '—')}</td>
+    <td><button class="btn-delete" onclick="deleteHoliday('${escapeHtml(h.date)}')">Удалить</button></td>
+  </tr>`).join('');
+}
+
+async function addHoliday() {
+  const errEl = document.getElementById('holidayFormError');
+  errEl.classList.add('hidden');
+  const date = document.getElementById('holidayDate').value.trim();
+  const name = document.getElementById('holidayName').value.trim();
+  if (!date || !name) {
+    errEl.textContent = 'Заполните дату и название';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  try {
+    const resp = await fetch('/api/holidays', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({date, name}),
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      document.getElementById('holidayDate').value = '';
+      document.getElementById('holidayName').value = '';
+      await loadHolidays();
+    } else {
+      errEl.textContent = data.error || 'Ошибка при добавлении';
+      errEl.classList.remove('hidden');
+    }
+  } catch(e) {
+    errEl.textContent = 'Ошибка соединения';
+    errEl.classList.remove('hidden');
+  }
+}
+
+async function deleteHoliday(date) {
+  if (!window.confirm(`Удалить праздник ${date}? Это действие нельзя отменить.`)) return;
+  try {
+    const resp = await fetch(`/api/holidays/${date}`, {method: 'DELETE'});
+    if (resp.ok) {
+      await loadHolidays();
+    } else {
+      const data = await resp.json().catch(() => ({}));
+      alert(data.error || 'Ошибка при удалении праздника.');
+    }
+  } catch(e) {
+    alert('Ошибка соединения.');
+  }
+}
+
+async function onHolidayYearChange() {
+  const year = document.getElementById('holidayYear').value;
+  try {
+    const resp = await fetch(`/api/holidays?year=${year}`);
+    allHolidays = resp.ok ? await resp.json() : [];
+    renderHolidays(allHolidays);
+  } catch(e) {}
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

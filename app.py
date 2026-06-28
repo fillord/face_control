@@ -3734,6 +3734,72 @@ def superadmin_logs():
     return jsonify(result)
 
 
+@app.route("/api/holidays", methods=["GET"])
+@require_role("superadmin")
+def list_holidays():
+    """Return holidays for the given year (default current year) — superadmin only (SADM-05 / D-05)."""
+    try:
+        year = int(request.args.get("year", datetime.now().year))
+    except (ValueError, TypeError):
+        year = datetime.now().year
+    rows = HolidayCalendar.query.filter_by(year=year).order_by(HolidayCalendar.date.asc()).all()
+    return jsonify([{"date": r.date, "name": r.name} for r in rows])
+
+
+@app.route("/api/holidays", methods=["POST"])
+@require_role("superadmin")
+def add_holiday():
+    """Add a holiday — superadmin only; validates date format, rejects duplicates (SADM-05 / D-05)."""
+    data = request.get_json(force=True, silent=True) or {}
+    date_str = (data.get("date") or "").strip()
+    name = (data.get("name") or "").strip()
+
+    if not date_str or not name:
+        return jsonify({"error": "Обязательные поля: date, name"}), 400
+
+    try:
+        parsed_dt = datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        return jsonify({"error": "Неверный формат даты"}), 400
+
+    year = parsed_dt.year
+    row = HolidayCalendar(date=date_str, name=name, year=year)
+    try:
+        db.session.add(row)
+        db.session.commit()
+    except sa_exc.IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Дата уже существует"}), 409
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Internal server error"}), 500
+
+    write_audit("holiday_add", target_type="holiday", target_id=date_str,
+                new_value={"name": name, "date": date_str})
+    return jsonify({"date": date_str, "name": name}), 201
+
+
+@app.route("/api/holidays/<date_str>", methods=["DELETE"])
+@require_role("superadmin")
+def delete_holiday(date_str):
+    """Delete a holiday by date — superadmin only (SADM-05 / D-05)."""
+    row = HolidayCalendar.query.filter_by(date=date_str).first()
+    if not row:
+        return jsonify({"error": "Не найдено"}), 404
+
+    deleted_name = row.name
+    try:
+        db.session.delete(row)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Internal server error"}), 500
+
+    write_audit("holiday_delete", target_type="holiday", target_id=date_str,
+                old_value={"name": deleted_name, "date": date_str})
+    return jsonify({"status": "deleted", "date": date_str})
+
+
 # ─── Startup ──────────────────────────────────────────────────────────────────
 # db.create_all() is idempotent — safe to call on every startup (D-16, Pitfall 2).
 # Must run BEFORE init_config/init_users so tables exist (T-06-06).

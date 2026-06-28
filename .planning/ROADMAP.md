@@ -377,7 +377,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 10-05-PLAN.md — Global multi-org T-13 Excel export endpoint + System-tab month picker/download (SADM-01)
+- [x] 10-05-PLAN.md — Global multi-org T-13 Excel export endpoint + System-tab month picker/download (SADM-01)
 
 **Wave 6** *(blocked on Waves 1-5)*
 

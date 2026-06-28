@@ -170,6 +170,32 @@
   </div>
 </div>
 
+<!-- ═══ TAB: EMPLOYEES ═══ -->
+<div id="panelEmployees" class="page hidden">
+<h1 class="page-title">Сотрудники</h1>
+  <div class="toolbar">
+    <select id="empOrgFilter" onchange="filterEmployees()">
+      <option value="">Все организации</option>
+    </select>
+  </div>
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Имя</th>
+          <th>Организация</th>
+          <th>Отдел</th>
+          <th>Лицо</th>
+          <th>Дата добавления</th>
+        </tr>
+      </thead>
+      <tbody id="employeesTableBody">
+        <tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Загрузка...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <script>
 // ─── State ────────────────────────────────────────────────────────────────────
 let allOrgs = [];
@@ -186,9 +212,11 @@ async function init() {
 
 // ─── Tab switching ─────────────────────────────────────────────────────────────
 function switchTab(tab) {
-  document.getElementById('panelOrgs').classList.toggle('hidden', tab !== 'orgs');
-  document.getElementById('panelUsers').classList.toggle('hidden', tab !== 'users');
-  document.getElementById('panelSystem').classList.toggle('hidden', tab !== 'system');
+  ['orgs', 'users', 'system', 'employees'].forEach(t => {
+    document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1))
+      .classList.toggle('hidden', t !== tab);
+  });
+  if (tab === 'employees' && !employeesLoaded) { loadSuperEmployees(); employeesLoaded = true; }
 }
 
 // ─── System: face match tolerance ─────────────────────────────────────────────
@@ -592,6 +620,55 @@ async function deleteUser(userId, username) {
     if (!resp.ok) { alert(data.error || 'Ошибка при удалении.'); return; }
     await loadUsers();
   } catch (e) { alert('Ошибка соединения.'); }
+}
+
+// ─── Superadmin Employees ─────────────────────────────────────────────────────
+async function loadSuperEmployees() {
+  try {
+    const resp = await fetch('/api/superadmin/employees');
+    allSuperEmployees = resp.ok ? await resp.json() : [];
+    // Populate org filter from distinct org_id/org_name pairs
+    const filterSel = document.getElementById('empOrgFilter');
+    filterSel.innerHTML = '<option value="">Все организации</option>';
+    const seen = new Set();
+    allSuperEmployees.forEach(e => {
+      if (e.org_id && !seen.has(e.org_id)) {
+        seen.add(e.org_id);
+        const opt = document.createElement('option');
+        opt.value = e.org_id; opt.textContent = e.org_name || e.org_id;
+        filterSel.appendChild(opt);
+      }
+    });
+    renderSuperEmployees(allSuperEmployees);
+  } catch(e) {}
+}
+
+function renderSuperEmployees(list) {
+  const tbody = document.getElementById('employeesTableBody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Нет данных</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(e => {
+    const faceIcon = e.face_enrolled
+      ? '<span style="color:#2E7D32;">&#10003;</span>'
+      : '<span style="color:#bdbdbd;">—</span>';
+    return `<tr>
+      <td style="font-weight:500;">${escapeHtml(e.name)}</td>
+      <td>${escapeHtml(e.org_name || '—')}</td>
+      <td>${escapeHtml(e.dept_name || '—')}</td>
+      <td style="text-align:center;">${faceIcon}</td>
+      <td style="color:#546e7a;">${escapeHtml(e.registered_at || '—')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterEmployees() {
+  const orgId = document.getElementById('empOrgFilter').value;
+  const filtered = orgId
+    ? allSuperEmployees.filter(e => e.org_id === orgId)
+    : allSuperEmployees;
+  renderSuperEmployees(filtered);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

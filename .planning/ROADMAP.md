@@ -20,6 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 7: Org Admin UX Improvements** - Fix dept employee counter bug; add sortable tables; org_admin employee editing; Reports/Timesheet rendered inline; Kiosk Settings visual redesign (completed 2026-06-15)
 - [x] **Phase 8: Navigation & Design Overhaul** - Dark sidebar, teal palette, Inter font, base.html shell for all authenticated pages (completed 2026-06-26)
 - [x] **Phase 9: Security Hardening & Critical Bug Fixes** - Brute-force protection, CSRF, cookie flags, configurable LBPH threshold, 3 confirmed bugs fixed, /health endpoint, KZ_HOLIDAYS 2027, DB backup, composite index (completed 2026-06-26)
+- [ ] **Phase 10: Superadmin Panel Extension** - Global Excel export, Employees/Devices/Logs tabs, holiday calendar management, attendance analytics chart, and superadmin role creation for dept_admin/hr_viewer
 
 ## Phase Details
 
@@ -338,3 +339,46 @@ Plans:
 **Wave 4** *(blocked on Wave 3 — app.py overlap)*
 
 - [x] 09-04-PLAN.md — Configurable LBPH threshold (SEC-05) + DB backup button (REL-03) + superadmin System UI
+
+### Phase 10: Superadmin Panel Extension
+
+**Goal:** Superadmin gains 7 new capabilities in /superadmin: global multi-org Excel export (T-13), read-only Employees tab, Devices tab with revoke, Logs tab with filters, holiday calendar management (DB-backed, consumed by compute_symbol()), Chart.js attendance analytics, and the ability to create dept_admin/hr_viewer accounts (not only org_admin).
+**Depends on:** Phase 9
+**Requirements**: SADM-01, SADM-02, SADM-03, SADM-04, SADM-05, SADM-06, SADM-07
+**Success Criteria** (what must be TRUE):
+
+  1. GET /api/superadmin/export/xlsx?month=M&year=Y downloads an Excel file with one sheet per organization, each containing the T-13 grid for that month.
+  2. /superadmin shows tabs: Employees (all orgs, filterable by org, read-only), Devices (all orgs, revoke button calls existing DELETE endpoint), Logs (last 500 recognition events, filter by org/event type).
+  3. Holiday calendar tab: superadmin can add/delete holidays by date+name for any year; GET /api/holidays?year=YYYY returns the list; compute_symbol() uses DB holidays instead of hardcoded KZ_HOLIDAYS list.
+  4. Analytics tab/section: Chart.js line chart renders % attendance per day for the last 30 days across all orgs; data served from GET /api/superadmin/attendance_stats?days=30.
+  5. create_user() allows superadmin to create org_admin, dept_admin, and hr_viewer roles; when dept_admin is selected the form shows a department selector scoped to the chosen org.
+  6. All new endpoints return 403 for any role other than superadmin; existing org_admin and dept_admin routes are unaffected.
+  7. pm2 restart face-recognition succeeds; no import errors or startup exceptions.
+
+**Plans**: 6 plans
+
+Plans:
+
+**Wave 1**
+
+- [ ] 10-01-PLAN.md — Superadmin role creation fix (org_admin/dept_admin/hr_viewer + scoped dept selector) + read-only Employees tab (SADM-07, SADM-02)
+
+**Wave 2** *(blocked on Wave 1 — app.py + superadmin.html overlap)*
+
+- [ ] 10-02-PLAN.md — Devices tab (revoke + audit) + Logs tab (org/event filters, max 500) (SADM-03, SADM-04)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 10-03-PLAN.md — Holiday calendar: HolidayCalendar model + DB-backed get_holidays_set + /api/holidays CRUD + Calendar tab (SADM-05)
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 10-04-PLAN.md — Attendance analytics: /api/superadmin/attendance_stats + Chart.js line chart Analytics tab (SADM-06)
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [ ] 10-05-PLAN.md — Global multi-org T-13 Excel export endpoint + System-tab month picker/download (SADM-01)
+
+**Wave 6** *(blocked on Waves 1-5)*
+
+- [ ] 10-06-PLAN.md — Full suite + clean pm2 restart + visual smoke of all 7 features [checkpoint]

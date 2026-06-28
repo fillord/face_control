@@ -62,6 +62,16 @@
 - [ ] **MIG-02**: Migration script verifies face recognizer label integrity post-run: every employee's label value can still be found in the trained model
 - [x] **MIG-03**: Existing admin password hash is copied verbatim from config.json into users.json without re-hashing; superadmin login works immediately after migration
 
+### Superadmin Panel Extension
+
+- [ ] **SADM-01**: Superadmin can export T-13 timesheet for ALL organizations into a single multi-sheet Excel file; filter by month/year before download
+- [ ] **SADM-02**: Superadmin panel has an "Employees" tab showing all employees from all organizations (name, org, dept, face status, registration date) with org filter; read-only
+- [ ] **SADM-03**: Superadmin panel has a "Devices" tab showing all registered kiosk devices from all orgs (org, device name, registered date, last seen) with a revoke button per device
+- [ ] **SADM-04**: Superadmin panel has a "Logs" tab showing recognition log entries (time, event, employee, org, confidence %) with pagination (max 500) and filters by org/event type
+- [ ] **SADM-05**: Superadmin can manage a working calendar (holiday dates + names) stored in DB; holidays are consumed by compute_symbol() instead of hardcoded list; CRUD UI with year filter
+- [ ] **SADM-06**: Superadmin panel has an attendance analytics chart (Chart.js line chart) showing % attendance per day for the last N days across all organizations
+- [ ] **SADM-07**: Superadmin can create org_admin, dept_admin, and hr_viewer accounts (currently restricted to org_admin only); dept_admin creation shows a department selector scoped to the selected org
+
 ---
 
 ## v2 Requirements
@@ -140,11 +150,18 @@
 | EMP-02 | Phase 4 | Pending |
 | EMP-03 | Phase 4 | Pending |
 | KIOSK-01 | Phase 2 | Pending |
+| SADM-01 | Phase 10 | Pending |
+| SADM-02 | Phase 10 | Pending |
+| SADM-03 | Phase 10 | Pending |
+| SADM-04 | Phase 10 | Pending |
+| SADM-05 | Phase 10 | Pending |
+| SADM-06 | Phase 10 | Pending |
+| SADM-07 | Phase 10 | Pending |
 
 **Coverage:**
 
-- v1 requirements: 33 total
-- Mapped to phases: 33
+- v1 requirements: 40 total
+- Mapped to phases: 40
 - Unmapped: 0 ✓
 
 ---

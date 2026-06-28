@@ -196,6 +196,58 @@
   </div>
 </div>
 
+<!-- ═══ TAB: DEVICES ═══ -->
+<div id="panelDevices" class="page hidden">
+<h1 class="page-title">Устройства</h1>
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Организация</th>
+          <th>Устройство</th>
+          <th>Зарегистрировано</th>
+          <th>Последняя активность</th>
+          <th>Действие</th>
+        </tr>
+      </thead>
+      <tbody id="devicesTableBody">
+        <tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Загрузка...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ TAB: LOGS ═══ -->
+<div id="panelLogs" class="page hidden">
+<h1 class="page-title">Логи</h1>
+  <div class="toolbar">
+    <select id="logsOrgFilter" onchange="filterLogs()">
+      <option value="">Все организации</option>
+    </select>
+    <select id="logsEventFilter" onchange="filterLogs()">
+      <option value="">Все события</option>
+      <option value="check_in">check_in</option>
+      <option value="check_out">check_out</option>
+    </select>
+  </div>
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Время</th>
+          <th>Событие</th>
+          <th>Имя</th>
+          <th>Организация</th>
+          <th>Уверенность %</th>
+        </tr>
+      </thead>
+      <tbody id="logsTableBody">
+        <tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Загрузка...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <script>
 // ─── State ────────────────────────────────────────────────────────────────────
 let allOrgs = [];
@@ -204,6 +256,10 @@ let allUsers = [];
 let allDepts = [];
 let allSuperEmployees = [];
 let employeesLoaded = false;
+let allDevices = [];
+let devicesLoaded = false;
+let allSuperLogs = [];
+let logsLoaded = false;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
@@ -212,11 +268,13 @@ async function init() {
 
 // ─── Tab switching ─────────────────────────────────────────────────────────────
 function switchTab(tab) {
-  ['orgs', 'users', 'system', 'employees'].forEach(t => {
+  ['orgs', 'users', 'system', 'employees', 'devices', 'logs'].forEach(t => {
     document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1))
       .classList.toggle('hidden', t !== tab);
   });
   if (tab === 'employees' && !employeesLoaded) { loadSuperEmployees(); employeesLoaded = true; }
+  if (tab === 'devices' && !devicesLoaded) { loadDevices(); devicesLoaded = true; }
+  if (tab === 'logs' && !logsLoaded) { loadSuperLogs(); logsLoaded = true; }
 }
 
 // ─── System: face match tolerance ─────────────────────────────────────────────
@@ -669,6 +727,92 @@ function filterEmployees() {
     ? allSuperEmployees.filter(e => e.org_id === orgId)
     : allSuperEmployees;
   renderSuperEmployees(filtered);
+}
+
+// ─── Devices ─────────────────────────────────────────────────────────────────
+async function loadDevices() {
+  try {
+    const resp = await fetch('/api/superadmin/devices');
+    allDevices = resp.ok ? await resp.json() : [];
+    renderDevices(allDevices);
+  } catch(e) {}
+}
+
+function renderDevices(list) {
+  const tbody = document.getElementById('devicesTableBody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Нет устройств</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(d => `<tr>
+    <td>${escapeHtml(d.org_name || '—')}</td>
+    <td style="font-weight:500;">${escapeHtml(d.device_name || '—')}</td>
+    <td style="color:#546e7a;">${escapeHtml(d.created_at || '—')}</td>
+    <td style="color:#546e7a;">${escapeHtml(d.last_seen_at || '—')}</td>
+    <td><button class="btn-delete" onclick="revokeDevice('${escapeHtml(d.org_token || '')}', '${escapeHtml(d.id)}')">Отозвать</button></td>
+  </tr>`).join('');
+}
+
+async function revokeDevice(orgToken, deviceId) {
+  if (!window.confirm('Отозвать устройство?')) return;
+  try {
+    const resp = await fetch(`/api/kiosk/${orgToken}/devices/${deviceId}`, {method: 'DELETE'});
+    if (resp.ok) {
+      await loadDevices();
+    } else {
+      const data = await resp.json().catch(() => ({}));
+      alert(data.error || 'Ошибка при отзыве устройства.');
+    }
+  } catch(e) {
+    alert('Ошибка соединения.');
+  }
+}
+
+// ─── Logs ─────────────────────────────────────────────────────────────────────
+async function loadSuperLogs() {
+  try {
+    const resp = await fetch('/api/superadmin/logs');
+    allSuperLogs = resp.ok ? await resp.json() : [];
+    // Populate org filter from distinct org_name values
+    const filterSel = document.getElementById('logsOrgFilter');
+    filterSel.innerHTML = '<option value="">Все организации</option>';
+    const seen = new Set();
+    allSuperLogs.forEach(entry => {
+      if (entry.org_name && entry.org_name !== '—' && !seen.has(entry.org_name)) {
+        seen.add(entry.org_name);
+        const opt = document.createElement('option');
+        opt.value = entry.org_name; opt.textContent = entry.org_name;
+        filterSel.appendChild(opt);
+      }
+    });
+    renderSuperLogs(allSuperLogs);
+  } catch(e) {}
+}
+
+function renderSuperLogs(list) {
+  const tbody = document.getElementById('logsTableBody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:28px;">Нет данных</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(entry => `<tr>
+    <td style="color:#546e7a;">${escapeHtml(entry.ts || '—')}</td>
+    <td>${escapeHtml(entry.event || '—')}</td>
+    <td style="font-weight:500;">${escapeHtml(entry.name || '—')}</td>
+    <td>${escapeHtml(entry.org_name || '—')}</td>
+    <td style="text-align:right;">${entry.confidence_pct != null ? escapeHtml(String(Math.round(entry.confidence_pct))) + '%' : '—'}</td>
+  </tr>`).join('');
+}
+
+function filterLogs() {
+  const orgName = document.getElementById('logsOrgFilter').value;
+  const eventType = document.getElementById('logsEventFilter').value;
+  const filtered = allSuperLogs.filter(entry => {
+    const orgMatch = !orgName || entry.org_name === orgName;
+    const eventMatch = !eventType || entry.event === eventType;
+    return orgMatch && eventMatch;
+  });
+  renderSuperLogs(filtered);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

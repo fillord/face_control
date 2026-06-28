@@ -18,7 +18,7 @@ from openpyxl.utils import get_column_letter
 from sqlalchemy import text
 from sqlalchemy import exc as sa_exc
 from models import db, Employee, User, Organization, Department
-from models import AttendanceRecord, EmployeeSchedule, LogEntry, TimesheetOverride, AppSetting, KioskDevice, AuditLog
+from models import AttendanceRecord, EmployeeSchedule, LogEntry, TimesheetOverride, AppSetting, KioskDevice, AuditLog, HolidayCalendar
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_wtf.csrf import CSRFProtect
@@ -287,7 +287,12 @@ MANUAL_SYMBOLS = {"Б", "К", "П"}
 
 
 def get_holidays_set(year):
-    """Return a set of ISO date strings for KZ holidays in the given year."""
+    """Return a set of ISO date strings for KZ holidays in the given year.
+    DB-backed (SADM-05): queries HolidayCalendar first; falls back to KZ_HOLIDAYS if DB empty for that year.
+    """
+    db_rows = HolidayCalendar.query.filter_by(year=year).all()
+    if db_rows:
+        return {r.date for r in db_rows}
     return set(KZ_HOLIDAYS.get(year, []))
 
 
@@ -3727,6 +3732,72 @@ def superadmin_logs():
             "confidence_pct": row.confidence_pct,
         })
     return jsonify(result)
+
+
+@app.route("/api/holidays", methods=["GET"])
+@require_role("superadmin")
+def list_holidays():
+    """Return holidays for the given year (default current year) — superadmin only (SADM-05 / D-05)."""
+    try:
+        year = int(request.args.get("year", datetime.now().year))
+    except (ValueError, TypeError):
+        year = datetime.now().year
+    rows = HolidayCalendar.query.filter_by(year=year).order_by(HolidayCalendar.date.asc()).all()
+    return jsonify([{"date": r.date, "name": r.name} for r in rows])
+
+
+@app.route("/api/holidays", methods=["POST"])
+@require_role("superadmin")
+def add_holiday():
+    """Add a holiday — superadmin only; validates date format, rejects duplicates (SADM-05 / D-05)."""
+    data = request.get_json(force=True, silent=True) or {}
+    date_str = (data.get("date") or "").strip()
+    name = (data.get("name") or "").strip()
+
+    if not date_str or not name:
+        return jsonify({"error": "Обязательные поля: date, name"}), 400
+
+    try:
+        parsed_dt = datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        return jsonify({"error": "Неверный формат даты"}), 400
+
+    year = parsed_dt.year
+    row = HolidayCalendar(date=date_str, name=name, year=year)
+    try:
+        db.session.add(row)
+        db.session.commit()
+    except sa_exc.IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Дата уже существует"}), 409
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Internal server error"}), 500
+
+    write_audit("holiday_add", target_type="holiday", target_id=date_str,
+                new_value={"name": name, "date": date_str})
+    return jsonify({"date": date_str, "name": name}), 201
+
+
+@app.route("/api/holidays/<date_str>", methods=["DELETE"])
+@require_role("superadmin")
+def delete_holiday(date_str):
+    """Delete a holiday by date — superadmin only (SADM-05 / D-05)."""
+    row = HolidayCalendar.query.filter_by(date=date_str).first()
+    if not row:
+        return jsonify({"error": "Не найдено"}), 404
+
+    deleted_name = row.name
+    try:
+        db.session.delete(row)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Internal server error"}), 500
+
+    write_audit("holiday_delete", target_type="holiday", target_id=date_str,
+                old_value={"name": deleted_name, "date": date_str})
+    return jsonify({"status": "deleted", "date": date_str})
 
 
 # ─── Startup ──────────────────────────────────────────────────────────────────

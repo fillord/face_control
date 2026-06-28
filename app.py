@@ -3832,6 +3832,128 @@ def delete_holiday(date_str):
     return jsonify({"status": "deleted", "date": date_str})
 
 
+@app.route("/api/superadmin/export/xlsx", methods=["GET"])
+@require_role("superadmin")
+def superadmin_export_xlsx():
+    """SADM-01 / D-07: Download a multi-org T-13 workbook — one sheet per org, dept-grouped.
+
+    Query param: month=YYYY-MM (default current month).
+    Shared attendance/overrides/holidays loaded once before the org loop (Pitfall 6).
+    Sheet names truncated to 31 chars and deduplicated with numeric suffix (Pitfall 2).
+    Empty-workbook guard: placeholder sheet 'Нет данных' when no orgs exist (Pitfall 8).
+    """
+    # ── Parse month param ────────────────────────────────────────────────────────
+    month_str = request.args.get("month", datetime.now().strftime("%Y-%m"))
+    try:
+        year, month_num = map(int, month_str.split("-"))
+        if not (1 <= month_num <= 12 and 2000 <= year <= 2099):
+            raise ValueError("out of range")
+    except (ValueError, AttributeError):
+        year, month_num = datetime.now().year, datetime.now().month
+        month_str = f"{year:04d}-{month_num:02d}"
+
+    _, num_days = calendar.monthrange(year, month_num)
+    days = [date(year, month_num, 1) + timedelta(days=i) for i in range(num_days)]
+
+    # ── Load shared data ONCE (Pitfall 6 — not per org) ──────────────────────────
+    start_str = f"{year:04d}-{month_num:02d}-01"
+    end_str = f"{year:04d}-{month_num:02d}-{num_days:02d}"
+    _att_recs = AttendanceRecord.query.filter(
+        AttendanceRecord.date >= start_str,
+        AttendanceRecord.date <= end_str,
+    ).all()
+    attendance = {}
+    for r in _att_recs:
+        attendance.setdefault(r.date, {})[r.emp_id] = {
+            "check_in": r.check_in_time,
+            "check_out": r.check_out_time,
+        }
+    _ov_recs = TimesheetOverride.query.all()
+    overrides = {}
+    for r in _ov_recs:
+        overrides.setdefault(r.emp_id, {})[r.date] = r.symbol
+    holidays_set = get_holidays_set(year)
+
+    # ── Build workbook ───────────────────────────────────────────────────────────
+    wb = Workbook()
+    wb.remove(wb.active)  # remove default empty sheet
+    orgs = Organization.query.order_by(Organization.name).all()
+    used_sheet_names = set()
+
+    for org in orgs:
+        # Deduplicated sheet name ≤ 31 chars (Pitfall 2)
+        base_name = org.name[:31]
+        sheet_name = base_name
+        suffix_num = 1
+        while sheet_name in used_sheet_names:
+            sheet_name = org.name[:28] + f"_{suffix_num}"
+            suffix_num += 1
+        used_sheet_names.add(sheet_name)
+        ws = wb.create_sheet(title=sheet_name)
+
+        num_cols = 1 + len(days) + 5  # name col + day cols + 5 totals cols
+        row_idx = 1
+
+        # Bold merged title row
+        ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=num_cols)
+        title_cell = ws.cell(row=row_idx, column=1,
+                             value=f"ТАБЕЛЬ Т-13 — {org.name} — {MONTHS_RU[month_num]} {year}")
+        title_cell.font = Font(bold=True)
+        title_cell.alignment = Alignment(horizontal="center")
+        row_idx += 1
+
+        depts = Department.query.filter_by(org_id=org.id).order_by(Department.name).all()
+        for dept in depts:
+            emps = Employee.query.filter_by(dept_id=dept.id).all()
+            if not emps:
+                continue  # skip departments with no employees
+            scoped_employees = {e.id: _emp_to_dict(e) for e in emps}
+
+            # Bold dept subtitle row
+            dept_cell = ws.cell(row=row_idx, column=1, value=f"Отдел: {dept.name}")
+            dept_cell.font = Font(bold=True, italic=True)
+            row_idx += 1
+
+            # Bold header row
+            headers = ["Сотрудник"] + [d.day for d in days] + ["Я", "Ч", "П/НН", "О", "Б/К"]
+            for col_idx, header in enumerate(headers, start=1):
+                cell = ws.cell(row=row_idx, column=col_idx, value=header)
+                cell.font = Font(bold=True)
+                cell.alignment = Alignment(horizontal="center")
+            row_idx += 1
+
+            # Employee rows — reuse _build_export_grid (do NOT call _resolve_export_scope)
+            grid_rows = _build_export_grid(days, scoped_employees, attendance, overrides, holidays_set)
+            for emp_id, name, symbols, totals in grid_rows:
+                ws.cell(row=row_idx, column=1, value=name)
+                for col_off, sym in enumerate(symbols, start=2):
+                    ws.cell(row=row_idx, column=col_off, value=sym if sym else "")
+                base_col = 2 + len(days)
+                ws.cell(row=row_idx, column=base_col,     value=totals["days_worked"])
+                ws.cell(row=row_idx, column=base_col + 1, value=totals["hours_worked"])
+                ws.cell(row=row_idx, column=base_col + 2, value=totals["absences"])
+                ws.cell(row=row_idx, column=base_col + 3, value=totals["late"])
+                ws.cell(row=row_idx, column=base_col + 4, value=totals["vac_sick"])
+                row_idx += 1
+
+            row_idx += 1  # blank spacer row between departments
+
+        ws.column_dimensions["A"].width = 24
+
+    # Empty-workbook guard (Pitfall 8) — openpyxl raises on save with zero sheets
+    if not wb.sheetnames:
+        wb.create_sheet("Нет данных")
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return send_file(
+        buf,
+        download_name=f"T13_ALL_{month_str}.xlsx",
+        as_attachment=True,
+    )
+
+
 # ─── Startup ──────────────────────────────────────────────────────────────────
 # db.create_all() is idempotent — safe to call on every startup (D-16, Pitfall 2).
 # Must run BEFORE init_config/init_users so tables exist (T-06-06).

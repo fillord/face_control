@@ -1227,7 +1227,7 @@ def employee_page():
 @app.route("/superadmin")
 @require_role("superadmin")
 def superadmin_page(tab="orgs"):
-    VALID_TABS = {"orgs", "users", "system"}
+    VALID_TABS = {"orgs", "users", "system", "employees", "devices", "logs", "calendar", "analytics"}
     initial_tab = tab if tab in VALID_TABS else "orgs"
     user = User.query.get(session.get("user_id"))
     username = user.username if user else ""
@@ -1981,9 +1981,10 @@ def create_user():
     if (creator_role not in ROLE_HIERARCHY or
             ROLE_HIERARCHY.index(creator_role) >= ROLE_HIERARCHY.index(target_role)):
         return jsonify({"error": "forbidden"}), 403
-    # superadmin may only create org_admin; org_admin manages all roles below them
-    if creator_role == "superadmin" and target_role != "org_admin":
-        return jsonify({"error": "Суперадминистратор может создавать только администраторов организаций"}), 403
+    # superadmin may create org_admin, dept_admin, hr_viewer (SADM-07)
+    _SA_ALLOWED = {"org_admin", "dept_admin", "hr_viewer"}
+    if creator_role == "superadmin" and target_role not in _SA_ALLOWED:
+        return jsonify({"error": "Суперадминистратор может создавать org_admin, dept_admin, hr_viewer"}), 403
     if User.query.filter_by(username=username).first():
         return jsonify({"error": "Пользователь с таким логином уже существует"}), 400
     # Determine org scope: org_admin and dept_admin are always forced to their own org
@@ -1994,6 +1995,8 @@ def create_user():
     else:
         new_org_id = caller_org_id  # org_admin/dept_admin may never cross org boundary
     new_dept_id = data.get("dept_id") or (caller_dept_id if creator_role == "dept_admin" else None)
+    if target_role == "dept_admin" and not new_dept_id:
+        return jsonify({"error": "Для роли dept_admin необходимо указать отдел"}), 400
     # emp_id only applies to employee-role accounts; force None for all other roles (T-04-EMP-LINK)
     new_emp_id = (data.get("emp_id") or None) if target_role == "employee" else None
     user_id = str(uuid.uuid4())
@@ -3631,6 +3634,31 @@ def audit_api():
         }
         for r in rows
     ])
+
+
+# ─── API: Superadmin Extensions ───────────────────────────────────────────────
+
+@app.route("/api/superadmin/employees", methods=["GET"])
+@require_role("superadmin")
+def superadmin_employees():
+    """Return the full employee roster across all orgs — superadmin only (SADM-02)."""
+    all_emps = Employee.query.all()
+    org_map = {o.id: o.name for o in Organization.query.all()}
+    dept_map = {d.id: d.name for d in Department.query.all()}
+    result = [
+        {
+            "id": e.id,
+            "name": e.name,
+            "org_id": e.org_id,
+            "org_name": org_map.get(e.org_id, "—") if e.org_id else "—",
+            "dept_id": e.dept_id,
+            "dept_name": dept_map.get(e.dept_id, "—") if e.dept_id else "—",
+            "face_enrolled": (e.face_count or 0) > 0,
+            "registered_at": e.registered_at or "",
+        }
+        for e in all_emps
+    ]
+    return jsonify(result)
 
 
 # ─── Startup ──────────────────────────────────────────────────────────────────

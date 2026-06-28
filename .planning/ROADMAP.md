@@ -361,7 +361,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 10-01-PLAN.md — Superadmin role creation fix (org_admin/dept_admin/hr_viewer + scoped dept selector) + read-only Employees tab (SADM-07, SADM-02)
+- [x] 10-01-PLAN.md — Superadmin role creation fix (org_admin/dept_admin/hr_viewer + scoped dept selector) + read-only Employees tab (SADM-07, SADM-02)
 
 **Wave 2** *(blocked on Wave 1 — app.py + superadmin.html overlap)*
 

@@ -113,14 +113,22 @@
     </div>
     <div class="form-group">
       <label>Роль</label>
-      <select id="newRole">
+      <select id="newRole" onchange="onRoleChange()">
         <option value="org_admin">Администратор организации</option>
+        <option value="dept_admin">Администратор отдела</option>
+        <option value="hr_viewer">HR-наблюдатель</option>
       </select>
     </div>
     <div class="form-group">
       <label>Организация</label>
-      <select id="newOrgId">
+      <select id="newOrgId" onchange="if(document.getElementById('newRole').value==='dept_admin') populateDeptSelector()">
         <option value="">— выберите —</option>
+      </select>
+    </div>
+    <div class="form-group" id="deptSelectGroup" style="display:none;">
+      <label>Отдел</label>
+      <select id="newDeptId">
+        <option value="">— выберите отдел —</option>
       </select>
     </div>
     <div id="userFormError" class="error-msg hidden"></div>
@@ -167,6 +175,9 @@
 let allOrgs = [];
 let allEmployees = [];
 let allUsers = [];
+let allDepts = [];
+let allSuperEmployees = [];
+let employeesLoaded = false;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
@@ -468,18 +479,41 @@ function toggleUserForm() {
   }
 }
 
+function onRoleChange() {
+  const role = document.getElementById('newRole').value;
+  const grp = document.getElementById('deptSelectGroup');
+  grp.style.display = role === 'dept_admin' ? '' : 'none';
+  if (role === 'dept_admin') populateDeptSelector();
+}
+
+async function populateDeptSelector() {
+  if (!allDepts.length) {
+    const resp = await fetch('/api/depts');
+    allDepts = resp.ok ? await resp.json() : [];
+  }
+  const orgId = document.getElementById('newOrgId').value;
+  const sel = document.getElementById('newDeptId');
+  sel.innerHTML = '<option value="">— выберите отдел —</option>';
+  allDepts.filter(d => d.org_id === orgId).forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d.id; opt.textContent = d.name;
+    sel.appendChild(opt);
+  });
+}
+
 async function createUser() {
   const username = document.getElementById('newUsername').value.trim();
   const password = document.getElementById('newPassword').value;
   const role = document.getElementById('newRole').value;
   const org_id = document.getElementById('newOrgId').value || null;
+  const dept_id = document.getElementById('newDeptId').value || null;
   const errEl = document.getElementById('userFormError');
   errEl.classList.add('hidden');
   try {
     const resp = await fetch('/api/users', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({username, password, role, org_id}),
+      body: JSON.stringify({username, password, role, org_id, dept_id}),
     });
     const data = await resp.json();
     if (resp.ok) {

@@ -2556,12 +2556,20 @@ def revoke_kiosk_device(org_token, device_id):
     device = KioskDevice.query.get(device_id)
     if not device or device.org_id != org.id:
         return jsonify({"error": "not_found"}), 404
+    device_name = device.device_name
+    device_org_id = device.org_id
     db.session.delete(device)
     try:
         db.session.commit()
     except Exception:
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
+    write_audit(
+        "device_revoke",
+        target_type="kiosk_device",
+        target_id=device_id,
+        old_value={"device_name": device_name, "org_id": device_org_id},
+    )
     return jsonify({"status": "revoked"})
 
 
@@ -3658,6 +3666,66 @@ def superadmin_employees():
         }
         for e in all_emps
     ]
+    return jsonify(result)
+
+
+@app.route("/api/superadmin/devices", methods=["GET"])
+@require_role("superadmin")
+def superadmin_devices():
+    """Return all kiosk devices across all orgs — superadmin only (SADM-03 / D-03)."""
+    all_devs = KioskDevice.query.order_by(KioskDevice.created_at.desc()).all()
+    # Build org lookup map: id → Organization (need both name and org_token)
+    org_map = {o.id: o for o in Organization.query.all()}
+    result = []
+    for d in all_devs:
+        org = org_map.get(d.org_id)
+        result.append({
+            "id": d.id,
+            "device_name": d.device_name,
+            "org_id": d.org_id,
+            "org_name": org.name if org else "—",
+            "org_token": org.org_token if org else None,
+            "created_at": d.created_at,
+            "last_seen_at": d.last_seen_at,
+        })
+    return jsonify(result)
+
+
+@app.route("/api/superadmin/logs", methods=["GET"])
+@require_role("superadmin")
+def superadmin_logs():
+    """Return up to 500 most-recent recognition events — superadmin only (SADM-04 / D-04).
+
+    NOTE: The 500-row cap is applied at the SQL level before the Python org_id filter.
+    When filtering by org_id, results may be fewer than 500 (Pitfall 1 — LIMIT-before-filter).
+    """
+    event_type_param = request.args.get("event_type", "").strip()
+    org_id_param = request.args.get("org_id", "").strip()
+
+    # Build emp_id → org_id map (LogEntry has no org_id column — resolved via Employee)
+    emp_org_map = {e.id: e.org_id for e in Employee.query.all()}
+    org_name_map = {o.id: o.name for o in Organization.query.all()}
+
+    # Build SQL query: newest first, apply event_type filter in SQL if provided
+    q = LogEntry.query.order_by(LogEntry.id.desc())
+    if event_type_param:
+        q = q.filter(LogEntry.event == event_type_param)
+    rows = q.limit(500).all()
+
+    result = []
+    for row in rows:
+        resolved_org_id = emp_org_map.get(row.emp_id) if row.emp_id else None
+        # Apply org_id Python filter (after SQL LIMIT — see Pitfall 1 note above)
+        if org_id_param and resolved_org_id != org_id_param:
+            continue
+        org_name = org_name_map.get(resolved_org_id, "—") if resolved_org_id else "—"
+        result.append({
+            "ts": row.ts,
+            "event": row.event or "",
+            "name": row.name or "",
+            "org_name": org_name,
+            "confidence_pct": row.confidence_pct,
+        })
     return jsonify(result)
 
 

@@ -87,12 +87,24 @@
     <button class="btn-primary" onclick="saveThreshold()">Сохранить</button>
   </div>
 
-  <div class="card" style="max-width:480px;">
+  <div class="card" style="max-width:480px;margin-bottom:20px;">
     <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">Резервная копия базы данных</h3>
     <p style="font-size:13px;color:#546e7a;margin-bottom:16px;">
       Скачать текущую базу данных (app.db) как резервную копию с датой в имени файла.
     </p>
     <button class="btn-primary" onclick="window.location='/api/backup/db'">Скачать резервную копию БД</button>
+  </div>
+
+  <div class="card" style="max-width:480px;">
+    <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">Экспорт Т-13 — все организации</h3>
+    <p style="font-size:13px;color:#546e7a;margin-bottom:16px;">
+      Скачать сводный табель Т-13 за выбранный месяц для всех организаций (один лист на организацию).
+    </p>
+    <div class="form-group">
+      <label>Месяц</label>
+      <input type="month" id="exportMonth" style="width:160px;">
+    </div>
+    <button class="btn-primary" onclick="exportAllXlsx()">Скачать</button>
   </div>
 </div>
 
@@ -317,6 +329,11 @@ let analyticsChartInst = null;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
+  // Initialise exportMonth picker to the current month (YYYY-MM)
+  var exportMonthInput = document.getElementById('exportMonth');
+  if (exportMonthInput) {
+    exportMonthInput.value = new Date().toISOString().slice(0, 7);
+  }
   await Promise.all([loadOrgs(), loadStats(), loadUsers()]);
 }
 
@@ -998,6 +1015,13 @@ async function loadAnalytics() {
       }
     });
   } catch(e) {}
+}
+
+// ─── Global Export ────────────────────────────────────────────────────────────
+function exportAllXlsx() {
+  var input = document.getElementById('exportMonth');
+  var month = (input && input.value) ? input.value : new Date().toISOString().slice(0, 7);
+  window.location = '/api/superadmin/export/xlsx?month=' + encodeURIComponent(month);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

@@ -373,7 +373,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 10-04-PLAN.md — Attendance analytics: /api/superadmin/attendance_stats + Chart.js line chart Analytics tab (SADM-06)
+- [x] 10-04-PLAN.md — Attendance analytics: /api/superadmin/attendance_stats + Chart.js line chart Analytics tab (SADM-06)
 
 **Wave 5** *(blocked on Wave 4)*
 

@@ -365,7 +365,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 — app.py + superadmin.html overlap)*
 
-- [ ] 10-02-PLAN.md — Devices tab (revoke + audit) + Logs tab (org/event filters, max 500) (SADM-03, SADM-04)
+- [x] 10-02-PLAN.md — Devices tab (revoke + audit) + Logs tab (org/event filters, max 500) (SADM-03, SADM-04)
 
 **Wave 3** *(blocked on Wave 2)*
 

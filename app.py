@@ -3734,6 +3734,38 @@ def superadmin_logs():
     return jsonify(result)
 
 
+@app.route("/api/superadmin/attendance_stats", methods=["GET"])
+@require_role("superadmin")
+def superadmin_attendance_stats():
+    """Return per-day % attendance across all orgs for the last N days (SADM-06 / D-06).
+
+    Query param: days (default 30, clamped 1–90).
+    Returns a list of {date, total_employees, present_count, percent} oldest-first.
+    """
+    try:
+        days = int(request.args.get("days", 30))
+    except (ValueError, TypeError):
+        days = 30
+    days = max(1, min(days, 90))  # clamp to [1, 90]
+
+    total_employees = Employee.query.count()
+    result = []
+    for i in range(days - 1, -1, -1):
+        d = (date.today() - timedelta(days=i)).isoformat()
+        present_count = AttendanceRecord.query.filter(
+            AttendanceRecord.date == d,
+            AttendanceRecord.check_in_time != None,  # noqa: E711
+        ).count()
+        pct = round(present_count / total_employees * 100, 1) if total_employees else 0
+        result.append({
+            "date": d,
+            "total_employees": total_employees,
+            "present_count": present_count,
+            "percent": pct,
+        })
+    return jsonify(result)
+
+
 @app.route("/api/holidays", methods=["GET"])
 @require_role("superadmin")
 def list_holidays():

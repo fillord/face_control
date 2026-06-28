@@ -18,7 +18,7 @@ from openpyxl.utils import get_column_letter
 from sqlalchemy import text
 from sqlalchemy import exc as sa_exc
 from models import db, Employee, User, Organization, Department
-from models import AttendanceRecord, EmployeeSchedule, LogEntry, TimesheetOverride, AppSetting, KioskDevice, AuditLog
+from models import AttendanceRecord, EmployeeSchedule, LogEntry, TimesheetOverride, AppSetting, KioskDevice, AuditLog, HolidayCalendar
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_wtf.csrf import CSRFProtect
@@ -287,7 +287,12 @@ MANUAL_SYMBOLS = {"Б", "К", "П"}
 
 
 def get_holidays_set(year):
-    """Return a set of ISO date strings for KZ holidays in the given year."""
+    """Return a set of ISO date strings for KZ holidays in the given year.
+    DB-backed (SADM-05): queries HolidayCalendar first; falls back to KZ_HOLIDAYS if DB empty for that year.
+    """
+    db_rows = HolidayCalendar.query.filter_by(year=year).all()
+    if db_rows:
+        return {r.date for r in db_rows}
     return set(KZ_HOLIDAYS.get(year, []))
 
 

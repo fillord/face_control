@@ -201,3 +201,15 @@ class AuditLog(db.Model):
     target_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     old_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     new_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
+# ─── HolidayCalendar ──────────────────────────────────────────────────────────
+
+class HolidayCalendar(db.Model):
+    """DB-backed KZ holiday calendar (SADM-05). Replaces hardcoded KZ_HOLIDAYS dict lookup."""
+    __tablename__ = "holiday_calendar"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    date: Mapped[str] = mapped_column(String(10), unique=True, nullable=False)  # YYYY-MM-DD
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    year: Mapped[int] = mapped_column(Integer, nullable=False, index=True)

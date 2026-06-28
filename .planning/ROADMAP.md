@@ -369,7 +369,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 10-03-PLAN.md — Holiday calendar: HolidayCalendar model + DB-backed get_holidays_set + /api/holidays CRUD + Calendar tab (SADM-05)
+- [x] 10-03-PLAN.md — Holiday calendar: HolidayCalendar model + DB-backed get_holidays_set + /api/holidays CRUD + Calendar tab (SADM-05)
 
 **Wave 4** *(blocked on Wave 3)*
 

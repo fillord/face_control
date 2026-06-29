@@ -407,8 +407,9 @@ let userSortAsc = true;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
-  await loadEmployees();
-  await loadDepts();
+  await Promise.all([loadDepts(), loadEmployees()]);
+  renderDepts();
+  renderEmployees();
 }
 
 // ─── Tab switching ─────────────────────────────────────────────────────────────

@@ -30,3 +30,26 @@ htmlcov/
 .DS_Store
 *.swp
 *.swo
+
+# Внутренние заметки GSD — не часть продукта (GH-IGNORE)
+.planning/
+
+# Конфигурация агента — не часть продукта
+.claude/
+
+# Дамп до миграции на SQLite: содержит ПДн и старые хеши паролей
+data_backup_pre_sqlite/
+
+# Сюда пишет архивы scripts/backup_data.sh
+backups/
+
+# Instance-папка Flask
+instance/
+
+# Выгрузки отчётов в корне содержат ПДн сотрудников
+/*.xlsx
+/*.xls
+/*.csv
+
+# Хранит боевой SECRET_KEY — в репозиторий идёт только .example
+ecosystem.config.js
